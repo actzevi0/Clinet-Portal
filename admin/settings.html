@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>הגדרות סוכן – EasyFinance</title>
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+<script>
+  const _t = localStorage.getItem('theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', _t);
+</script>
+<script src="../js/agent-auth.js"></script>
+<style>
+  .settings-header { background:linear-gradient(135deg,#1a56db,#0ea5e9); color:#fff; padding:52px 0 28px; margin-bottom:0; }
+  .settings-header h1 { color:#fff; margin-bottom:6px; font-size:1.6rem; }
+  .settings-header p { color:rgba(255,255,255,.75); font-size:.88rem; }
+  .settings-tabs { display:flex; gap:0; border-bottom:2px solid var(--border); background:var(--bg-card); padding:0 24px; overflow-x:auto; }
+  .settings-tab { padding:13px 20px; font-size:.86rem; font-weight:600; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px; color:var(--text-muted); transition:.2s; white-space:nowrap; }
+  .settings-tab.active { color:var(--primary); border-bottom-color:var(--primary); }
+  .settings-pane { display:none; padding:28px 0; max-width:700px; }
+  .settings-pane.active { display:block; }
+  .settings-card { background:var(--bg-card); border:1px solid var(--border); border-radius:12px; padding:24px; margin-bottom:20px; }
+  .settings-card h3 { margin:0 0 16px; font-size:1rem; display:flex; align-items:center; gap:8px; }
+  .form-group { margin-bottom:16px; }
+  .form-group label { display:block; font-size:.8rem; font-weight:600; color:var(--text-muted); margin-bottom:6px; }
+  .form-group input, .form-group select, .form-group textarea {
+    width:100%; padding:10px 14px; border:1.5px solid var(--border); border-radius:8px;
+    background:var(--bg); color:var(--text); font-size:.9rem; font-family:Heebo,sans-serif;
+    box-sizing:border-box; transition:.2s;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+    outline:none; border-color:var(--primary);
+  }
+  .form-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .logo-preview { width:160px; height:80px; object-fit:contain; border:1px solid var(--border); border-radius:8px; background:var(--bg); display:flex; align-items:center; justify-content:center; overflow:hidden; margin-bottom:12px; }
+  .logo-preview img { max-width:100%; max-height:100%; object-fit:contain; }
+  .logo-placeholder { color:var(--text-dim); font-size:.82rem; text-align:center; padding:8px; }
+  .color-group { display:flex; align-items:center; gap:12px; }
+  .color-group input[type=color] { width:44px; height:38px; padding:2px; border-radius:6px; cursor:pointer; }
+  .success-toast { background:rgba(16,185,129,.1); border:1px solid rgba(16,185,129,.3); color:#10b981; border-radius:8px; padding:10px 14px; font-size:.84rem; display:none; margin-bottom:12px; }
+  .error-toast { background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.3); color:#ef4444; border-radius:8px; padding:10px 14px; font-size:.84rem; display:none; margin-bottom:12px; }
+  .plan-info { background:var(--bg); border-radius:10px; padding:16px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+  .plan-badge { padding:4px 14px; border-radius:20px; font-size:.8rem; font-weight:700; }
+  .plan-basic { background:rgba(107,114,128,.12); color:#6b7280; }
+  .plan-pro { background:rgba(16,185,129,.12); color:#10b981; }
+  .plan-unlimited { background:rgba(139,92,246,.12); color:#8b5cf6; }
+  .feature-row { display:flex; align-items:center; justify-content:space-between; padding:12px 0; border-bottom:1px solid var(--border); }
+  .feature-row:last-child { border-bottom:none; }
+  .tfa-status { padding:4px 12px; border-radius:20px; font-size:.78rem; font-weight:700; }
+  .tfa-on { background:rgba(16,185,129,.1); color:#10b981; }
+  .tfa-off { background:rgba(239,68,68,.1); color:#ef4444; }
+</style>
+</head>
+<body>
+
+<div class="settings-header">
+  <div class="container">
+    <div style="margin-bottom:10px;font-size:.82rem;opacity:.75;"><i class="fas fa-cog" style="margin-left:6px;"></i>הגדרות</div>
+    <h1><i class="fas fa-sliders-h" style="margin-left:10px;opacity:.8;"></i>הגדרות הסוכן</h1>
+    <p>ניהול פרופיל, מיתוג, אבטחה וחבילת מנוי</p>
+  </div>
+</div>
+
+<div class="settings-tabs">
+  <div class="settings-tab active" onclick="showTab('branding')"><i class="fas fa-palette" style="margin-left:6px;"></i>מיתוג ולוגו</div>
+  <div class="settings-tab" onclick="showTab('security')"><i class="fas fa-lock" style="margin-left:6px;"></i>אבטחה</div>
+  <div class="settings-tab" onclick="showTab('subscription')"><i class="fas fa-credit-card" style="margin-left:6px;"></i>מנוי</div>
+  <div class="settings-tab" onclick="showTab('advanced')"><i class="fas fa-code" style="margin-left:6px;"></i>מתקדם</div>
+</div>
+
+<div class="container" style="max-width:900px;">
+
+<!-- ── BRANDING ─────────────────────────────────────────── -->
+<div class="settings-pane active" id="pane-branding">
+  <div class="settings-card">
+    <h3><i class="fas fa-image" style="color:var(--primary);"></i>לוגו הסוכנות</h3>
+    <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:16px;">הלוגו יופיע בכותרת הדשבורד ובדוחות PDF. גודל מומלץ: 200×80px, עד 500KB.</p>
+
+    <div class="logo-preview" id="logoPreview">
+      <div class="logo-placeholder" id="logoPlaceholder"><i class="fas fa-image" style="font-size:1.5rem;display:block;margin-bottom:4px;"></i>אין לוגו</div>
+      <img id="logoImg" src="" alt="לוגו" style="display:none;max-width:100%;max-height:100%;">
+    </div>
+
+    <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+      <label class="btn btn-secondary" style="cursor:pointer;padding:8px 16px;font-size:.84rem;">
+        <i class="fas fa-upload"></i> העלה תמונה
+        <input type="file" id="logoFile" accept="image/*" style="display:none;" onchange="handleLogoUpload(event)">
+      </label>
+      <button class="btn btn-secondary" onclick="clearLogo()" style="padding:8px 16px;font-size:.84rem;">
+        <i class="fas fa-trash"></i> הסר לוגו
+      </button>
+    </div>
+
+    <div id="logoSuccess" class="success-toast"><i class="fas fa-check-circle"></i> לוגו נשמר בהצלחה!</div>
+    <div id="logoError" class="error-toast"></div>
+  </div>
+
+  <div class="settings-card">
+    <h3><i class="fas fa-paint-brush" style="color:var(--primary);"></i>הגדרות מיתוג</h3>
+
+    <div class="form-group">
+      <label>שם הסוכנות (יופיע בדוחות)</label>
+      <input type="text" id="brandName" placeholder="לדוגמה: פיננסים בע״מ">
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>צבע ראשי</label>
+        <div class="color-group">
+          <input type="color" id="brandColor" value="#1a56db">
+          <input type="text" id="brandColorHex" value="#1a56db" placeholder="#1a56db" dir="ltr" style="flex:1;">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>צבע משני</label>
+        <div class="color-group">
+          <input type="color" id="brandSecondary" value="#0ea5e9">
+          <input type="text" id="brandSecondaryHex" value="#0ea5e9" placeholder="#0ea5e9" dir="ltr" style="flex:1;">
+        </div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>טקסט תחתית בדוחות PDF</label>
+      <textarea id="reportFooter" rows="2" placeholder="לדוגמה: מיוצר ע״י יועץ פנסיוני מורשה | 03-1234567"></textarea>
+    </div>
+
+    <div id="brandingSuccess" class="success-toast"><i class="fas fa-check-circle"></i> הגדרות מיתוג נשמרו!</div>
+    <div id="brandingError" class="error-toast"></div>
+
+    <button class="btn" onclick="saveBranding()"><i class="fas fa-save"></i> שמור הגדרות</button>
+  </div>
+</div>
+
+<!-- ── SECURITY ────────────────────────────────────────── -->
+<div class="settings-pane" id="pane-security">
+  <div class="settings-card">
+    <h3><i class="fas fa-key" style="color:#f59e0b;"></i>שינוי סיסמה</h3>
+
+    <div id="pwSuccess" class="success-toast"><i class="fas fa-check-circle"></i> הסיסמה שונתה בהצלחה!</div>
+    <div id="pwError" class="error-toast"></div>
+
+    <div class="form-group">
+      <label>סיסמה נוכחית</label>
+      <input type="password" id="curPw" placeholder="••••••••" dir="ltr" autocomplete="current-password">
+    </div>
+    <div class="form-group">
+      <label>סיסמה חדשה (לפחות 8 תווים)</label>
+      <input type="password" id="newPw" placeholder="••••••••" dir="ltr" autocomplete="new-password">
+    </div>
+    <div class="form-group">
+      <label>אימות סיסמה חדשה</label>
+      <input type="password" id="newPw2" placeholder="••••••••" dir="ltr" autocomplete="new-password">
+    </div>
+    <button class="btn" onclick="changePassword()"><i class="fas fa-lock"></i> שנה סיסמה</button>
+  </div>
+
+  <div class="settings-card">
+    <h3><i class="fas fa-shield-alt" style="color:#8b5cf6;"></i>אימות דו-שלבי (2FA)</h3>
+    <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:16px;">
+      אימות דו-שלבי מוסיף שכבת הגנה נוספת. כשתהיה מחובר לשרת, נשלח קוד SMS/מייל בכל התחברות.
+    </p>
+
+    <div class="feature-row">
+      <div>
+        <div style="font-weight:600;font-size:.9rem;">קוד אימות במייל</div>
+        <div style="font-size:.76rem;color:var(--text-muted);">שליחת קוד חד-פעמי לאימייל בכניסה ממכשיר חדש</div>
+      </div>
+      <span class="tfa-status tfa-off" id="tfa2Status">לא פעיל</span>
+    </div>
+    <div class="feature-row">
+      <div>
+        <div style="font-weight:600;font-size:.9rem;">קוד אימות ב-SMS</div>
+        <div style="font-size:.76rem;color:var(--text-muted);">דורש חיבור לשירות SMS (Twilio/AWS SNS)</div>
+      </div>
+      <span class="tfa-status tfa-off">בקרוב</span>
+    </div>
+    <div class="feature-row">
+      <div>
+        <div style="font-weight:600;font-size:.9rem;">אפליקציית Authenticator (TOTP)</div>
+        <div style="font-size:.76rem;color:var(--text-muted);">Google Authenticator / Authy</div>
+      </div>
+      <span class="tfa-status tfa-off">בקרוב</span>
+    </div>
+
+    <div style="background:rgba(26,86,219,.06);border-radius:8px;padding:12px;margin-top:16px;font-size:.8rem;color:var(--text-muted);">
+      <i class="fas fa-info-circle" style="color:var(--primary);margin-left:6px;"></i>
+      תשתית ה-2FA מוכנה. תופעל לאחר העלייה לאוויר עם חיבור לשירות SMS/מייל.
+    </div>
+  </div>
+
+  <div class="settings-card">
+    <h3><i class="fas fa-history" style="color:#10b981;"></i>יומן כניסות אחרונות</h3>
+    <div id="loginLogList" style="font-size:.82rem;">
+      <div style="color:var(--text-muted);text-align:center;padding:12px;">טוען...</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── SUBSCRIPTION ──────────────────────────────────────── -->
+<div class="settings-pane" id="pane-subscription">
+  <div class="settings-card">
+    <h3><i class="fas fa-medal" style="color:#f59e0b;"></i>חבילה נוכחית</h3>
+
+    <div class="plan-info" id="planInfo">
+      <div>
+        <div style="font-size:.82rem;color:var(--text-muted);">חבילה נוכחית</div>
+        <div style="font-size:1.4rem;font-weight:800;margin:4px 0;" id="planName">—</div>
+        <span class="plan-badge" id="planBadge">—</span>
+      </div>
+      <div style="text-align:left;">
+        <div style="font-size:.8rem;color:var(--text-muted);">לקוחות בשימוש</div>
+        <div style="font-size:1.2rem;font-weight:700;" id="quotaUsed">—</div>
+        <div style="font-size:.76rem;color:var(--text-muted);" id="quotaLimit"></div>
+      </div>
+    </div>
+
+    <div style="margin-top:20px;">
+      <div style="font-size:.86rem;font-weight:600;margin-bottom:12px;">חבילות זמינות:</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;">
+        <div style="border:1.5px solid var(--border);border-radius:10px;padding:16px;">
+          <div style="font-weight:700;font-size:.9rem;margin-bottom:4px;">Basic</div>
+          <div style="font-size:1.2rem;font-weight:800;color:var(--primary);">199₪</div>
+          <div style="font-size:.72rem;color:var(--text-muted);">לחודש</div>
+          <ul style="font-size:.78rem;color:var(--text-muted);margin:10px 0;padding-right:16px;line-height:1.8;">
+            <li>עד 50 לקוחות</li>
+            <li>לוגו מותאם</li>
+            <li>כל הפיצ'רים הבסיסיים</li>
+          </ul>
+        </div>
+        <div style="border:2px solid var(--primary);border-radius:10px;padding:16px;position:relative;">
+          <div style="position:absolute;top:-10px;right:12px;background:var(--primary);color:#fff;font-size:.7rem;font-weight:700;padding:2px 8px;border-radius:10px;">מומלץ</div>
+          <div style="font-weight:700;font-size:.9rem;margin-bottom:4px;">Pro</div>
+          <div style="font-size:1.2rem;font-weight:800;color:var(--primary);">499₪</div>
+          <div style="font-size:.72rem;color:var(--text-muted);">לחודש</div>
+          <ul style="font-size:.78rem;color:var(--text-muted);margin:10px 0;padding-right:16px;line-height:1.8;">
+            <li>לקוחות ללא הגבלה</li>
+            <li>White Label מלא</li>
+            <li>דומיין מותאם</li>
+            <li>עדיפות בתמיכה</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <p style="font-size:.8rem;color:var(--text-muted);margin-top:16px;">
+      לשדרוג חבילה פנה למנהל המערכת: <a href="mailto:admin@easyfinance.co.il" style="color:var(--primary);">admin@easyfinance.co.il</a>
+    </p>
+  </div>
+</div>
+
+<!-- ── ADVANCED ───────────────────────────────────────────── -->
+<div class="settings-pane" id="pane-advanced">
+  <div class="settings-card">
+    <h3><i class="fas fa-globe" style="color:#8b5cf6;"></i>White Label – דומיין מותאם</h3>
+    <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:16px;">
+      הפנה דומיין משלך (למשל <code>dashboard.your-agency.co.il</code>) לאפליקציה שלך.
+      זמין לחבילת Pro ומעלה.
+    </p>
+
+    <div class="form-group">
+      <label>דומיין מותאם</label>
+      <input type="text" id="customDomain" placeholder="dashboard.your-agency.co.il" dir="ltr">
+    </div>
+
+    <div style="background:rgba(139,92,246,.06);border-radius:8px;padding:14px;font-size:.8rem;color:var(--text-muted);">
+      <strong style="color:#8b5cf6;">הוראות הגדרה:</strong><br>
+      1. צור רשומת CNAME בספק הדומיין שלך: <code>dashboard → easyfinance.pages.dev</code><br>
+      2. הכנס את הדומיין בשדה למעלה ולחץ "שמור"<br>
+      3. אשר את הדומיין בקונסול Cloudflare<br>
+      <em>(זמין בחבילת Pro ומעלה)</em>
+    </div>
+
+    <div id="domainSuccess" class="success-toast" style="margin-top:12px;"><i class="fas fa-check-circle"></i> הגדרות נשמרו!</div>
+    <button class="btn" style="margin-top:14px;" onclick="saveDomain()"><i class="fas fa-save"></i> שמור</button>
+  </div>
+
+  <div class="settings-card">
+    <h3><i class="fas fa-plug" style="color:#f59e0b;"></i>תוספות וחיבורים</h3>
+    <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:16px;">חנות תוספות (בפיתוח)</p>
+
+    <div class="feature-row">
+      <div>
+        <div style="font-weight:600;font-size:.9rem;">חיבור למסלקה</div>
+        <div style="font-size:.76rem;color:var(--text-muted);">ייבוא אוטומטי של נתוני תיקים</div>
+      </div>
+      <span style="background:rgba(245,158,11,.1);color:#f59e0b;padding:3px 10px;border-radius:20px;font-size:.74rem;font-weight:700;">בקרוב</span>
+    </div>
+    <div class="feature-row">
+      <div>
+        <div style="font-weight:600;font-size:.9rem;">מודול תכנון פרישה מתקדם</div>
+        <div style="font-size:.76rem;color:var(--text-muted);">חישובי פנסיה, קצבה צפויה, פערים</div>
+      </div>
+      <span style="background:rgba(245,158,11,.1);color:#f59e0b;padding:3px 10px;border-radius:20px;font-size:.74rem;font-weight:700;">בקרוב</span>
+    </div>
+    <div class="feature-row">
+      <div>
+        <div style="font-weight:600;font-size:.9rem;">שליחת דוחות WhatsApp אוטומטית</div>
+        <div style="font-size:.76rem;color:var(--text-muted);">שליחה אוטומטית לכל לקוח בסוף חודש</div>
+      </div>
+      <span style="background:rgba(245,158,11,.1);color:#f59e0b;padding:3px 10px;border-radius:20px;font-size:.74rem;font-weight:700;">בקרוב</span>
+    </div>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<script>
+let SETTINGS = {};
+let AGENT    = null;
+
+(async () => {
+  AGENT = await AGENT_AUTH.init();
+  if (!AGENT) return;
+  await loadSettings();
+  await loadPlanInfo();
+  if (!IS_DEMO_MODE) loadLoginLog();
+})();
+
+async function loadSettings() {
+  if (IS_DEMO_MODE) {
+    SETTINGS = { brand_name:'סוכנות לדוגמה', brand_color:'#1a56db', brand_secondary_color:'#0ea5e9', report_footer:'', logo_url:'' };
+  } else {
+    try {
+      const r = await authFetch('/agent/settings');
+      SETTINGS = r.ok ? await r.json() : {};
+    } catch(e) { SETTINGS = {}; }
+  }
+  applySettings();
+}
+
+function applySettings() {
+  if (SETTINGS.logo_url) {
+    document.getElementById('logoImg').src = SETTINGS.logo_url;
+    document.getElementById('logoImg').style.display = 'block';
+    document.getElementById('logoPlaceholder').style.display = 'none';
+  }
+  if (SETTINGS.brand_name) document.getElementById('brandName').value = SETTINGS.brand_name;
+  if (SETTINGS.brand_color) {
+    document.getElementById('brandColor').value = SETTINGS.brand_color;
+    document.getElementById('brandColorHex').value = SETTINGS.brand_color;
+  }
+  if (SETTINGS.brand_secondary_color) {
+    document.getElementById('brandSecondary').value = SETTINGS.brand_secondary_color;
+    document.getElementById('brandSecondaryHex').value = SETTINGS.brand_secondary_color;
+  }
+  if (SETTINGS.report_footer) document.getElementById('reportFooter').value = SETTINGS.report_footer;
+  if (SETTINGS.custom_domain) document.getElementById('customDomain').value = SETTINGS.custom_domain;
+}
+
+async function loadPlanInfo() {
+  const agent = AGENT || window.CURRENT_AGENT;
+  if (!agent) return;
+  const plans = { basic:'Basic', pro:'Pro', unlimited:'Unlimited' };
+  const planColors = { basic:'plan-basic', pro:'plan-pro', unlimited:'plan-unlimited' };
+  document.getElementById('planName').textContent = plans[agent.plan] || agent.plan || '—';
+  const badge = document.getElementById('planBadge');
+  badge.textContent = plans[agent.plan] || agent.plan || '—';
+  badge.className = `plan-badge ${planColors[agent.plan]||'plan-basic'}`;
+
+  if (!IS_DEMO_MODE) {
+    try {
+      const r = await authFetch('/tables/clients?limit=1');
+      const d = await r.json();
+      document.getElementById('quotaUsed').textContent = d.total || 0;
+      document.getElementById('quotaLimit').textContent = agent.client_quota ? `מתוך ${agent.client_quota}` : 'ללא הגבלה';
+    } catch(e) {}
+  } else {
+    document.getElementById('quotaUsed').textContent = '3';
+    document.getElementById('quotaLimit').textContent = `מתוך ${agent.client_quota||50}`;
+  }
+}
+
+// ── Logo ─────────────────────────────────────────────────────────
+async function handleLogoUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (file.size > 500000) { showToast('logoError', 'הקובץ גדול מדי (מקסימום 500KB)'); return; }
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const dataUrl = e.target.result;
+    document.getElementById('logoImg').src = dataUrl;
+    document.getElementById('logoImg').style.display = 'block';
+    document.getElementById('logoPlaceholder').style.display = 'none';
+
+    if (IS_DEMO_MODE) {
+      localStorage.setItem('agent_logo', dataUrl);
+      showToast('logoSuccess');
+      // Update the stored agent info
+      try {
+        const info = JSON.parse(localStorage.getItem('agent_info')||'{}');
+        info.logo_url = dataUrl;
+        localStorage.setItem('agent_info', JSON.stringify(info));
+      } catch(ex) {}
+      return;
+    }
+
+    try {
+      const r = await authFetch('/agent/logo', {
+        method: 'POST',
+        body: JSON.stringify({ logo_url: dataUrl })
+      });
+      if (r.ok) {
+        showToast('logoSuccess');
+        SETTINGS.logo_url = dataUrl;
+      } else {
+        const d = await r.json();
+        showToast('logoError', d.error || 'שגיאה בשמירה');
+      }
+    } catch(ex) {
+      showToast('logoError', 'שגיאת רשת');
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+async function clearLogo() {
+  document.getElementById('logoImg').src = '';
+  document.getElementById('logoImg').style.display = 'none';
+  document.getElementById('logoPlaceholder').style.display = 'flex';
+  SETTINGS.logo_url = '';
+  if (IS_DEMO_MODE) { localStorage.removeItem('agent_logo'); return; }
+  try {
+    await authFetch('/agent/logo', { method:'POST', body:JSON.stringify({logo_url:''}) });
+  } catch(e) {}
+}
+
+// ── Branding ──────────────────────────────────────────────────────
+async function saveBranding() {
+  const body = {
+    brand_name:             document.getElementById('brandName').value.trim(),
+    brand_color:            document.getElementById('brandColorHex').value.trim() || document.getElementById('brandColor').value,
+    brand_secondary_color:  document.getElementById('brandSecondaryHex').value.trim() || document.getElementById('brandSecondary').value,
+    report_footer:          document.getElementById('reportFooter').value.trim(),
+  };
+
+  if (IS_DEMO_MODE) {
+    Object.assign(SETTINGS, body);
+    localStorage.setItem('agent_settings_demo', JSON.stringify(SETTINGS));
+    showToast('brandingSuccess');
+    return;
+  }
+
+  try {
+    const r = await authFetch('/agent/settings', { method:'POST', body: JSON.stringify(body) });
+    if (r.ok) showToast('brandingSuccess');
+    else { const d = await r.json(); showToast('brandingError', d.error||'שגיאה'); }
+  } catch(e) { showToast('brandingError', 'שגיאת רשת'); }
+}
+
+// ── Password ──────────────────────────────────────────────────────
+async function changePassword() {
+  const cur  = document.getElementById('curPw').value;
+  const np1  = document.getElementById('newPw').value;
+  const np2  = document.getElementById('newPw2').value;
+
+  if (!cur || !np1 || !np2) { showToast('pwError', 'יש למלא את כל השדות'); return; }
+  if (np1 !== np2) { showToast('pwError', 'הסיסמאות החדשות אינן תואמות'); return; }
+  if (np1.length < 8) { showToast('pwError', 'הסיסמה חייבת להכיל לפחות 8 תווים'); return; }
+
+  if (IS_DEMO_MODE) {
+    showToast('pwSuccess');
+    document.getElementById('curPw').value='';
+    document.getElementById('newPw').value='';
+    document.getElementById('newPw2').value='';
+    return;
+  }
+
+  try {
+    const r = await authFetch('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ current_password: cur, new_password: np1 })
+    });
+    const d = await r.json();
+    if (r.ok) {
+      showToast('pwSuccess');
+      document.getElementById('curPw').value='';
+      document.getElementById('newPw').value='';
+      document.getElementById('newPw2').value='';
+    } else {
+      showToast('pwError', d.error || 'שגיאה');
+    }
+  } catch(e) { showToast('pwError', 'שגיאת רשת'); }
+}
+
+// ── Domain ────────────────────────────────────────────────────────
+async function saveDomain() {
+  const domain = document.getElementById('customDomain').value.trim();
+  if (IS_DEMO_MODE) { showToast('domainSuccess'); return; }
+  try {
+    const r = await authFetch('/agent/settings', { method:'POST', body:JSON.stringify({custom_domain:domain}) });
+    if (r.ok) showToast('domainSuccess');
+  } catch(e) {}
+}
+
+// ── Login Log ─────────────────────────────────────────────────────
+async function loadLoginLog() {
+  try {
+    const r = await authFetch('/admin/audit-log?limit=10');
+    const d = await r.json();
+    const logs = (d.data||[]).filter(l=>l.action==='login');
+    document.getElementById('loginLogList').innerHTML = logs.map(l => {
+      const dt = new Date(l.created_at).toLocaleString('he-IL');
+      let meta = ''; try { meta = JSON.parse(l.meta||'{}'); } catch(e){}
+      return `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:.8rem;">
+        <span><i class="fas fa-sign-in-alt" style="color:#10b981;margin-left:6px;"></i>${dt}</span>
+        <span style="color:var(--text-dim);">${meta.ip||'—'}</span>
+      </div>`;
+    }).join('') || '<div style="color:var(--text-muted);padding:10px 0;">אין נתונים</div>';
+  } catch(e) {
+    document.getElementById('loginLogList').innerHTML = '<div style="color:var(--text-muted);">לא ניתן לטעון</div>';
+  }
+}
+
+// ── Color sync ────────────────────────────────────────────────────
+document.getElementById('brandColor').addEventListener('input', e => {
+  document.getElementById('brandColorHex').value = e.target.value;
+});
+document.getElementById('brandSecondary').addEventListener('input', e => {
+  document.getElementById('brandSecondaryHex').value = e.target.value;
+});
+
+// ── Tabs ──────────────────────────────────────────────────────────
+function showTab(name) {
+  document.querySelectorAll('.settings-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.settings-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelector(`[onclick="showTab('${name}')"]`).classList.add('active');
+  document.getElementById(`pane-${name}`).classList.add('active');
+}
+
+function showToast(id, msg='') {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (msg) el.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${msg}`;
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display='none'; }, 4000);
+}
+</script>
+</body>
+</html>

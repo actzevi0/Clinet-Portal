@@ -7,6 +7,11 @@
 <link rel="stylesheet" href="../css/style.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script>
+  const _t = localStorage.getItem('theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', _t);
+</script>
+<script src="../js/agent-auth.js"></script>
 <style>
 /* ═══ Layout ═══ */
 .page-header{background:linear-gradient(135deg,#1a56db 0%,#0ea5e9 100%);color:#fff;padding:32px 0 24px;margin-bottom:28px;}
@@ -1806,7 +1811,12 @@ async function checkAPIConnection(){
 }
 
 async function init(){
-  const status = await checkAPIConnection();
+  // Auth guard first
+  const agent = await AGENT_AUTH.init();
+  if (!agent) return;
+  IS_DEMO_MODE = window.IS_DEMO_MODE;
+
+  const status = IS_DEMO_MODE ? 'demo' : await checkAPIConnection();
   if(status === 'demo'){
     IS_DEMO_MODE = true;
     // הצג באנר Demo Mode

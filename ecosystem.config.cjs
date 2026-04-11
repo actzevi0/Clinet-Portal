@@ -4,7 +4,7 @@ module.exports = {
     {
       name: 'easyfinance-dev',
       script: 'npx',
-      args: 'wrangler pages dev . --ip 0.0.0.0 --port 3000',
+      args: 'wrangler pages dev . --d1=easyfinance-db --local --ip 0.0.0.0 --port 3000',
       cwd: '/home/user/webapp',
       env: {
         NODE_ENV: 'development',

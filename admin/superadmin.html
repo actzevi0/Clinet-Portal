@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Super Admin – EasyFinance Platform</title>
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+<style>
+  .sa-header { background:linear-gradient(135deg,#7c3aed,#4f46e5); color:#fff; padding:52px 0 28px; margin-bottom:0; }
+  .sa-header h1 { color:#fff; margin-bottom:6px; font-size:1.8rem; }
+  .sa-header p  { color:rgba(255,255,255,.75); font-size:.88rem; }
+  .sa-badge { background:rgba(255,255,255,.18); color:#fff; padding:4px 14px; border-radius:20px; font-size:.78rem; font-weight:700; display:inline-flex; align-items:center; gap:6px; margin-bottom:12px; }
+  .sa-tabs { display:flex; gap:0; border-bottom:2px solid var(--border); background:var(--bg-card); padding:0 32px; }
+  .sa-tab { padding:14px 22px; font-size:.88rem; font-weight:600; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px; color:var(--text-muted); transition:.2s; white-space:nowrap; }
+  .sa-tab.active { color:var(--primary); border-bottom-color:var(--primary); }
+  .sa-tab:hover { color:var(--text); }
+  .sa-pane { display:none; padding:28px 0; }
+  .sa-pane.active { display:block; }
+  .kpi-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:16px; margin-bottom:28px; }
+  .kpi-card { background:var(--bg-card); border:1px solid var(--border); border-radius:12px; padding:20px 22px; display:flex; align-items:center; gap:14px; }
+  .kpi-icon { width:44px; height:44px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.2rem; flex-shrink:0; }
+  .kpi-num { font-size:1.7rem; font-weight:800; line-height:1; }
+  .kpi-label { font-size:.75rem; color:var(--text-muted); margin-top:3px; }
+  .agents-table { width:100%; border-collapse:collapse; }
+  .agents-table th { text-align:right; padding:10px 14px; font-size:.78rem; color:var(--text-muted); font-weight:600; border-bottom:1px solid var(--border); white-space:nowrap; }
+  .agents-table td { padding:12px 14px; font-size:.84rem; border-bottom:1px solid var(--border); vertical-align:middle; }
+  .agents-table tr:hover td { background:var(--bg-hover,rgba(255,255,255,.03)); }
+  .status-badge { padding:3px 10px; border-radius:20px; font-size:.74rem; font-weight:700; }
+  .status-active { background:rgba(16,185,129,.12); color:#10b981; }
+  .status-blocked { background:rgba(239,68,68,.12); color:#ef4444; }
+  .plan-badge { padding:2px 8px; border-radius:8px; font-size:.72rem; font-weight:700; }
+  .plan-basic { background:rgba(107,114,128,.12); color:#6b7280; }
+  .plan-pro { background:rgba(16,185,129,.12); color:#10b981; }
+  .plan-unlimited { background:rgba(139,92,246,.12); color:#8b5cf6; }
+  .action-btns { display:flex; gap:6px; flex-wrap:nowrap; }
+  .btn-xs { padding:4px 10px; font-size:.74rem; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:var(--text); cursor:pointer; font-family:Heebo,sans-serif; transition:.15s; white-space:nowrap; }
+  .btn-xs:hover { border-color:var(--primary); color:var(--primary); }
+  .btn-xs.danger:hover { border-color:#ef4444; color:#ef4444; }
+  .btn-xs.success:hover { border-color:#10b981; color:#10b981; }
+
+  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; z-index:2000; }
+  .modal-overlay.show { display:flex; }
+  .modal-box { background:var(--bg-card); border-radius:14px; padding:30px; max-width:520px; width:95%; max-height:90vh; overflow-y:auto; box-shadow:0 12px 48px rgba(0,0,0,.3); }
+  .modal-box h3 { margin:0 0 20px; font-size:1.1rem; display:flex; align-items:center; gap:10px; }
+  .form-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .form-group { margin-bottom:14px; }
+  .form-group label { display:block; font-size:.78rem; font-weight:600; color:var(--text-muted); margin-bottom:5px; }
+  .form-group input, .form-group select { width:100%; padding:9px 12px; border:1.5px solid var(--border); border-radius:7px; background:var(--bg); color:var(--text); font-size:.88rem; font-family:Heebo,sans-serif; box-sizing:border-box; }
+  .form-group input:focus, .form-group select:focus { outline:none; border-color:var(--primary); }
+  .modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:20px; padding-top:16px; border-top:1px solid var(--border); }
+
+  .audit-log-item { display:flex; align-items:flex-start; gap:12px; padding:12px 0; border-bottom:1px solid var(--border); }
+  .audit-action { padding:3px 8px; border-radius:6px; font-size:.72rem; font-weight:700; white-space:nowrap; }
+  .audit-login { background:rgba(16,185,129,.1); color:#10b981; }
+  .audit-create { background:rgba(26,86,219,.1); color:#1a56db; }
+  .audit-update { background:rgba(245,158,11,.1); color:#f59e0b; }
+  .audit-delete { background:rgba(239,68,68,.1); color:#ef4444; }
+
+  .quota-bar { height:6px; background:var(--border); border-radius:3px; margin-top:4px; }
+  .quota-fill { height:100%; border-radius:3px; transition:.3s; }
+
+  .search-bar { display:flex; gap:10px; margin-bottom:16px; }
+  .search-bar input { flex:1; padding:9px 14px; border:1.5px solid var(--border); border-radius:8px; background:var(--bg); color:var(--text); font-size:.88rem; font-family:Heebo,sans-serif; }
+</style>
+</head>
+<body>
+<script>
+  const t = localStorage.getItem('theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', t);
+</script>
+<script src="../js/agent-auth.js"></script>
+
+<div class="sa-header">
+  <div class="container">
+    <div class="sa-badge"><i class="fas fa-shield-alt"></i> Super Admin Panel</div>
+    <h1><i class="fas fa-cogs" style="margin-left:10px;opacity:.8;"></i>ניהול פלטפורמה</h1>
+    <p>ניהול סוכנים, מנויים, אנליטיקה ואבטחה</p>
+  </div>
+</div>
+
+<div class="sa-tabs">
+  <div class="sa-tab active" onclick="showTab('analytics')"><i class="fas fa-chart-bar" style="margin-left:6px;"></i>אנליטיקה</div>
+  <div class="sa-tab" onclick="showTab('agents')"><i class="fas fa-users" style="margin-left:6px;"></i>סוכנים</div>
+  <div class="sa-tab" onclick="showTab('audit')"><i class="fas fa-history" style="margin-left:6px;"></i>יומן פעולות</div>
+  <div class="sa-tab" onclick="showTab('templates')"><i class="fas fa-layer-group" style="margin-left:6px;"></i>תבניות ופיצ'רים</div>
+</div>
+
+<div class="container" style="max-width:1200px;margin-top:0;padding-top:0;">
+
+<!-- ── ANALYTICS ─────────────────────────────────────────────── -->
+<div class="sa-pane active" id="pane-analytics">
+  <div class="kpi-grid" id="kpiGrid">
+    <div class="kpi-card"><div class="kpi-icon" style="background:rgba(26,86,219,.12);color:#1a56db;"><i class="fas fa-users"></i></div><div><div class="kpi-num" id="kTotal">—</div><div class="kpi-label">סה"כ סוכנים</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon" style="background:rgba(16,185,129,.12);color:#10b981;"><i class="fas fa-user-check"></i></div><div><div class="kpi-num" id="kActive">—</div><div class="kpi-label">סוכנים פעילים</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon" style="background:rgba(245,158,11,.12);color:#f59e0b;"><i class="fas fa-user-friends"></i></div><div><div class="kpi-num" id="kClients">—</div><div class="kpi-label">סה"כ לקוחות</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon" style="background:rgba(139,92,246,.12);color:#8b5cf6;"><i class="fas fa-briefcase"></i></div><div><div class="kpi-num" id="kProducts">—</div><div class="kpi-label">סה"כ מוצרים</div></div></div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+    <div class="card">
+      <div class="card-header"><i class="fas fa-clock" style="margin-left:8px;color:var(--primary);"></i>כניסות אחרונות</div>
+      <div id="recentLoginsList" style="margin-top:8px;"></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><i class="fas fa-tags" style="margin-left:8px;color:var(--primary);"></i>פילוח לפי חבילה</div>
+      <div id="planStatsList" style="margin-top:12px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── AGENTS ─────────────────────────────────────────────────── -->
+<div class="sa-pane" id="pane-agents">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+    <h2 style="margin:0;font-size:1.1rem;">ניהול סוכנים</h2>
+    <button class="btn" onclick="openNewAgent()"><i class="fas fa-plus"></i> סוכן חדש</button>
+  </div>
+  <div class="search-bar">
+    <input type="text" id="agentSearch" placeholder="חיפוש לפי שם / אימייל..." oninput="filterAgents()">
+  </div>
+  <div style="overflow-x:auto;">
+    <table class="agents-table" id="agentsTable">
+      <thead>
+        <tr>
+          <th>שם</th><th>אימייל</th><th>סטטוס</th><th>חבילה</th>
+          <th>לקוחות</th><th>כניסה אחרונה</th><th>תוקף מנוי</th><th>פעולות</th>
+        </tr>
+      </thead>
+      <tbody id="agentsBody">
+        <tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text-muted);">
+          <i class="fas fa-spinner fa-spin"></i> טוען...
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── AUDIT LOG ──────────────────────────────────────────────── -->
+<div class="sa-pane" id="pane-audit">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+    <h2 style="margin:0;font-size:1.1rem;"><i class="fas fa-history" style="margin-left:8px;color:var(--primary);"></i>יומן פעולות מלא</h2>
+    <select id="auditAgentFilter" onchange="loadAuditLog()" class="form-control" style="padding:7px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-family:Heebo,sans-serif;font-size:.84rem;">
+      <option value="">כל הסוכנים</option>
+    </select>
+  </div>
+  <div id="auditLogList" style="max-height:600px;overflow-y:auto;"></div>
+  <div style="text-align:center;margin-top:16px;">
+    <button class="btn btn-secondary" id="auditMoreBtn" onclick="loadMoreAudit()" style="display:none;">
+      <i class="fas fa-chevron-down"></i> טען עוד
+    </button>
+  </div>
+</div>
+
+<!-- ── TEMPLATES ──────────────────────────────────────────────── -->
+<div class="sa-pane" id="pane-templates">
+  <div class="card" style="max-width:700px;">
+    <div class="card-header"><i class="fas fa-layer-group" style="margin-left:8px;color:var(--primary);"></i>תבניות גלובליות ופיצ'רים</div>
+    <p style="font-size:.84rem;color:var(--text-muted);margin:12px 0 20px;">כאן תוכל לנהל פיצ'רים שיופיעו אצל כל הסוכנים.</p>
+
+    <div style="display:grid;gap:14px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px;background:var(--bg);border-radius:10px;border:1px solid var(--border);">
+        <div>
+          <div style="font-weight:600;font-size:.9rem;">מודול יעדים (Goals)</div>
+          <div style="font-size:.78rem;color:var(--text-muted);">מאפשר הגדרת יעדי חיסכון ללקוח</div>
+        </div>
+        <span style="background:rgba(16,185,129,.1);color:#10b981;padding:3px 10px;border-radius:20px;font-size:.74rem;font-weight:700;">פעיל</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px;background:var(--bg);border-radius:10px;border:1px solid var(--border);">
+        <div>
+          <div style="font-weight:600;font-size:.9rem;">מנוע What-If</div>
+          <div style="font-size:.78rem;color:var(--text-muted);">סימולציות תרחישים עתידיים</div>
+        </div>
+        <span style="background:rgba(16,185,129,.1);color:#10b981;padding:3px 10px;border-radius:20px;font-size:.74rem;font-weight:700;">פעיל</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px;background:var(--bg);border-radius:10px;border:1px solid var(--border);">
+        <div>
+          <div style="font-weight:600;font-size:.9rem;">White Label (דומיין מותאם)</div>
+          <div style="font-size:.78rem;color:var(--text-muted);">סוכנים Pro+ יכולים להשתמש בדומיין משלהם</div>
+        </div>
+        <span style="background:rgba(139,92,246,.1);color:#8b5cf6;padding:3px 10px;border-radius:20px;font-size:.74rem;font-weight:700;">Pro+</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px;background:var(--bg);border-radius:10px;border:1px solid var(--border);">
+        <div>
+          <div style="font-weight:600;font-size:.9rem;">חנות תוספות (App Store)</div>
+          <div style="font-size:.78rem;color:var(--text-muted);">חיבור למסלקה, מודול פרישה מתקדם</div>
+        </div>
+        <span style="background:rgba(245,158,11,.1);color:#f59e0b;padding:3px 10px;border-radius:20px;font-size:.74rem;font-weight:700;">בפיתוח</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<!-- ── New/Edit Agent Modal ────────────────────────────────────── -->
+<div class="modal-overlay" id="agentModal">
+  <div class="modal-box">
+    <h3 id="agentModalTitle"><i class="fas fa-user-plus" style="color:var(--primary);"></i> סוכן חדש</h3>
+    <input type="hidden" id="editAgentId">
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>שם מלא *</label>
+        <input type="text" id="agentName" placeholder="ישראל ישראלי">
+      </div>
+      <div class="form-group">
+        <label>אימייל *</label>
+        <input type="email" id="agentEmail" placeholder="agent@email.com" dir="ltr">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>סיסמה <span id="pwNote" style="color:var(--text-dim);font-weight:400;">(השאר ריק לשמור)</span></label>
+        <input type="password" id="agentPw" placeholder="לפחות 8 תווים" dir="ltr" autocomplete="new-password">
+      </div>
+      <div class="form-group">
+        <label>תפקיד</label>
+        <select id="agentRole">
+          <option value="agent">סוכן</option>
+          <option value="superadmin">סופר אדמין</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>חבילה</label>
+        <select id="agentPlan">
+          <option value="basic">Basic (50 לקוחות, 199₪/חודש)</option>
+          <option value="pro">Pro (ללא הגבלה, 499₪/חודש)</option>
+          <option value="unlimited">Unlimited (VIP)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>מכסת לקוחות</label>
+        <input type="number" id="agentQuota" value="50" min="1" max="10000" dir="ltr">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>תאריך סיום מנוי</label>
+      <input type="date" id="agentSubEnd" dir="ltr">
+    </div>
+    <div class="form-group">
+      <label>סטטוס</label>
+      <select id="agentStatus">
+        <option value="active">פעיל</option>
+        <option value="blocked">חסום</option>
+      </select>
+    </div>
+
+    <div id="agentModalErr" class="error-msg" style="display:none;"></div>
+
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeAgentModal()">ביטול</button>
+      <button class="btn" id="saveAgentBtn" onclick="saveAgent()">
+        <i class="fas fa-save"></i> שמור
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+let ALL_AGENTS = [];
+let AUDIT_PAGE = 1;
+
+// ── Init ──────────────────────────────────────────────────────────
+(async () => {
+  const agent = await AGENT_AUTH.init({ requireRole: 'superadmin' });
+  if (!agent) return;
+  if (IS_DEMO_MODE) {
+    loadDemoData();
+  } else {
+    loadAnalytics();
+    loadAgents();
+  }
+})();
+
+// ── DEMO ──────────────────────────────────────────────────────────
+function loadDemoData() {
+  document.getElementById('kTotal').textContent   = '3';
+  document.getElementById('kActive').textContent  = '2';
+  document.getElementById('kClients').textContent = '12';
+  document.getElementById('kProducts').textContent= '38';
+  document.getElementById('recentLoginsList').innerHTML = `
+    <div style="font-size:.82rem;color:var(--text-muted);padding:8px 0;border-bottom:1px solid var(--border);">
+      <strong>יועץ א\'</strong> — agent1@demo.com — לפני 2 שעות
+    </div>
+    <div style="font-size:.82rem;color:var(--text-muted);padding:8px 0;">
+      <strong>יועץ ב\'</strong> — agent2@demo.com — לפני 1 יום
+    </div>`;
+  document.getElementById('planStatsList').innerHTML = `
+    <div style="margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:4px;">
+        <span>Basic</span><span>2</span></div>
+      <div class="quota-bar"><div class="quota-fill" style="width:67%;background:#6b7280;"></div></div>
+    </div>
+    <div>
+      <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:4px;">
+        <span>Pro</span><span>1</span></div>
+      <div class="quota-bar"><div class="quota-fill" style="width:33%;background:#10b981;"></div></div>
+    </div>`;
+
+  ALL_AGENTS = [
+    { id:'demo-1', name:'יועץ א\'', email:'agent1@demo.com', status:'active', role:'agent', plan:'basic', client_count:5, client_quota:50, last_login:Date.now()-7200000, subscription_end:null },
+    { id:'demo-2', name:'יועץ ב\'', email:'agent2@demo.com', status:'active', role:'agent', plan:'pro',   client_count:7, client_quota:null, last_login:Date.now()-86400000, subscription_end:null },
+    { id:'demo-3', name:'יועץ ג\'', email:'agent3@demo.com', status:'blocked', role:'agent', plan:'basic', client_count:0, client_quota:50, last_login:null, subscription_end:Date.now()-86400000 },
+  ];
+  renderAgents(ALL_AGENTS);
+
+  document.getElementById('auditLogList').innerHTML = `
+    <div class="audit-log-item">
+      <span class="audit-action audit-login">כניסה</span>
+      <div><strong>agent1@demo.com</strong> — כניסה מ-IP 1.2.3.4 <span style="color:var(--text-dim);font-size:.76rem;">לפני 2 שעות</span></div>
+    </div>
+    <div class="audit-log-item">
+      <span class="audit-action audit-create">יצירה</span>
+      <div><strong>agent1@demo.com</strong> — יצרה לקוח חדש <span style="color:var(--text-dim);font-size:.76rem;">לפני 3 שעות</span></div>
+    </div>`;
+}
+
+// ── Load Analytics ────────────────────────────────────────────────
+async function loadAnalytics() {
+  try {
+    const r = await authFetch('/admin/analytics');
+    const d = await r.json();
+    document.getElementById('kTotal').textContent    = d.total_agents;
+    document.getElementById('kActive').textContent   = d.active_agents;
+    document.getElementById('kClients').textContent  = d.total_clients;
+    document.getElementById('kProducts').textContent = d.total_products;
+
+    document.getElementById('recentLoginsList').innerHTML = (d.recent_logins||[]).map(a => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:.82rem;">
+        <div>
+          <strong>${a.name}</strong>
+          <span style="color:var(--text-dim);margin-right:8px;">${a.email}</span>
+          <span style="background:rgba(26,86,219,.1);color:#1a56db;padding:1px 6px;border-radius:8px;font-size:.72rem;">${a.client_count} לקוחות</span>
+        </div>
+        <span style="color:var(--text-dim);">${a.last_login ? new Date(a.last_login).toLocaleString('he-IL') : '—'}</span>
+      </div>`).join('') || '<div style="color:var(--text-muted);padding:12px 0;">אין נתונים</div>';
+
+    const plans = {basic:0, pro:0, unlimited:0};
+    (d.plan_stats||[]).forEach(p => plans[p.plan] = (plans[p.plan]||0)+parseInt(p.n));
+    const total = Object.values(plans).reduce((s,v)=>s+v,0)||1;
+    document.getElementById('planStatsList').innerHTML = Object.entries(plans).map(([plan,count]) => `
+      <div style="margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:4px;">
+          <span class="plan-badge plan-${plan}">${plan.toUpperCase()}</span>
+          <span>${count} סוכנים</span>
+        </div>
+        <div class="quota-bar"><div class="quota-fill" style="width:${(count/total*100).toFixed(0)}%;background:${plan==='unlimited'?'#8b5cf6':plan==='pro'?'#10b981':'#6b7280'};"></div></div>
+      </div>`).join('');
+  } catch(e) { console.error(e); }
+}
+
+// ── Load Agents ───────────────────────────────────────────────────
+async function loadAgents() {
+  try {
+    const r = await authFetch('/admin/agents?limit=200');
+    const d = await r.json();
+    ALL_AGENTS = d.data || [];
+
+    // Populate audit filter
+    const sel = document.getElementById('auditAgentFilter');
+    ALL_AGENTS.forEach(a => {
+      const o = document.createElement('option');
+      o.value = a.id; o.textContent = a.name + ' (' + a.email + ')';
+      sel.appendChild(o);
+    });
+
+    renderAgents(ALL_AGENTS);
+  } catch(e) { console.error(e); }
+}
+
+function renderAgents(agents) {
+  const tbody = document.getElementById('agentsBody');
+  if (!agents.length) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text-muted);">אין סוכנים רשומים עדיין</td></tr>';
+    return;
+  }
+  tbody.innerHTML = agents.map(a => {
+    const quota = a.client_quota ? `${a.client_count||0}/${a.client_quota}` : `${a.client_count||0}/∞`;
+    const quotaPct = a.client_quota ? Math.min(100,(a.client_count||0)/a.client_quota*100) : 0;
+    const quotaColor = quotaPct > 80 ? '#ef4444' : quotaPct > 60 ? '#f59e0b' : '#10b981';
+    const subEnd = a.subscription_end ? new Date(a.subscription_end).toLocaleDateString('he-IL') : '∞';
+    const lastLogin = a.last_login ? new Date(a.last_login).toLocaleDateString('he-IL') : '—';
+    return `<tr>
+      <td>
+        <div style="font-weight:600;">${a.name}</div>
+        <div style="font-size:.72rem;color:var(--text-dim);">${a.role === 'superadmin' ? '👑 סופר אדמין' : ''}</div>
+      </td>
+      <td style="color:var(--text-muted);font-size:.82rem;" dir="ltr">${a.email}</td>
+      <td><span class="status-badge ${a.status==='active'?'status-active':'status-blocked'}">${a.status==='active'?'פעיל':'חסום'}</span></td>
+      <td><span class="plan-badge plan-${a.plan}">${a.plan}</span></td>
+      <td>
+        <div style="font-size:.82rem;">${quota}</div>
+        ${a.client_quota ? `<div class="quota-bar" style="width:80px;"><div class="quota-fill" style="width:${quotaPct.toFixed(0)}%;background:${quotaColor};"></div></div>` : ''}
+      </td>
+      <td style="font-size:.78rem;color:var(--text-muted);">${lastLogin}</td>
+      <td style="font-size:.78rem;color:${a.subscription_end&&a.subscription_end<Date.now()?'#ef4444':'var(--text-muted)'};">${subEnd}</td>
+      <td>
+        <div class="action-btns">
+          <button class="btn-xs" onclick="editAgent('${a.id}')"><i class="fas fa-edit"></i> עריכה</button>
+          <button class="btn-xs success" onclick="impersonateAgent('${a.id}','${a.name}')"><i class="fas fa-mask"></i> כנס</button>
+          <button class="btn-xs ${a.status==='active'?'danger':''}" onclick="toggleBlock('${a.id}','${a.status}')">
+            ${a.status==='active'?'<i class="fas fa-ban"></i> חסום':'<i class="fas fa-check"></i> הפעל'}
+          </button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function filterAgents() {
+  const q = document.getElementById('agentSearch').value.toLowerCase();
+  const filtered = ALL_AGENTS.filter(a => a.name.toLowerCase().includes(q) || a.email.toLowerCase().includes(q));
+  renderAgents(filtered);
+}
+
+// ── New/Edit Agent ────────────────────────────────────────────────
+function openNewAgent() {
+  document.getElementById('editAgentId').value = '';
+  document.getElementById('agentModalTitle').innerHTML = '<i class="fas fa-user-plus" style="color:var(--primary);"></i> סוכן חדש';
+  document.getElementById('agentName').value  = '';
+  document.getElementById('agentEmail').value = '';
+  document.getElementById('agentPw').value    = '';
+  document.getElementById('agentRole').value  = 'agent';
+  document.getElementById('agentPlan').value  = 'basic';
+  document.getElementById('agentQuota').value = '50';
+  document.getElementById('agentStatus').value= 'active';
+  document.getElementById('agentSubEnd').value = '';
+  document.getElementById('pwNote').style.display = 'none';
+  document.getElementById('agentModal').classList.add('show');
+}
+
+function editAgent(id) {
+  const a = ALL_AGENTS.find(x=>x.id===id);
+  if (!a) return;
+  document.getElementById('editAgentId').value  = id;
+  document.getElementById('agentModalTitle').innerHTML = '<i class="fas fa-user-edit" style="color:var(--primary);"></i> עריכת סוכן';
+  document.getElementById('agentName').value    = a.name||'';
+  document.getElementById('agentEmail').value   = a.email||'';
+  document.getElementById('agentPw').value      = '';
+  document.getElementById('agentRole').value    = a.role||'agent';
+  document.getElementById('agentPlan').value    = a.plan||'basic';
+  document.getElementById('agentQuota').value   = a.client_quota||50;
+  document.getElementById('agentStatus').value  = a.status||'active';
+  document.getElementById('agentSubEnd').value  = a.subscription_end ? new Date(a.subscription_end).toISOString().split('T')[0] : '';
+  document.getElementById('pwNote').style.display = '';
+  document.getElementById('agentModal').classList.add('show');
+}
+
+function closeAgentModal() {
+  document.getElementById('agentModal').classList.remove('show');
+}
+
+async function saveAgent() {
+  const btn    = document.getElementById('saveAgentBtn');
+  const editId = document.getElementById('editAgentId').value;
+  const body = {
+    name:     document.getElementById('agentName').value.trim(),
+    email:    document.getElementById('agentEmail').value.trim(),
+    role:     document.getElementById('agentRole').value,
+    plan:     document.getElementById('agentPlan').value,
+    status:   document.getElementById('agentStatus').value,
+    client_quota: parseInt(document.getElementById('agentQuota').value)||50,
+  };
+
+  const pw = document.getElementById('agentPw').value;
+  if (pw) body.password = pw;
+
+  const subEnd = document.getElementById('agentSubEnd').value;
+  body.subscription_end = subEnd ? new Date(subEnd).getTime() : null;
+
+  if (!body.name || !body.email) {
+    showModalErr('שם ואימייל הם שדות חובה');
+    return;
+  }
+  if (!editId && !pw) {
+    showModalErr('סיסמה נדרשת לסוכן חדש');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+  if (IS_DEMO_MODE) {
+    if (editId) {
+      const idx = ALL_AGENTS.findIndex(a=>a.id===editId);
+      if (idx>=0) ALL_AGENTS[idx] = {...ALL_AGENTS[idx], ...body};
+    } else {
+      ALL_AGENTS.push({...body, id:'demo-'+Date.now(), client_count:0});
+    }
+    renderAgents(ALL_AGENTS);
+    closeAgentModal();
+    btn.disabled=false;
+    btn.innerHTML='<i class="fas fa-save"></i> שמור';
+    return;
+  }
+
+  try {
+    const r = editId
+      ? await authFetch(`/admin/agents/${editId}`, { method:'PATCH', body:JSON.stringify(body) })
+      : await authFetch('/admin/agents', { method:'POST', body:JSON.stringify(body) });
+
+    const d = await r.json();
+    if (!r.ok) { showModalErr(d.error||'שגיאה'); btn.disabled=false; btn.innerHTML='<i class="fas fa-save"></i> שמור'; return; }
+
+    closeAgentModal();
+    await loadAgents();
+  } catch(e) {
+    showModalErr('שגיאת רשת');
+    btn.disabled=false; btn.innerHTML='<i class="fas fa-save"></i> שמור';
+  }
+}
+
+function showModalErr(msg) {
+  const el = document.getElementById('agentModalErr');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+// ── Toggle Block ──────────────────────────────────────────────────
+async function toggleBlock(id, currentStatus) {
+  const newStatus = currentStatus === 'active' ? 'blocked' : 'active';
+  const msg = newStatus === 'blocked' ? 'לחסום את הסוכן?' : 'להפעיל מחדש את הסוכן?';
+  if (!confirm(msg)) return;
+
+  if (IS_DEMO_MODE) {
+    const a = ALL_AGENTS.find(x=>x.id===id);
+    if (a) { a.status = newStatus; renderAgents(ALL_AGENTS); }
+    return;
+  }
+
+  try {
+    await authFetch(`/admin/agents/${id}`, { method:'PATCH', body:JSON.stringify({status:newStatus}) });
+    await loadAgents();
+  } catch(e) { alert('שגיאה'); }
+}
+
+// ── Impersonation ─────────────────────────────────────────────────
+async function impersonateAgent(agentId, agentName) {
+  if (!confirm(`להיכנס בשם "${agentName}"? הפעולה תירשם ביומן.`)) return;
+
+  if (IS_DEMO_MODE) {
+    const a = ALL_AGENTS.find(x=>x.id===agentId);
+    localStorage.setItem('orig_agent_token', localStorage.getItem('agent_token'));
+    localStorage.setItem('orig_agent_info', localStorage.getItem('agent_info'));
+    localStorage.setItem('impersonating_agent', agentId);
+    localStorage.setItem('agent_info', JSON.stringify({...a, role:'agent'}));
+    window.location.replace('/admin/index.html');
+    return;
+  }
+
+  try {
+    const r = await authFetch(`/auth/impersonate/${agentId}`, { method:'POST' });
+    const d = await r.json();
+    if (!r.ok) { alert(d.error||'שגיאה'); return; }
+
+    // Save current token to restore later
+    localStorage.setItem('orig_agent_token', localStorage.getItem('agent_token'));
+    localStorage.setItem('orig_agent_info', localStorage.getItem('agent_info'));
+    localStorage.setItem('impersonating_agent', agentId);
+
+    // Use new impersonation token
+    localStorage.setItem('agent_token', d.token);
+    sessionStorage.setItem('agent_token', d.token);
+    localStorage.setItem('agent_info', JSON.stringify(d.agent));
+
+    window.location.replace('/admin/index.html');
+  } catch(e) { alert('שגיאת רשת'); }
+}
+
+// ── Audit Log ─────────────────────────────────────────────────────
+let auditData = [];
+
+async function loadAuditLog() {
+  AUDIT_PAGE = 1;
+  auditData  = [];
+  const agentId = document.getElementById('auditAgentFilter')?.value || '';
+
+  if (IS_DEMO_MODE) return; // demo data already set
+
+  try {
+    const url = '/admin/audit-log?limit=50' + (agentId ? `&agent_id=${agentId}` : '');
+    const r = await authFetch(url);
+    const d = await r.json();
+    auditData = d.data || [];
+    renderAuditLog();
+    document.getElementById('auditMoreBtn').style.display = d.total > auditData.length ? 'inline-flex' : 'none';
+  } catch(e) { console.error(e); }
+}
+
+async function loadMoreAudit() {
+  AUDIT_PAGE++;
+  const agentId = document.getElementById('auditAgentFilter')?.value || '';
+  try {
+    const r = await authFetch(`/admin/audit-log?page=${AUDIT_PAGE}&limit=50` + (agentId?`&agent_id=${agentId}`:''));
+    const d = await r.json();
+    auditData = [...auditData, ...(d.data||[])];
+    renderAuditLog();
+    document.getElementById('auditMoreBtn').style.display = d.total > auditData.length ? 'inline-flex' : 'none';
+  } catch(e) {}
+}
+
+const ACTION_COLORS = {
+  login:'audit-login', create_client:'audit-create', create_agent:'audit-create',
+  update:'audit-update', update_agent:'audit-update', delete:'audit-delete',
+  impersonate:'audit-update', reset_password:'audit-update'
+};
+const ACTION_LABELS = {
+  login:'כניסה', logout:'יציאה', create_client:'לקוח חדש', create_product:'מוצר חדש',
+  update_client:'עדכון לקוח', update_product:'עדכון מוצר', delete_client:'מחיקת לקוח',
+  create_agent:'סוכן חדש', update_agent:'עדכון סוכן', delete_agent:'מחיקת סוכן',
+  impersonate:'התחזות', change_password:'שינוי סיסמה', reset_password:'איפוס סיסמה',
+  update_settings:'עדכון הגדרות', update_crm:'עדכון CRM', update_logo:'עדכון לוגו'
+};
+
+function renderAuditLog() {
+  document.getElementById('auditLogList').innerHTML = auditData.map(l => {
+    const cls = Object.entries(ACTION_COLORS).find(([k])=>l.action.includes(k))?.[1] || 'audit-update';
+    const label = ACTION_LABELS[l.action] || l.action;
+    const dt = new Date(l.created_at).toLocaleString('he-IL');
+    let meta = '';
+    try { const m = JSON.parse(l.meta||'{}'); if(m.ip) meta = ` — IP: ${m.ip}`; } catch(e){}
+    return `<div class="audit-log-item">
+      <span class="audit-action ${cls}">${label}</span>
+      <div style="flex:1;">
+        <strong>${l.agent_name||l.agent_email||'—'}</strong>
+        ${l.target_id ? `<span style="color:var(--text-dim);font-size:.76rem;"> → ${l.target_table}:${l.target_id.slice(0,12)}</span>` : ''}
+        ${meta ? `<span style="color:var(--text-dim);font-size:.76rem;">${meta}</span>` : ''}
+      </div>
+      <span style="color:var(--text-dim);font-size:.76rem;white-space:nowrap;">${dt}</span>
+    </div>`;
+  }).join('') || '<div style="color:var(--text-muted);padding:20px;text-align:center;">אין רשומות</div>';
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────
+function showTab(name) {
+  document.querySelectorAll('.sa-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.sa-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelector(`[onclick="showTab('${name}')"]`).classList.add('active');
+  document.getElementById(`pane-${name}`).classList.add('active');
+
+  if (name==='audit' && !IS_DEMO_MODE && !auditData.length) loadAuditLog();
+}
+
+// CSS helper
+const style = document.createElement('style');
+style.textContent = `.error-msg{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#ef4444;border-radius:8px;padding:10px 14px;font-size:.84rem;margin-bottom:12px;}`;
+document.head.appendChild(style);
+</script>
+</body>
+</html>

@@ -6,6 +6,12 @@
 <title>פאנל יועץ – ניהול לקוחות</title>
 <link rel="stylesheet" href="../css/style.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+<script>
+  // Early theme
+  const _t = localStorage.getItem('theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', _t);
+</script>
+<script src="../js/agent-auth.js"></script>
 <style>
   .admin-header { background: linear-gradient(135deg, #1a56db 0%, #0ea5e9 100%); color: #fff; padding: 40px 0 28px; margin-bottom: 32px; }
   .admin-header h1 { color: #fff; margin-bottom: 8px; }
@@ -151,6 +157,7 @@
     <a href="monthly-update.html" class="btn btn-primary" style="text-decoration:none;"><i class="fa fa-calendar-plus"></i> עדכון חודשי</a>
     <a href="credentials.html" class="btn btn-secondary btn-sm" style="text-decoration:none;background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.3);"><i class="fa fa-key"></i> ניהול סיסמאות</a>
     <a href="fix-data.html" class="btn btn-secondary btn-sm" style="text-decoration:none;"><i class="fa fa-wrench"></i> תיקון נתוני מוצרים</a>
+    <a href="settings.html" class="btn btn-secondary btn-sm" style="text-decoration:none;background:rgba(139,92,246,0.1);color:#8b5cf6;border:1px solid rgba(139,92,246,0.3);"><i class="fa fa-palette"></i> הגדרות סוכן</a>
   </div>
 
   <!-- Clients Grid -->
@@ -416,6 +423,12 @@ function renderClientsGrid() {
           <button class="btn btn-secondary btn-sm" onclick="openClientSettings('${c.id}')">
             <i class="fa fa-cog"></i> הגדרות
           </button>
+          <button class="btn btn-secondary btn-sm" onclick="openCRMNotes('${c.id}','${c.name}')" style="background:rgba(245,158,11,0.1);color:#f59e0b;border-color:rgba(245,158,11,0.3);" title="הערות סוכן פנימיות">
+            <i class="fa fa-sticky-note"></i> הערות
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="openPDFGenerator('${c.id}','${c.name}')" style="background:rgba(239,68,68,0.08);color:#ef4444;border-color:rgba(239,68,68,0.25);" title="ייצוא דוח PDF ממותג">
+            <i class="fa fa-file-pdf"></i> PDF
+          </button>
           <button class="btn btn-secondary btn-sm" onclick="copyClientLink('${c.id}')">
             <i class="fa fa-copy"></i> קישור
           </button>
@@ -539,7 +552,13 @@ async function createNewClient() {
   }
 }
 
-loadClients();
+// ── Auth Guard + Init ──────────────────────────────────────────────
+(async () => {
+  const agent = await AGENT_AUTH.init();
+  if (!agent) return; // redirected to login
+  IS_DEMO_MODE = window.IS_DEMO_MODE;
+  loadClients();
+})();
 
 // Auto-refresh when tab becomes visible (e.g. after returning from monthly-update)
 let _lastVisibleTime = Date.now();
@@ -719,6 +738,129 @@ async function refreshAll() {
     <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
       <button class="btn btn-secondary" onclick="closeSettings()">ביטול</button>
       <button class="btn btn-primary" onclick="saveSettings()"><i class="fa fa-save" style="margin-left:6px;"></i> שמור הגדרות</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- CRM Notes Modal                                           -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="crmNotesModal" onclick="if(event.target.id==='crmNotesModal')closeCRMNotes()">
+  <div class="modal" style="max-width:640px;">
+    <div class="modal-header">
+      <div>
+        <h3 style="margin:0;font-size:1.1rem;">
+          <i class="fa fa-sticky-note" style="margin-left:8px;color:#f59e0b;"></i>הערות סוכן פנימיות
+        </h3>
+        <div style="font-size:0.78rem;color:var(--text-muted);margin-top:3px;" id="crmClientName"></div>
+        <div style="font-size:0.72rem;color:rgba(239,68,68,0.7);margin-top:2px;"><i class="fa fa-eye-slash" style="margin-left:4px;"></i>נסתר מהלקוח לחלוטין</div>
+      </div>
+      <button class="modal-close" onclick="closeCRMNotes()"><i class="fa fa-times"></i></button>
+    </div>
+    <input type="hidden" id="crmClientId">
+
+    <!-- Tabs -->
+    <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:18px;">
+      <div class="crm-tab active" id="crmTabNotes" onclick="showCRMTab('notes')" style="padding:10px 18px;font-size:.84rem;font-weight:600;cursor:pointer;border-bottom:2px solid var(--primary);margin-bottom:-2px;color:var(--primary);">
+        <i class="fa fa-edit" style="margin-left:6px;"></i>הערות כלליות
+      </div>
+      <div class="crm-tab" id="crmTabMeetings" onclick="showCRMTab('meetings')" style="padding:10px 18px;font-size:.84rem;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--text-muted);">
+        <i class="fa fa-calendar-check" style="margin-left:6px;"></i>סיכומי פגישות
+      </div>
+    </div>
+
+    <!-- Notes Tab -->
+    <div id="crmPaneNotes">
+      <div style="margin-bottom:10px;font-size:.8rem;color:var(--text-muted);">
+        <i class="fa fa-info-circle" style="margin-left:4px;"></i>רשום כאן כל מידע פנימי: מטרות, סיכונים, הערות מהלקוח, תזכורות וכו'.
+      </div>
+      <textarea id="crmNotesContent" style="width:100%;min-height:180px;padding:12px 14px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:.88rem;font-family:Heebo,sans-serif;resize:vertical;box-sizing:border-box;" placeholder="הזן הערות פנימיות על הלקוח..."></textarea>
+    </div>
+
+    <!-- Meetings Tab -->
+    <div id="crmPaneMeetings" style="display:none;">
+      <div style="margin-bottom:12px;display:flex;justify-content:flex-end;">
+        <button class="btn btn-primary btn-sm" onclick="addMeetingRow()">
+          <i class="fa fa-plus"></i> הוסף פגישה
+        </button>
+      </div>
+      <div id="meetingsListWrap">
+        <div style="color:var(--text-muted);font-size:.84rem;text-align:center;padding:20px;">אין פגישות מתועדות עדיין</div>
+      </div>
+    </div>
+
+    <div id="crmSaveMsg" style="display:none;background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);color:#10b981;border-radius:8px;padding:10px 14px;font-size:.84rem;margin-top:12px;">
+      <i class="fa fa-check-circle" style="margin-left:6px;"></i>נשמר בהצלחה
+    </div>
+    <div id="crmSaveErr" style="display:none;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#ef4444;border-radius:8px;padding:10px 14px;font-size:.84rem;margin-top:12px;"></div>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap;">
+      <button class="btn btn-secondary" onclick="closeCRMNotes()">ביטול</button>
+      <button class="btn btn-primary" onclick="saveCRMNotes()">
+        <i class="fa fa-save" style="margin-left:6px;"></i>שמור הערות
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- PDF Generator Modal                                        -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="pdfModal" onclick="if(event.target.id==='pdfModal')closePDFModal()">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-header">
+      <div>
+        <h3 style="margin:0;font-size:1.1rem;">
+          <i class="fa fa-file-pdf" style="margin-left:8px;color:#ef4444;"></i>ייצוא דוח PDF ממותג
+        </h3>
+        <div style="font-size:0.78rem;color:var(--text-muted);margin-top:3px;" id="pdfClientName"></div>
+      </div>
+      <button class="modal-close" onclick="closePDFModal()"><i class="fa fa-times"></i></button>
+    </div>
+    <input type="hidden" id="pdfClientId">
+
+    <!-- Preview area -->
+    <div id="pdfPreviewArea" style="background:var(--bg-card2);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:18px;">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;">
+        <div id="pdfLogoPreview" style="width:80px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:6px;overflow:hidden;border:1px solid var(--border);background:var(--bg);">
+          <i class="fa fa-image" style="color:var(--text-dim);font-size:1.2rem;"></i>
+        </div>
+        <div>
+          <div style="font-weight:700;font-size:1rem;" id="pdfAgentName">שם הסוכנות</div>
+          <div style="font-size:.76rem;color:var(--text-muted);">דוח תיק השקעות</div>
+        </div>
+      </div>
+      <div style="font-size:.78rem;color:var(--text-muted);border-top:1px solid var(--border);padding-top:10px;">
+        <strong>תוכן הדוח:</strong> סיכום תיק + ביצועים שנתיים + פילוח נכסים + גרפים
+      </div>
+    </div>
+
+    <!-- Options -->
+    <div style="margin-bottom:16px;">
+      <label style="display:block;font-size:.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">כותרת הדוח</label>
+      <input type="text" id="pdfReportTitle" class="form-control" placeholder="דוח תיק השקעות – רבעון 2">
+    </div>
+    <div style="margin-bottom:16px;">
+      <label style="display:block;font-size:.8rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;">הערת שוליים</label>
+      <input type="text" id="pdfFooterNote" class="form-control" placeholder="לפרטים נוספים צרו קשר..." style="font-size:.84rem;">
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.84rem;">
+        <input type="checkbox" id="pdfIncludeRisk" checked style="width:16px;height:16px;"> פילוח סיכון
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.84rem;">
+        <input type="checkbox" id="pdfIncludeProducts" checked style="width:16px;height:16px;"> פירוט מוצרים
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:.84rem;">
+        <input type="checkbox" id="pdfIncludeTimeline" checked style="width:16px;height:16px;"> אירועים
+      </label>
+    </div>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+      <button class="btn btn-secondary" onclick="closePDFModal()">ביטול</button>
+      <button class="btn btn-primary" onclick="generatePDF()" style="background:#ef4444;border-color:#ef4444;">
+        <i class="fa fa-download" style="margin-left:6px;"></i>ייצא PDF
+      </button>
     </div>
   </div>
 </div>
@@ -1171,6 +1313,397 @@ async function saveSettings() {
   } catch(e) {
     saveErr.innerHTML = `<i class="fa fa-exclamation-triangle"></i> ${e.message}`;
     saveErr.style.display = 'flex';
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// CRM NOTES
+// ════════════════════════════════════════════════════════════
+let CRM_CLIENT_ID = null;
+let CRM_MEETINGS  = [];
+let CRM_ACTIVE_TAB = 'notes';
+
+function showCRMTab(tab) {
+  CRM_ACTIVE_TAB = tab;
+  document.getElementById('crmPaneNotes').style.display     = tab==='notes'    ? '' : 'none';
+  document.getElementById('crmPaneMeetings').style.display  = tab==='meetings' ? '' : 'none';
+  document.getElementById('crmTabNotes').style.cssText     = tab==='notes'
+    ? 'padding:10px 18px;font-size:.84rem;font-weight:600;cursor:pointer;border-bottom:2px solid var(--primary);margin-bottom:-2px;color:var(--primary);'
+    : 'padding:10px 18px;font-size:.84rem;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--text-muted);';
+  document.getElementById('crmTabMeetings').style.cssText  = tab==='meetings'
+    ? 'padding:10px 18px;font-size:.84rem;font-weight:600;cursor:pointer;border-bottom:2px solid var(--primary);margin-bottom:-2px;color:var(--primary);'
+    : 'padding:10px 18px;font-size:.84rem;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--text-muted);';
+}
+
+async function openCRMNotes(clientId, clientName) {
+  CRM_CLIENT_ID = clientId;
+  CRM_MEETINGS  = [];
+  document.getElementById('crmClientId').value     = clientId;
+  document.getElementById('crmClientName').textContent = clientName;
+  document.getElementById('crmNotesContent').value = '';
+  document.getElementById('crmSaveMsg').style.display = 'none';
+  document.getElementById('crmSaveErr').style.display = 'none';
+  showCRMTab('notes');
+
+  // Load existing notes
+  try {
+    const token = sessionStorage.getItem('agent_token') || localStorage.getItem('agent_token');
+    const headers = { 'Content-Type': 'application/json' };
+    if (token && token !== 'demo-token') headers['X-Session-Token'] = token;
+
+    if (!window.IS_DEMO_MODE) {
+      const r = await fetch(`/crm/notes/${clientId}`, { headers });
+      if (r.ok) {
+        const data = await r.json();
+        document.getElementById('crmNotesContent').value = data.content || '';
+        CRM_MEETINGS = JSON.parse(data.meetings_json||'[]') || [];
+      }
+    } else {
+      // Demo: load from localStorage
+      const saved = localStorage.getItem(`crm_notes_${clientId}`);
+      if (saved) {
+        const data = JSON.parse(saved);
+        document.getElementById('crmNotesContent').value = data.content || '';
+        CRM_MEETINGS = data.meetings || [];
+      }
+    }
+  } catch(e) { /* ignore */ }
+
+  renderMeetingsList();
+  document.getElementById('crmNotesModal').classList.add('open');
+}
+
+function closeCRMNotes() {
+  document.getElementById('crmNotesModal').classList.remove('open');
+}
+
+function renderMeetingsList() {
+  const wrap = document.getElementById('meetingsListWrap');
+  if (!CRM_MEETINGS.length) {
+    wrap.innerHTML = `<div style="color:var(--text-muted);font-size:.84rem;text-align:center;padding:20px;">אין פגישות מתועדות עדיין</div>`;
+    return;
+  }
+  wrap.innerHTML = CRM_MEETINGS.map((m,i) => `
+    <div style="background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:10px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:.72rem;background:rgba(26,86,219,.1);color:var(--primary);padding:2px 8px;border-radius:10px;font-weight:600;">
+            <i class="fa fa-calendar" style="margin-left:4px;"></i>${m.date||'—'}
+          </span>
+        </div>
+        <button onclick="removeMeeting(${i})" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:.82rem;padding:2px 6px;border-radius:4px;" title="מחק פגישה">
+          <i class="fa fa-trash"></i>
+        </button>
+      </div>
+      <div style="margin-bottom:6px;">
+        <label style="font-size:.7rem;color:var(--text-muted);font-weight:600;display:block;margin-bottom:3px;">תאריך פגישה</label>
+        <input type="date" value="${m.date||''}" onchange="updateMeeting(${i},'date',this.value)"
+          style="padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.84rem;font-family:Heebo,sans-serif;width:160px;">
+      </div>
+      <div style="margin-bottom:6px;">
+        <label style="font-size:.7rem;color:var(--text-muted);font-weight:600;display:block;margin-bottom:3px;">סיכום הפגישה</label>
+        <textarea onchange="updateMeeting(${i},'summary',this.value)"
+          style="width:100%;min-height:70px;padding:8px 10px;border:1.5px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.84rem;font-family:Heebo,sans-serif;resize:vertical;box-sizing:border-box;"
+          placeholder="מה דוברנו בפגישה...">${m.summary||''}</textarea>
+      </div>
+      <div>
+        <label style="font-size:.7rem;color:var(--text-muted);font-weight:600;display:block;margin-bottom:3px;">פעולה הבאה</label>
+        <input type="text" value="${m.next_action||''}" onchange="updateMeeting(${i},'next_action',this.value)"
+          style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:.84rem;font-family:Heebo,sans-serif;box-sizing:border-box;"
+          placeholder="מה לעשות עד הפגישה הבאה...">
+      </div>
+    </div>
+  `).join('');
+}
+
+function addMeetingRow() {
+  CRM_MEETINGS.unshift({ date: new Date().toISOString().split('T')[0], summary: '', next_action: '' });
+  renderMeetingsList();
+}
+
+function removeMeeting(idx) {
+  CRM_MEETINGS.splice(idx, 1);
+  renderMeetingsList();
+}
+
+function updateMeeting(idx, field, val) {
+  if (CRM_MEETINGS[idx]) CRM_MEETINGS[idx][field] = val;
+}
+
+async function saveCRMNotes() {
+  const clientId = document.getElementById('crmClientId').value;
+  const content  = document.getElementById('crmNotesContent').value;
+  const msg  = document.getElementById('crmSaveMsg');
+  const err  = document.getElementById('crmSaveErr');
+  msg.style.display = 'none';
+  err.style.display = 'none';
+
+  try {
+    if (window.IS_DEMO_MODE) {
+      localStorage.setItem(`crm_notes_${clientId}`, JSON.stringify({ content, meetings: CRM_MEETINGS }));
+    } else {
+      const token = sessionStorage.getItem('agent_token') || localStorage.getItem('agent_token');
+      const headers = { 'Content-Type': 'application/json' };
+      if (token && token !== 'demo-token') headers['X-Session-Token'] = token;
+
+      const r = await fetch(`/crm/notes/${clientId}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ content, meetings: CRM_MEETINGS })
+      });
+      if (!r.ok) throw new Error(`שגיאה: ${r.status}`);
+    }
+    msg.style.display = 'block';
+    setTimeout(() => msg.style.display = 'none', 3000);
+  } catch(e) {
+    err.innerHTML = `<i class="fa fa-exclamation-triangle"></i> ${e.message}`;
+    err.style.display = 'block';
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// PDF GENERATOR
+// ════════════════════════════════════════════════════════════
+let PDF_CLIENT_ID = null;
+
+async function openPDFGenerator(clientId, clientName) {
+  PDF_CLIENT_ID = clientId;
+  document.getElementById('pdfClientId').value     = clientId;
+  document.getElementById('pdfClientName').textContent = clientName;
+
+  // Load agent branding
+  const agent = window.CURRENT_AGENT || {};
+  const settings = window.AGENT_SETTINGS || {};
+  const logoUrl   = settings.logo_url || agent.logo_url || '';
+  const agentName = settings.brand_name || agent.name || 'הסוכנות שלי';
+
+  document.getElementById('pdfAgentName').textContent = agentName;
+  const logoEl = document.getElementById('pdfLogoPreview');
+  if (logoUrl) {
+    logoEl.innerHTML = `<img src="${logoUrl}" style="max-width:100%;max-height:100%;object-fit:contain;">`;
+  } else {
+    logoEl.innerHTML = `<i class="fa fa-image" style="color:var(--text-dim);font-size:1.2rem;"></i>`;
+  }
+
+  // Set default title
+  const now = new Date();
+  const monthNames = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+  document.getElementById('pdfReportTitle').value = `דוח תיק השקעות – ${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+  document.getElementById('pdfFooterNote').value  = settings.report_footer || 'לפרטים נוספים פנה/י לסוכן שלך';
+
+  document.getElementById('pdfModal').classList.add('open');
+}
+
+function closePDFModal() {
+  document.getElementById('pdfModal').classList.remove('open');
+}
+
+async function generatePDF() {
+  const clientId      = document.getElementById('pdfClientId').value;
+  const client        = CLIENTS.find(c => c.id === clientId);
+  const reportTitle   = document.getElementById('pdfReportTitle').value || 'דוח תיק השקעות';
+  const footerNote    = document.getElementById('pdfFooterNote').value || '';
+  const includeRisk   = document.getElementById('pdfIncludeRisk').checked;
+  const includeProds  = document.getElementById('pdfIncludeProducts').checked;
+  const includeEvents = document.getElementById('pdfIncludeTimeline').checked;
+
+  const agent    = window.CURRENT_AGENT || {};
+  const settings = window.AGENT_SETTINGS || {};
+  const logoUrl  = settings.logo_url || agent.logo_url || '';
+  const agentName= settings.brand_name || agent.name || '';
+  const brandColor = settings.brand_color || '#1a56db';
+
+  const prods = PRODUCTS_ALL.filter(p => p.client_id === clientId && p.status === 'active');
+  const mvs   = MV_ALL[clientId] || [];
+
+  // Compute totals
+  let totalVal = 0;
+  const prodRows = prods.map(p => {
+    const pMvs = mvs.filter(m => m.product_id === p.id).map(m => m.value).filter(v => v != null);
+    const val  = pMvs.length ? pMvs[pMvs.length-1] : 0;
+    totalVal += val;
+    return { ...p, lastVal: val };
+  });
+
+  const fmt = v => new Intl.NumberFormat('he-IL',{style:'currency',currency:'ILS',maximumFractionDigits:0}).format(v);
+  const today = new Date().toLocaleDateString('he-IL');
+
+  let html = `<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>${reportTitle}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;800&display=swap');
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:Heebo,sans-serif; background:#fff; color:#1a1a2e; font-size:14px; }
+  .page { max-width:800px; margin:0 auto; padding:40px 40px 60px; }
+  .header { display:flex; align-items:center; justify-content:space-between; margin-bottom:32px; padding-bottom:20px; border-bottom:3px solid ${brandColor}; }
+  .logo-area { display:flex; align-items:center; gap:14px; }
+  .logo-area img { max-height:50px; max-width:120px; object-fit:contain; }
+  .agent-name { font-size:1.2rem; font-weight:800; color:${brandColor}; }
+  .report-meta { text-align:left; }
+  .report-meta .title { font-size:1.4rem; font-weight:800; color:#1a1a2e; }
+  .report-meta .date { font-size:.8rem; color:#6b7280; margin-top:4px; }
+  .client-box { background:#f8fafc; border-radius:12px; padding:18px 24px; margin-bottom:28px; display:flex; align-items:center; justify-content:space-between; }
+  .client-box .name { font-size:1.2rem; font-weight:800; }
+  .client-box .total { font-size:1.6rem; font-weight:800; color:${brandColor}; }
+  .client-box .total-label { font-size:.76rem; color:#6b7280; }
+  section { margin-bottom:28px; }
+  section h2 { font-size:1rem; font-weight:700; color:#374151; margin-bottom:12px; padding-bottom:6px; border-bottom:1px solid #e5e7eb; display:flex; align-items:center; gap:8px; }
+  .prod-table { width:100%; border-collapse:collapse; }
+  .prod-table th { text-align:right; font-size:.76rem; font-weight:700; color:#6b7280; padding:8px 12px; border-bottom:2px solid #e5e7eb; }
+  .prod-table td { padding:10px 12px; font-size:.84rem; border-bottom:1px solid #f3f4f6; }
+  .prod-table tr:last-child td { border-bottom:none; }
+  .prod-table .val { font-weight:700; color:${brandColor}; }
+  .prod-color { width:10px; height:10px; border-radius:50%; display:inline-block; margin-left:6px; }
+  .risk-bars { display:flex; gap:8px; }
+  .risk-bar-item { flex:1; }
+  .risk-bar-label { font-size:.72rem; color:#6b7280; margin-bottom:4px; }
+  .risk-bar-track { height:8px; background:#f3f4f6; border-radius:4px; overflow:hidden; }
+  .risk-bar-fill { height:100%; border-radius:4px; }
+  .risk-pct { font-size:.88rem; font-weight:700; margin-top:4px; }
+  .events-list .ev { display:flex; gap:12px; padding:10px 0; border-bottom:1px solid #f3f4f6; }
+  .ev-date { font-size:.76rem; color:#6b7280; min-width:90px; padding-top:2px; }
+  .ev-title { font-size:.86rem; font-weight:600; }
+  .ev-desc { font-size:.76rem; color:#6b7280; margin-top:2px; }
+  .footer { margin-top:40px; padding-top:16px; border-top:1px solid #e5e7eb; display:flex; justify-content:space-between; font-size:.72rem; color:#9ca3af; }
+  @media print {
+    .page { padding:20px; }
+    .no-print { display:none; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <!-- Header -->
+  <div class="header">
+    <div class="logo-area">
+      ${logoUrl ? `<img src="${logoUrl}" alt="logo">` : ''}
+      <div class="agent-name">${agentName}</div>
+    </div>
+    <div class="report-meta">
+      <div class="title">${reportTitle}</div>
+      <div class="date">הופק ב-${today}</div>
+    </div>
+  </div>
+
+  <!-- Client summary -->
+  <div class="client-box">
+    <div>
+      <div class="name">${client?.name || clientId}</div>
+      <div style="font-size:.8rem;color:#6b7280;margin-top:4px;">${prods.length} מוצרים פעילים</div>
+    </div>
+    <div style="text-align:left;">
+      <div class="total">${fmt(totalVal)}</div>
+      <div class="total-label">סך צבירה נוכחית</div>
+    </div>
+  </div>`;
+
+  if (includeProds && prodRows.length) {
+    html += `
+  <section>
+    <h2>📊 מוצרי השקעה</h2>
+    <table class="prod-table">
+      <thead>
+        <tr>
+          <th>מוצר</th>
+          <th>מסלול</th>
+          <th>שווי נוכחי</th>
+          <th>% מהתיק</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${prodRows.map(p => `
+          <tr>
+            <td>
+              <span class="prod-color" style="background:${p.color||brandColor};"></span>
+              ${p.name_short||p.name}
+            </td>
+            <td>${p.track||'—'}</td>
+            <td class="val">${fmt(p.lastVal)}</td>
+            <td>${totalVal ? Math.round((p.lastVal/totalVal)*100)+'%' : '—'}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>
+  </section>`;
+  }
+
+  if (includeRisk && prodRows.length) {
+    // Weighted risk
+    let totEq=0, totBo=0, totAl=0;
+    for (const p of prodRows) {
+      if (!p.lastVal) continue;
+      totEq += (p.risk_equities||0) * p.lastVal / 100;
+      totBo += (p.risk_bonds||0) * p.lastVal / 100;
+      totAl += (p.risk_alternatives||0) * p.lastVal / 100;
+    }
+    const eqPct = totalVal ? Math.round(totEq/totalVal*100) : 0;
+    const boPct = totalVal ? Math.round(totBo/totalVal*100) : 0;
+    const alPct = 100-eqPct-boPct;
+
+    html += `
+  <section>
+    <h2>🛡️ פילוח סיכון</h2>
+    <div class="risk-bars">
+      <div class="risk-bar-item">
+        <div class="risk-bar-label">מניות</div>
+        <div class="risk-bar-track"><div class="risk-bar-fill" style="width:${eqPct}%;background:#3b82f6;"></div></div>
+        <div class="risk-pct" style="color:#3b82f6;">${eqPct}%</div>
+      </div>
+      <div class="risk-bar-item">
+        <div class="risk-bar-label">אג"ח</div>
+        <div class="risk-bar-track"><div class="risk-bar-fill" style="width:${boPct}%;background:#10b981;"></div></div>
+        <div class="risk-pct" style="color:#10b981;">${boPct}%</div>
+      </div>
+      <div class="risk-bar-item">
+        <div class="risk-bar-label">אלטרנטיבי</div>
+        <div class="risk-bar-track"><div class="risk-bar-fill" style="width:${alPct}%;background:#8b5cf6;"></div></div>
+        <div class="risk-pct" style="color:#8b5cf6;">${alPct}%</div>
+      </div>
+    </div>
+  </section>`;
+  }
+
+  if (includeEvents) {
+    const allMvs = mvs.slice(-6);
+    const events = allMvs.filter(e=>e.track).slice(0,8);
+    if (events.length) {
+      html += `
+  <section>
+    <h2>📅 אירועים אחרונים</h2>
+    <div class="events-list">
+      ${events.map(e=>`
+        <div class="ev">
+          <div class="ev-date">${e.month||''}</div>
+          <div>
+            <div class="ev-title">${PRODUCTS_ALL.find(p=>p.id===e.product_id)?.name_short||''} – ${e.track}</div>
+          </div>
+        </div>`).join('')}
+    </div>
+  </section>`;
+    }
+  }
+
+  html += `
+  <!-- Footer -->
+  <div class="footer">
+    <div>${footerNote}</div>
+    <div>הופק ב-${today} | ${agentName}</div>
+  </div>
+</div>
+<script>window.onload=()=>window.print();<\/script>
+</body>
+</html>`;
+
+  // Open in new window for print
+  const w = window.open('', '_blank', 'width=900,height=700');
+  if (w) {
+    w.document.write(html);
+    w.document.close();
+    closePDFModal();
+  } else {
+    alert('לא ניתן לפתוח חלון הדפסה. אפשר חלונות קופצים בדפדפן שלך.');
   }
 }
 </script>
