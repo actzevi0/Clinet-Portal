@@ -1155,11 +1155,21 @@ function renderKPIs(){
 
 function setActiveYear(year){
   ACTIVE_YEAR=year;
+  // Reset RISK_SEL_MONTH to the last available month in the new year
+  const yy = String(year).slice(-2);
+  const yearMonths = MONTHS.filter(m => m.endsWith('/'+yy)).sort((a,b)=>monthToNum(b)-monthToNum(a));
+  if (yearMonths.length) RISK_SEL_MONTH = yearMonths[0];
   renderKPIs();
   renderTable();       // טבלת מוצרים + תשואות
   renderProdCards();   // כרטיסי מוצרים
   renderInsights();    // תובנות
   renderYTDBar();      // גרף YTD בר
+  // אם כרטיסיית סיכון פתוחה — ירנדר מחדש
+  const riskPane=document.getElementById('pane-risk');
+  if(riskPane&&riskPane.classList.contains('active')){
+    if (RISK_MODE==='month') _populateRiskMonthSel();
+    renderRisk();
+  }
   // אם כרטיסיית ביצועים פתוחה — ירנדר מחדש
   const perfPane=document.getElementById('pane-performance');
   if(perfPane&&perfPane.classList.contains('active')){
@@ -2473,13 +2483,96 @@ function renderRisk(){
   document.getElementById('riskModeAvg').className = RISK_MODE==='avg' ? 'btn btn-sm' : 'btn btn-sm btn-secondary';
   document.getElementById('riskModeMonth').className = RISK_MODE==='month' ? 'btn btn-sm' : 'btn btn-sm btn-secondary';
 
-  // Calculate weighted exposure for whole portfolio
+  // ── helper: get the portfolio value of a product relevant to the current mode ──
+  function getValForMode(p) {
+    if (RISK_MODE === 'month') {
+      // Use the value at RISK_SEL_MONTH (exact or nearest-earlier)
+      const sel = RISK_SEL_MONTH;
+      if (sel) {
+        const exact = getVal(p.id, sel);
+        if (exact != null) return exact;
+        // nearest earlier month
+        const sorted = (MV[p.id]||[]).slice().sort((a,b)=>monthToNum(b.month)-monthToNum(a.month));
+        const earlier = sorted.find(r => monthToNum(r.month) <= monthToNum(sel));
+        return earlier ? earlier.value : null;
+      }
+    }
+    if (RISK_MODE === 'avg') {
+      // Use year-end (last month of ACTIVE_YEAR) or latest available in that year
+      const yy = String(ACTIVE_YEAR).slice(-2);
+      const yearRows = (MV[p.id]||[]).filter(r => r.month && r.month.endsWith('/'+yy));
+      if (!yearRows.length) return null; // product had no data this year
+      const last = yearRows.slice().sort((a,b)=>monthToNum(b.month)-monthToNum(a.month))[0];
+      return last ? last.value : null;
+    }
+    // latest mode — but respect ACTIVE_YEAR: use last month of ACTIVE_YEAR
+    const yy = String(ACTIVE_YEAR).slice(-2);
+    const yearRows = (MV[p.id]||[]).filter(r => r.month && r.month.endsWith('/'+yy));
+    if (yearRows.length) {
+      const last = yearRows.slice().sort((a,b)=>monthToNum(b.month)-monthToNum(a.month))[0];
+      return last ? last.value : null;
+    }
+    // if no data for active year, don't include (product not active that year)
+    return null;
+  }
+
+  // ── helper: get risk for product, respecting that product must have data in the period ──
+  function getRiskForMode(p) {
+    if (RISK_MODE === 'month') {
+      const sel = RISK_SEL_MONTH;
+      if (!sel) return null;
+      const mvRows = (MV[p.id]||[]).filter(r => r.risk_equities != null || r.risk_bonds != null || r.risk_alternatives != null);
+      if (!mvRows.length) {
+        // check if product existed at all at that month (any MV row <= sel)
+        const anyRow = (MV[p.id]||[]).slice().sort((a,b)=>monthToNum(b.month)-monthToNum(a.month))
+          .find(r => monthToNum(r.month) <= monthToNum(sel));
+        if (!anyRow) return null; // product didn't exist yet
+        return { eq: p.risk_equities||0, bo: p.risk_bonds||0, al: p.risk_alternatives||0, source:'product' };
+      }
+      // check if product existed at sel
+      const allRows = (MV[p.id]||[]).slice().sort((a,b)=>monthToNum(b.month)-monthToNum(a.month));
+      const existsAtSel = allRows.find(r => monthToNum(r.month) <= monthToNum(sel));
+      if (!existsAtSel) return null; // product didn't exist at selected month
+      const row = mvRows.find(r => r.month === sel);
+      if (row) return { eq: parseFloat(row.risk_equities)||0, bo: parseFloat(row.risk_bonds)||0, al: parseFloat(row.risk_alternatives)||0, source:'month', month: sel };
+      const sorted = [...mvRows].sort((a,b)=>monthToNum(b.month)-monthToNum(a.month));
+      const earlier = sorted.find(r => monthToNum(r.month) <= monthToNum(sel));
+      if (earlier) return { eq: parseFloat(earlier.risk_equities)||0, bo: parseFloat(earlier.risk_bonds)||0, al: parseFloat(earlier.risk_alternatives)||0, source:'month', month: earlier.month };
+      return { eq: p.risk_equities||0, bo: p.risk_bonds||0, al: p.risk_alternatives||0, source:'product' };
+    }
+    // avg / latest — filter to ACTIVE_YEAR
+    const yy = String(ACTIVE_YEAR).slice(-2);
+    const yearMvRows = (MV[p.id]||[]).filter(r => r.month && r.month.endsWith('/'+yy) && (r.risk_equities != null || r.risk_bonds != null || r.risk_alternatives != null));
+    if (!yearMvRows.length) {
+      // check if product had any value row in this year
+      const anyYear = (MV[p.id]||[]).filter(r => r.month && r.month.endsWith('/'+yy));
+      if (!anyYear.length) return null; // product had no data this year at all
+      // use product-level defaults
+      return { eq: p.risk_equities||0, bo: p.risk_bonds||0, al: p.risk_alternatives||0, source:'product' };
+    }
+    if (RISK_MODE === 'avg') {
+      const n = yearMvRows.length;
+      return {
+        eq: yearMvRows.reduce((s,r)=>s+(parseFloat(r.risk_equities)||0),0)/n,
+        bo: yearMvRows.reduce((s,r)=>s+(parseFloat(r.risk_bonds)||0),0)/n,
+        al: yearMvRows.reduce((s,r)=>s+(parseFloat(r.risk_alternatives)||0),0)/n,
+        source:'avg', n
+      };
+    }
+    // latest within ACTIVE_YEAR
+    const last = yearMvRows.slice().sort((a,b)=>monthToNum(b.month)-monthToNum(a.month))[0];
+    return { eq: parseFloat(last.risk_equities)||0, bo: parseFloat(last.risk_bonds)||0, al: parseFloat(last.risk_alternatives)||0, source:'latest', month: last.month };
+  }
+
+  // Calculate weighted exposure — only products active in the selected period
   let totalEquities = 0, totalBonds = 0, totalAlt = 0, totalVal = 0;
   const prodRisks = [];
   let latestMonth = '';
   for (const p of PRODUCTS.filter(q => q.status === 'active')) {
-    const v = getLastVal(p.id) || 0;
-    const risk = getRiskForProduct(p, RISK_MODE);
+    const v = getValForMode(p);
+    if (v == null) continue; // product had no data in this period — skip entirely
+    const risk = getRiskForMode(p);
+    if (!risk) continue;
     const eq = (risk.eq / 100) * v;
     const bo = (risk.bo / 100) * v;
     const al = (risk.al / 100) * v;
@@ -2498,7 +2591,10 @@ function renderRisk(){
   const modeLabel = document.getElementById('riskModeLabel');
   const cardSub = document.getElementById('riskCardSub');
   if (RISK_MODE === 'latest') {
-    const lm = latestMonth ? ` (${_mmyyToHeb(latestMonth)})` : '';
+    // find last month of active year actually used
+    const usedMonths = prodRisks.map(r=>r.risk.month).filter(Boolean);
+    const dispMonth = usedMonths.sort().pop() || latestMonth;
+    const lm = dispMonth ? ` (${_mmyyToHeb(dispMonth)})` : '';
     if (modeLabel) modeLabel.textContent = `נתוני חודש אחרון${lm}`;
     if (cardSub) cardSub.textContent = `חשיפות לפי החודש האחרון${lm}`;
   } else if (RISK_MODE === 'avg') {
@@ -2564,7 +2660,14 @@ function renderRisk(){
 }
 
 function renderRankTable(){
-  const prods = PRODUCTS.filter(p => p.status === 'active' && calcYTD(p, ACTIVE_YEAR) !== null);
+  // Only include products that had data in ACTIVE_YEAR
+  const yy = String(ACTIVE_YEAR).slice(-2);
+  const prods = PRODUCTS.filter(p => {
+    if (p.status !== 'active') return false;
+    if (calcYTD(p, ACTIVE_YEAR) === null) return false;
+    // also must have at least one MV row in that year
+    return (MV[p.id]||[]).some(r => r.month && r.month.endsWith('/'+yy));
+  });
   const sorted = [...prods].sort((a, b) => (calcYTD(b, ACTIVE_YEAR) || 0) - (calcYTD(a, ACTIVE_YEAR) || 0));
   const medals = ['🥇', '🥈', '🥉'];
   document.getElementById('rankBody').innerHTML = sorted.map((p, i) => {
