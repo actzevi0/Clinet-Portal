@@ -1,65 +1,135 @@
-# EasyFinance Dashboard – v4.0
+# EasyFinance Dashboard – v6.0
 
-## סקירה כללית
-פורטל לקוחות לניהול השקעות פיננסיות מרובות-לקוחות.  
-**סטאק**: HTML/CSS/JS + Cloudflare Pages + D1 SQLite + Worker API
+## סקירה
+פלטפורמת ניהול תיקי השקעות מרובה-סוכנים עם אימות, בידוד נתונים, ולוח ניהול Super Admin.
 
-## 🌐 URLs
-| סביבה | כתובת |
+---
+
+## ✅ פיצ'רים שהושלמו
+
+### 🔐 אבטחה ואימות
+- כניסה לאזור סוכן עם שם משתמש + סיסמה (`/admin/login.html`)
+- ניהול סשנים (7 ימים) עם token מאובטח
+- שינוי סיסמה מתוך הגדרות
+- שחזור סיסמה via email (מוכן; בפועל דורש שירות מייל כגון Resend/SendGrid)
+- Auth guard על כל דפי `/admin/*`
+- 2FA: תשתית מוכנה, הפעלה לאחר חיבור SMS/מייל
+
+### 👥 ניהול סוכנים
+- פאנל כניסה ייעודי לסוכנים
+- כל סוכן רואה רק את לקוחותיו שלו (agent_id isolation)
+- יומן כניסות אחרונות בהגדרות
+
+### 📝 הערות CRM
+- כפתור "הערות" בכל כרטיס לקוח
+- שדה הערות חופשי (נסתר מהלקוח לחלוטין)
+- ניהול סיכומי פגישות עם תאריך + סיכום + פעולה הבאה
+
+### 🎨 מיתוג ולוגו
+- העלאת לוגו הסוכנות (base64, עד 500KB)
+- שם סוכנות, צבע ראשי/משני, טקסט תחתית
+- הלוגו מוצג בכותרת ובדוחות PDF
+
+### 📄 מחולל PDF ממותג
+- כפתור "PDF" בכל כרטיס לקוח
+- דוח עם לוגו הסוכן, שם הסוכנות, פרטי לקוח
+- פילוח נכסים משוקלל + פירוט מוצרים + אירועים
+- מימוש: JavaScript → פתיחת חלון הדפסה
+
+### 🛡️ Super Admin Panel (`/admin/superadmin.html`)
+- **אנליטיקה**: סה"כ סוכנים, לקוחות, מוצרים, כניסות אחרונות, פילוח חבילות
+- **ניהול סוכנים**: יצירה, עריכה, חסימה/הפעלה, מחיקה
+- **ניהול מנויים**: Basic (50 לקוחות, 199₪/חודש), Pro (ללא הגבלה, 499₪/חודש)
+- **יומן פעולות**: מלא עם סינון לפי סוכן
+- **Impersonation**: כניסה בשם סוכן לצורך תמיכה טכנית
+
+### 🗄️ Schema v6 (D1)
+- `agents` – רישום סוכנים
+- `agent_sessions` – ניהול סשנים
+- `agent_settings` – הגדרות מיתוג per-agent
+- `audit_log` – כל הפעולות מתועדות
+- `crm_notes` – הערות per client per agent
+- `clients`, `products`, `monthly_values`, `timeline_events` – עם agent_id isolation
+
+---
+
+## 🔗 URLs
+
+| דף | URL |
 |---|---|
-| **Production** | https://dashboard.easyfinance.co.il |
-| **Dashboard לקוח** | /dashboard.html?client={id} |
-| **Admin Panel** | /admin/ |
-| **Deploy Helper** | /deploy-helper.html |
+| פורטל לקוחות | `/index.html` |
+| דשבורד לקוח | `/dashboard.html?client={id}` |
+| **כניסה לסוכן** | `/admin/login.html` |
+| **ממשק ניהול** | `/admin/index.html` |
+| עדכון חודשי | `/admin/monthly-update.html` |
+| **הגדרות סוכן** | `/admin/settings.html` |
+| **Super Admin** | `/admin/superadmin.html` |
 
-## 🆕 מה חדש בגרסה 4.0
-- ✅ Tooltips להסברת מונחים (YTD, תשואה מנורמלת, מדד יעילות)
-- ✅ תצוגת מובייל: כרטיסי מוצרים במקום טבלאות
-- ✅ כפתור WhatsApp צף (מוגדר לכל לקוח בנפרד)
-- ✅ שיתוף ביצועים: גרף אחוזים, גרף תיק, סטורי (בלי מספרים)
-- ✅ יעדים ומטרות (Goals) עם סרגל התקדמות
-- ✅ סימולציית "מה אם?" עם גרף צמיחה
-- ✅ תובנות אישיות (Personal Insights) מהיועץ ללקוח
-- ✅ התראות עדכונים (פעמון) ללקוח
-- ✅ פילוח סיכון: עוגה + בארים לפי מוצר + טבלת דירוג
-- ✅ ייצוא PDF + Excel/CSV
-- ✅ פאנל הגדרות לקוח ביועץ (כל הפיצ'רים toggle per-client)
+---
 
-## 🏗️ ארכיטקטורה
+## 🔑 כניסה ראשונית (Demo)
+
+| Email | Password | תפקיד |
+|---|---|---|
+| `admin@easyfinance.co.il` | `Admin@12345` | Super Admin |
+| `david@demo.co.il` | `Admin@12345` | Agent (Pro) |
+| `sara@demo.co.il` | `Admin@12345` | Agent (Basic) |
+
+⚠️ **שנה את הסיסמאות מיד לאחר העלייה לאוויר!**
+
+---
+
+## 📐 ארכיטקטורה
+
 ```
-index.html          ← דף כניסה (login)
-dashboard.html      ← דשבורד לקוח (5+ טאבים)
-admin/
-  index.html        ← ניהול לקוחות + הגדרות
-  monthly-update    ← עדכון נתונים חודשי
-  credentials       ← ניהול סיסמאות
-  edit              ← עריכת מוצרים מפורטת
-_worker.js          ← Cloudflare Worker API (CRUD על D1)
-schema.sql          ← DB schema מלא v4.0
-migrate_v4.sql      ← Migration מ-v3.0 ל-v4.0
+Cloudflare Pages + Workers
+├── _worker.js          ← API: /auth/*, /tables/*, /admin/*, /agent/*, /crm/*
+├── admin/
+│   ├── login.html      ← כניסת סוכן
+│   ├── index.html      ← ניהול לקוחות + CRM notes + PDF
+│   ├── monthly-update  ← עדכון חודשי
+│   ├── settings.html   ← הגדרות סוכן
+│   └── superadmin.html ← ניהול פלטפורמה
+├── js/agent-auth.js    ← Auth guard (shared)
+├── dashboard.html      ← דשבורד לקוח
+└── schema.sql          ← D1 Schema v6
 ```
 
-## 📊 מבנה DB (D1)
-| טבלה | שדות עיקריים |
-|---|---|
-| `clients` | id, name, whatsapp_phone, enable_goals, goals_json, enable_whatif, enable_insights, insights_json, enable_notifications |
-| `products` | id, client_id, risk_equities, risk_bonds, risk_alternatives, color, ytd_start_value |
-| `monthly_values` | id, client_id, product_id, month (MM/YY), value |
-| `timeline_events` | id, client_id, product_id, event_date, event_type, amount |
+---
 
-## 🚀 פרסום לפרודקשן
-1. הרץ `migrate_v4.sql` ב-Cloudflare D1 Console
-2. הורד את הקבצים מהסנדבוקס
-3. `wrangler pages deploy . --project-name=easyfinance-dashboard`
-4. ודא כי הדומיין `dashboard.easyfinance.co.il` מצביע נכון
+## 🚀 הפעלה מקומית
 
-ראה הוראות מפורטות ב-`deploy-helper.html`
+```bash
+cd /home/user/webapp
 
-## 🔑 לוגיקת YTD
-- שנת 2025 (REPORT_YEAR): פתיחה = `ytd_start_value` (ידני)
-- שנות עוקבות: פתיחה = דצמבר שנה קודמת
-- `exclude_open=true`: מוצר לא נכנס לסכום הפתיחה (ניוד/חשבון חדש)
+# יצירת DB
+npx wrangler d1 execute easyfinance-db --local --file=schema.sql
 
-## 📅 History
-- v3.0 (אפריל 2026) – גרסה ראשונה בפרודקשן
-- v4.0 (אפריל 2026) – שדרוג מקיף: goals, what-if, insights, notifications, risk, PDF/Excel export
+# הפעלת שרת
+pm2 start ecosystem.config.cjs
+
+# כתובת: http://localhost:3000
+```
+
+---
+
+## ⏳ בפיתוח (עתידי)
+
+- [ ] שליחת מייל איפוס סיסמה (Resend/SendGrid)
+- [ ] 2FA SMS/TOTP
+- [ ] White Label – חיבור דומיין מותאם
+- [ ] חנות תוספות (App Store)
+- [ ] חיבור למסלקה לייבוא אוטומטי
+- [ ] שליחת דוחות WhatsApp אוטומטית
+
+---
+
+## 🛠️ Tech Stack
+
+- **Runtime**: Cloudflare Workers + Pages
+- **DB**: Cloudflare D1 (SQLite)
+- **Auth**: SHA-256 + session tokens
+- **Frontend**: Vanilla JS + Tailwind-like CSS
+- **PDF**: JavaScript → Browser Print API
+
+**Last Updated**: 2026-04-11 | Version: 6.0
