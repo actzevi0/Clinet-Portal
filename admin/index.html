@@ -59,6 +59,28 @@
   .settings-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px; margin-bottom: 14px; }
   .settings-card.enabled { border-color: rgba(26,86,219,0.35); background: rgba(26,86,219,0.04); }
   .settings-expand { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+
+  /* ── Visual Goals / Insights Builder ── */
+  .builder-row { background: var(--bg-card2); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; position: relative; }
+  .builder-row-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .builder-row-num { width: 22px; height: 22px; border-radius: 50%; background: rgba(26,86,219,0.15); color: var(--primary-light); font-size: 0.72rem; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .builder-row-title { flex: 1; font-weight: 600; font-size: 0.85rem; }
+  .builder-remove-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 2px 6px; border-radius: 4px; font-size: 0.82rem; transition: color 0.15s; }
+  .builder-remove-btn:hover { color: #ef4444; background: rgba(239,68,68,0.1); }
+  .builder-fields { display: grid; gap: 8px; }
+  .builder-fields.g2 { grid-template-columns: 1fr 1fr; }
+  .builder-fields.g3 { grid-template-columns: 1fr 1fr 1fr; }
+  .builder-field { display: flex; flex-direction: column; gap: 3px; }
+  .builder-field label { font-size: 0.7rem; color: var(--text-muted); font-weight: 600; }
+  .builder-field input, .builder-field textarea, .builder-field select { padding: 6px 9px; border: 1.5px solid var(--border); border-radius: 5px; background: var(--bg-card); color: var(--text); font-family: Heebo, sans-serif; font-size: 0.83rem; width: 100%; box-sizing: border-box; }
+  .builder-field input:focus, .builder-field textarea:focus { outline: none; border-color: var(--primary); }
+  .builder-field textarea { resize: vertical; min-height: 56px; }
+  .icon-preview { display: inline-block; width: 22px; height: 22px; background: rgba(26,86,219,0.12); border-radius: 5px; text-align: center; line-height: 22px; font-size: 0.9rem; margin-right: 6px; }
+  .linked-badge { font-size: 0.72rem; padding: 2px 8px; border-radius: 8px; background: rgba(5,150,105,0.12); color: #059669; font-weight: 600; }
+  .goal-icon-select { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+  .goal-icon-opt { width: 32px; height: 32px; border: 2px solid var(--border); border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.9rem; transition: all 0.15s; }
+  .goal-icon-opt:hover { border-color: var(--primary); background: rgba(26,86,219,0.08); }
+  .goal-icon-opt.selected { border-color: var(--primary); background: rgba(26,86,219,0.15); }
 </style>
 </head>
 <body>
@@ -530,10 +552,13 @@ loadClients();
         </label>
       </div>
       <div id="goalsJsonWrap" class="settings-expand">
-        <label class="form-label">הגדרת יעדים <span style="color:var(--text-dim);font-weight:400;">(JSON)</span></label>
-        <textarea id="settingsGoalsJson" class="form-control" rows="5" dir="ltr" style="font-family:monospace;font-size:0.78rem;"
-          placeholder='[{"name":"פרישה","target_amount":2000000,"icon":"fa-umbrella-beach","description":"גיל 65","linked_to_portfolio":true}]'></textarea>
-        <p class="form-hint"><i class="fa fa-info-circle" style="margin-left:4px;"></i>שדות: name, target_amount, icon (FontAwesome class), description, linked_to_portfolio, current_amount</p>
+        <!-- Visual Goals Builder -->
+        <div id="goalsBuilderWrap" style="margin-bottom:10px;"></div>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="addGoalRow()" style="margin-bottom:8px;">
+          <i class="fa fa-plus"></i> הוסף יעד
+        </button>
+        <!-- Hidden JSON textarea (synced automatically) -->
+        <textarea id="settingsGoalsJson" style="display:none;"></textarea>
       </div>
     </div>
 
@@ -544,7 +569,7 @@ loadClients();
           <i class="fa fa-magic" style="background:rgba(139,92,246,0.15);color:#8b5cf6;"></i>
           <div>
             <div>סימולטור "מה אם?"</div>
-            <div style="font-size:0.75rem;font-weight:400;color:var(--text-muted);">חישוב צמיחה עתידית עם הפקדות חודשיות</div>
+            <div style="font-size:0.75rem;font-weight:400;color:var(--text-muted);">חישוב צמיחה עתידית עם הפקדות חד-פעמיות וחודשיות</div>
           </div>
         </div>
         <label class="settings-toggle-label">
@@ -576,10 +601,13 @@ loadClients();
         </label>
       </div>
       <div id="insightsJsonWrap" class="settings-expand">
-        <label class="form-label">תובנות אישיות <span style="color:var(--text-dim);font-weight:400;">(JSON)</span></label>
-        <textarea id="settingsInsightsJson" class="form-control" rows="4" dir="ltr" style="font-family:monospace;font-size:0.78rem;"
-          placeholder='[{"text":"מנחם, שים לב שהחשיפה למדד S&P500 עלתה...","date":"אפריל 2026"}]'></textarea>
-        <p class="form-hint"><i class="fa fa-info-circle" style="margin-left:4px;"></i>שדות: text (חובה), date (אופציונלי – שנה/חודש)</p>
+        <!-- Visual Insights Builder -->
+        <div id="insightsBuilderWrap" style="margin-bottom:10px;"></div>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="addInsightRow()" style="margin-bottom:8px;">
+          <i class="fa fa-plus"></i> הוסף תובנה
+        </button>
+        <!-- Hidden JSON textarea (synced automatically) -->
+        <textarea id="settingsInsightsJson" style="display:none;"></textarea>
       </div>
     </div>
 
@@ -639,6 +667,8 @@ async function openClientSettings(clientId) {
   document.getElementById('goalsJsonWrap').style.display = goalsEnabled ? '' : 'none';
   if (goalsEnabled) document.getElementById('goalsCard').classList.add('enabled');
   else document.getElementById('goalsCard').classList.remove('enabled');
+  // Render goals builder
+  renderGoalsBuilder();
 
   // What-If
   const whatifEnabled = !!SETTINGS_CLIENT.enable_whatif;
@@ -653,6 +683,8 @@ async function openClientSettings(clientId) {
   document.getElementById('insightsJsonWrap').style.display = insightsEnabled ? '' : 'none';
   if (insightsEnabled) document.getElementById('insightsCard').classList.add('enabled');
   else document.getElementById('insightsCard').classList.remove('enabled');
+  // Render insights builder
+  renderInsightsBuilder();
 
   // Risk
   renderRiskProductFields();
@@ -687,6 +719,203 @@ function toggleInsightsField() {
   const checked = document.getElementById('settingsInsights').checked;
   document.getElementById('insightsJsonWrap').style.display = checked ? '' : 'none';
   updateCardStyle('insightsCard', 'settingsInsights');
+}
+
+// ═══════════════════════════════════════════════════════════
+// GOALS VISUAL BUILDER
+// ═══════════════════════════════════════════════════════════
+const GOAL_ICONS = [
+  { icon:'fa-umbrella-beach', label:'פרישה' },
+  { icon:'fa-home', label:'דירה' },
+  { icon:'fa-graduation-cap', label:'לימודים' },
+  { icon:'fa-car', label:'רכב' },
+  { icon:'fa-plane', label:'נסיעה' },
+  { icon:'fa-shield-alt', label:'ביטוח' },
+  { icon:'fa-piggy-bank', label:'חסכון' },
+  { icon:'fa-heart', label:'אחר' },
+];
+
+let _goalsData = [];
+
+function renderGoalsBuilder() {
+  try { _goalsData = JSON.parse(document.getElementById('settingsGoalsJson').value || '[]'); }
+  catch(e) { _goalsData = []; }
+  _renderGoalsUI();
+}
+
+function _renderGoalsUI() {
+  const wrap = document.getElementById('goalsBuilderWrap');
+  if (!_goalsData.length) {
+    wrap.innerHTML = '<p style="color:var(--text-dim);font-size:0.82rem;text-align:center;padding:8px 0;"><i class="fa fa-bullseye" style="margin-left:6px;"></i>אין יעדים. לחץ "הוסף יעד" להתחלה.</p>';
+    return;
+  }
+  wrap.innerHTML = _goalsData.map((g, i) => {
+    const iconHtml = g.icon ? `<i class="fa ${g.icon}"></i>` : '🎯';
+    const iconsRow = GOAL_ICONS.map(opt => `
+      <div class="goal-icon-opt ${g.icon===opt.icon?'selected':''}" 
+           onclick="_setGoalIcon(${i},'${opt.icon}')" title="${opt.label}">
+        <i class="fa ${opt.icon}" style="font-size:0.8rem;"></i>
+      </div>`).join('');
+    return `
+    <div class="builder-row" id="goal-row-${i}">
+      <div class="builder-row-header">
+        <div class="builder-row-num">${i+1}</div>
+        <div class="builder-row-title">${g.name||'יעד חדש'}</div>
+        <button class="builder-remove-btn" onclick="_removeGoal(${i})" title="מחק יעד"><i class="fa fa-trash"></i></button>
+      </div>
+      <div class="builder-fields g2" style="margin-bottom:8px;">
+        <div class="builder-field">
+          <label>שם היעד *</label>
+          <input type="text" value="${_esc(g.name||'')}" placeholder="פרישה בגיל 65" 
+                 oninput="_updateGoal(${i},'name',this.value)">
+        </div>
+        <div class="builder-field">
+          <label>סכום יעד (₪)</label>
+          <input type="number" value="${g.target_amount||''}" placeholder="2000000" min="0" step="1000"
+                 oninput="_updateGoal(${i},'target_amount',+this.value)">
+        </div>
+      </div>
+      <div class="builder-fields g2" style="margin-bottom:8px;">
+        <div class="builder-field">
+          <label>תיאור (אופציונלי)</label>
+          <input type="text" value="${_esc(g.description||'')}" placeholder="גיל 65, חיסכון לדרך"
+                 oninput="_updateGoal(${i},'description',this.value)">
+        </div>
+        <div class="builder-field">
+          <label>יתרה נוכחית (₪) – אם לא מקושר לתיק</label>
+          <input type="number" value="${g.current_amount!=null?g.current_amount:''}" placeholder="לא חובה" min="0"
+                 oninput="_updateGoal(${i},'current_amount',this.value===''?null:+this.value)">
+        </div>
+      </div>
+      <div class="builder-field" style="margin-bottom:8px;">
+        <label>מקושר לתיק ההשקעות? (היתרה מחושבת אוטומטית)</label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-top:4px;">
+          <input type="checkbox" ${g.linked_to_portfolio?'checked':''} 
+                 onchange="_updateGoal(${i},'linked_to_portfolio',this.checked)">
+          <span style="font-size:0.82rem;">${g.linked_to_portfolio?'<span class="linked-badge">מקושר לתיק</span>':'כן – ערך התיק ישמש כיתרה'}</span>
+        </label>
+      </div>
+      <div class="builder-field">
+        <label>אייקון</label>
+        <div class="goal-icon-select">${iconsRow}</div>
+      </div>
+    </div>`;
+  }).join('');
+  _syncGoalsJson();
+}
+
+function _setGoalIcon(i, icon) {
+  _goalsData[i].icon = icon;
+  _renderGoalsUI();
+}
+function _removeGoal(i) {
+  _goalsData.splice(i, 1);
+  _renderGoalsUI();
+}
+function _updateGoal(i, field, val) {
+  _goalsData[i][field] = val;
+  // Update title in header
+  const titleEl = document.querySelector(`#goal-row-${i} .builder-row-title`);
+  if (titleEl && field === 'name') titleEl.textContent = val || 'יעד חדש';
+  _syncGoalsJson();
+}
+function addGoalRow() {
+  _goalsData.push({ name:'', target_amount:0, icon:'fa-bullseye', description:'', linked_to_portfolio:false });
+  _renderGoalsUI();
+}
+function _syncGoalsJson() {
+  document.getElementById('settingsGoalsJson').value = JSON.stringify(_goalsData);
+}
+
+// ═══════════════════════════════════════════════════════════
+// INSIGHTS VISUAL BUILDER
+// ═══════════════════════════════════════════════════════════
+let _insightsData = [];
+
+function renderInsightsBuilder() {
+  try { _insightsData = JSON.parse(document.getElementById('settingsInsightsJson').value || '[]'); }
+  catch(e) { _insightsData = []; }
+  _renderInsightsUI();
+}
+
+const INSIGHT_ICONS = [
+  { icon:'fa-info-circle', color:'#3b82f6' },
+  { icon:'fa-exclamation-triangle', color:'#f59e0b' },
+  { icon:'fa-check-circle', color:'#059669' },
+  { icon:'fa-lightbulb', color:'#8b5cf6' },
+  { icon:'fa-chart-line', color:'#1a56db' },
+  { icon:'fa-star', color:'#f59e0b' },
+];
+
+function _renderInsightsUI() {
+  const wrap = document.getElementById('insightsBuilderWrap');
+  if (!_insightsData.length) {
+    wrap.innerHTML = '<p style="color:var(--text-dim);font-size:0.82rem;text-align:center;padding:8px 0;"><i class="fa fa-lightbulb" style="margin-left:6px;"></i>אין תובנות. לחץ "הוסף תובנה" להתחלה.</p>';
+    return;
+  }
+  wrap.innerHTML = _insightsData.map((ins, i) => {
+    const iconsRow = INSIGHT_ICONS.map(opt => `
+      <div class="goal-icon-opt ${ins.icon===opt.icon?'selected':''}" 
+           onclick="_setInsightIcon(${i},'${opt.icon}')" title="${opt.icon}">
+        <i class="fa ${opt.icon}" style="font-size:0.8rem;color:${opt.color};"></i>
+      </div>`).join('');
+    return `
+    <div class="builder-row" id="insight-row-${i}">
+      <div class="builder-row-header">
+        <div class="builder-row-num">${i+1}</div>
+        <div class="builder-row-title" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px;">${_esc(ins.text||'תובנה חדשה').substring(0,40)}${ins.text&&ins.text.length>40?'...':''}</div>
+        <button class="builder-remove-btn" onclick="_removeInsight(${i})" title="מחק"><i class="fa fa-trash"></i></button>
+      </div>
+      <div class="builder-fields" style="margin-bottom:8px;">
+        <div class="builder-field">
+          <label>טקסט התובנה *</label>
+          <textarea placeholder="מנחם, שים לב שהחשיפה למדד S&P500 עלתה בחודש האחרון..."
+                    oninput="_updateInsight(${i},'text',this.value)">${_esc(ins.text||'')}</textarea>
+        </div>
+      </div>
+      <div class="builder-fields g2" style="margin-bottom:8px;">
+        <div class="builder-field">
+          <label>תאריך / חודש (אופציונלי)</label>
+          <input type="text" value="${_esc(ins.date||'')}" placeholder="אפריל 2026"
+                 oninput="_updateInsight(${i},'date',this.value)">
+        </div>
+        <div class="builder-field">
+          <label>אייקון</label>
+          <div class="goal-icon-select" style="margin-top:4px;">${iconsRow}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  _syncInsightsJson();
+}
+
+function _setInsightIcon(i, icon) {
+  _insightsData[i].icon = icon;
+  _renderInsightsUI();
+}
+function _removeInsight(i) {
+  _insightsData.splice(i, 1);
+  _renderInsightsUI();
+}
+function _updateInsight(i, field, val) {
+  _insightsData[i][field] = val;
+  if (field === 'text') {
+    const titleEl = document.querySelector(`#insight-row-${i} .builder-row-title`);
+    if (titleEl) titleEl.textContent = val ? val.substring(0,40)+(val.length>40?'...':'') : 'תובנה חדשה';
+  }
+  _syncInsightsJson();
+}
+function addInsightRow() {
+  _insightsData.push({ text:'', date:'', icon:'fa-info-circle' });
+  _renderInsightsUI();
+}
+function _syncInsightsJson() {
+  document.getElementById('settingsInsightsJson').value = JSON.stringify(_insightsData);
+}
+
+// Helper: escape HTML
+function _esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 function renderRiskProductFields() {

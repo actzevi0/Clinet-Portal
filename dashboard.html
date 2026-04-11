@@ -500,6 +500,14 @@ tbody tr:last-child td{border-bottom:none;}
             <span id="wiDepositVal" style="font-weight:700;min-width:60px;text-align:left;">0 ₪</span>
           </div>
         </div>
+        <!-- הפקדה חד-פעמית -->
+        <div class="form-group">
+          <label class="card-sub">הפקדה חד-פעמית (שקלים)</label>
+          <div style="display:flex;align-items:center;gap:12px;margin-top:6px;">
+            <input type="range" class="whatif-slider" id="wiLumpSum" min="0" max="500000" step="5000" value="0" oninput="calcWhatIf()">
+            <span id="wiLumpSumVal" style="font-weight:700;min-width:70px;text-align:left;">0 ₪</span>
+          </div>
+        </div>
         <div class="form-group">
           <label class="card-sub">תקופת השקעה (שנים)</label>
           <div style="display:flex;align-items:center;gap:12px;margin-top:6px;">
@@ -527,12 +535,19 @@ tbody tr:last-child td{border-bottom:none;}
 
   <!-- RISK (סיכון) -->
   <div class="tab-pane" id="pane-risk">
+    <!-- Risk mode toggle -->
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
+      <span style="font-size:0.82rem;color:var(--text-muted);font-weight:600;">הצג לפי:</span>
+      <button class="btn btn-sm" id="riskModeLatest" onclick="setRiskMode('latest')" style="font-size:0.78rem;padding:4px 12px;">חודש אחרון</button>
+      <button class="btn btn-sm btn-secondary" id="riskModeAvg" onclick="setRiskMode('avg')" style="font-size:0.78rem;padding:4px 12px;">ממוצע שנתי</button>
+      <span id="riskModeLabel" style="font-size:0.78rem;color:var(--text-muted);margin-right:4px;"></span>
+    </div>
     <div class="g2">
       <div class="card">
         <div class="card-hdr">
           <div>
             <div class="card-title"><i class="fa fa-chart-pie" style="color:var(--primary);margin-left:6px;"></i>פילוח רמת סיכון – כלל התיק</div>
-            <div class="card-sub">חשיפות למניות / אג"ח / נכסים לא סחירים</div>
+            <div class="card-sub" id="riskCardSub">חשיפות למניות / אג"ח / נכסים לא סחירים</div>
           </div>
         </div>
         <div style="position:relative;height:220px;margin-bottom:16px;"><canvas id="riskPieChart"></canvas></div>
@@ -2014,32 +2029,36 @@ function renderWhatIf(){
 let wiChartInst = null;
 function calcWhatIf(){
   const deposit = parseFloat(document.getElementById('wiDeposit').value) || 0;
+  const lumpSum = parseFloat(document.getElementById('wiLumpSum').value) || 0;
   const years = parseInt(document.getElementById('wiYears').value) || 10;
   const rate = parseFloat(document.getElementById('wiRate').value) / 100;
   const monthlyRate = Math.pow(1 + rate, 1/12) - 1;
 
   document.getElementById('wiDepositVal').textContent = deposit.toLocaleString('he-IL') + ' ₪';
+  document.getElementById('wiLumpSumVal').textContent = lumpSum.toLocaleString('he-IL') + ' ₪';
   document.getElementById('wiYearsVal').textContent = years;
   document.getElementById('wiRateVal').textContent = (rate * 100).toFixed(1) + '%';
 
   const totalVal = PRODUCTS.filter(p => p.status === 'active').reduce((s, p2) => s + (getLastVal(p2.id) || 0), 0);
   const months = years * 12;
 
-  // ריבית דריבית
-  let balance = totalVal;
-  const series = [{ x: 0, y: totalVal }];
+  // ריבית דריבית עם הפקדה חד-פעמית בהתחלה + הפקדה חודשית
+  let balance = totalVal + lumpSum;
+  const series = [{ x: 0, y: totalVal + lumpSum }];
   for (let m = 1; m <= months; m++) {
     balance = balance * (1 + monthlyRate) + deposit;
     if (m % 12 === 0) series.push({ x: m / 12, y: Math.round(balance) });
   }
-  const finalVal = series[series.length - 1]?.y || totalVal;
-  const gain = finalVal - totalVal - deposit * months;
+  const finalVal = series[series.length - 1]?.y || (totalVal + lumpSum);
+  const totalDeposited = deposit * months + lumpSum;
+  const gain = finalVal - totalVal - totalDeposited;
 
   document.getElementById('wiResult').innerHTML = `
     <div class="big">${ILSc(finalVal)}</div>
     <div class="sub">צפוי בעוד ${years} שנים בתשואה שנתית ${(rate * 100).toFixed(1)}%</div>
-    <div style="margin-top:8px;display:flex;gap:16px;justify-content:center;font-size:0.8rem;">
+    <div style="margin-top:8px;display:flex;gap:16px;justify-content:center;font-size:0.8rem;flex-wrap:wrap;">
       <span style="color:var(--text-muted);"><b>תחילתי: ${ILSc(totalVal)}</b></span>
+      ${lumpSum > 0 ? `<span style="color:#8b5cf6;"><b>+ חד-פעמי: ${ILSc(lumpSum)}</b></span>` : ''}
       ${deposit > 0 ? `<span style="color:var(--primary-light);"><b>הפקדות: ${ILSc(deposit * months)}</b></span>` : ''}
       <span style="color:var(--success);"><b>רווח: ${ILSc(gain)}</b></span>
     </div>`;
@@ -2112,24 +2131,82 @@ function renderInsights(){
 const RISK_COLORS = { equities: '#1a56db', bonds: '#10b981', alternatives: '#f59e0b' };
 const RISK_LABELS = { equities: 'מניות', bonds: 'אג"ח', alternatives: 'נכסים לא סחירים' };
 
+let RISK_MODE = 'latest'; // 'latest' or 'avg'
+
+function setRiskMode(mode){
+  RISK_MODE = mode;
+  document.getElementById('riskModeLatest').className = 'btn btn-sm' + (mode==='latest'?' ':'  btn-secondary');
+  document.getElementById('riskModeAvg').className = 'btn btn-sm' + (mode==='avg'?' ':'  btn-secondary');
+  renderRisk();
+}
+
+// Get risk percentages for a product from monthly_values
+// mode: 'latest' = use latest month's MV risk, 'avg' = average over ACTIVE_YEAR months
+function getRiskForProduct(p, mode){
+  const mvRows = (MV[p.id] || []).filter(r => r.risk_equities != null || r.risk_bonds != null || r.risk_alternatives != null);
+  if (!mvRows.length) {
+    // Fallback: use product-level risk
+    return { eq: p.risk_equities||0, bo: p.risk_bonds||0, al: p.risk_alternatives||0, source:'product' };
+  }
+  if (mode === 'avg') {
+    // Average over months in ACTIVE_YEAR
+    const yearRows = mvRows.filter(r => r.month && r.month.endsWith('/'+String(ACTIVE_YEAR).slice(-2)));
+    const rows = yearRows.length ? yearRows : mvRows;
+    const n = rows.length;
+    const eq = rows.reduce((s,r)=>s+(parseFloat(r.risk_equities)||0),0)/n;
+    const bo = rows.reduce((s,r)=>s+(parseFloat(r.risk_bonds)||0),0)/n;
+    const al = rows.reduce((s,r)=>s+(parseFloat(r.risk_alternatives)||0),0)/n;
+    return { eq, bo, al, source:'avg', n };
+  } else {
+    // Latest month
+    const sorted = [...mvRows].sort((a,b)=>b.month.localeCompare(a.month));
+    const latest = sorted[0];
+    return {
+      eq: parseFloat(latest.risk_equities)||0,
+      bo: parseFloat(latest.risk_bonds)||0,
+      al: parseFloat(latest.risk_alternatives)||0,
+      source:'latest', month: latest.month
+    };
+  }
+}
+
 function renderRisk(){
-  // חשב חשיפות משוקללת לכל התיק
+  // Update mode buttons appearance
+  document.getElementById('riskModeLatest').className = 'btn btn-sm' + (RISK_MODE==='latest' ? '' : ' btn-secondary');
+  document.getElementById('riskModeAvg').className = 'btn btn-sm' + (RISK_MODE==='avg' ? '' : ' btn-secondary');
+
+  // Calculate weighted exposure for whole portfolio
   let totalEquities = 0, totalBonds = 0, totalAlt = 0, totalVal = 0;
   const prodRisks = [];
+  let latestMonth = '';
   for (const p of PRODUCTS.filter(q => q.status === 'active')) {
     const v = getLastVal(p.id) || 0;
-    const eq = ((p.risk_equities || 0) / 100) * v;
-    const bo = ((p.risk_bonds || 0) / 100) * v;
-    const al = ((p.risk_alternatives || 0) / 100) * v;
+    const risk = getRiskForProduct(p, RISK_MODE);
+    const eq = (risk.eq / 100) * v;
+    const bo = (risk.bo / 100) * v;
+    const al = (risk.al / 100) * v;
     totalEquities += eq;
     totalBonds += bo;
     totalAlt += al;
     totalVal += v;
-    prodRisks.push({ p, v, eq, bo, al });
+    if (risk.source === 'latest' && risk.month > latestMonth) latestMonth = risk.month;
+    prodRisks.push({ p, v, eq, bo, al, risk });
   }
   const eqPct = totalVal ? totalEquities / totalVal * 100 : 0;
   const boPct = totalVal ? totalBonds / totalVal * 100 : 0;
   const alPct = totalVal ? totalAlt / totalVal * 100 : 0;
+
+  // Update mode label
+  const modeLabel = document.getElementById('riskModeLabel');
+  const cardSub = document.getElementById('riskCardSub');
+  if (RISK_MODE === 'latest') {
+    const lm = latestMonth ? ` (${latestMonth})` : '';
+    if (modeLabel) modeLabel.textContent = `נתוני חודש אחרון${lm}`;
+    if (cardSub) cardSub.textContent = `חשיפות לפי החודש האחרון${lm}`;
+  } else {
+    if (modeLabel) modeLabel.textContent = `ממוצע ${ACTIVE_YEAR}`;
+    if (cardSub) cardSub.textContent = `חשיפות ממוצע שנתי ${ACTIVE_YEAR}`;
+  }
 
   // עוגת כלל
   destroyChart('riskPie');
@@ -2157,15 +2234,18 @@ function renderRisk(){
 
   // בארים לפי מוצר
   const barsEl = document.getElementById('riskBars');
-  if (!prodRisks.some(r => r.p.risk_equities || r.p.risk_bonds || r.p.risk_alternatives)) {
+  const hasAnyRisk = prodRisks.some(r => r.risk.eq || r.risk.bo || r.risk.al);
+  if (!hasAnyRisk) {
     barsEl.innerHTML = '<div style="color:var(--text-dim);font-size:0.82rem;padding:12px 0;">אחוזי חשיפות לא הוגדרו עדיין. הגדר בפאנל היועץ.</div>';
   } else {
     barsEl.innerHTML = prodRisks.map(r => {
-      const eP = r.v ? (r.eq / r.v * 100).toFixed(0) : 0;
-      const bP = r.v ? (r.bo / r.v * 100).toFixed(0) : 0;
-      const aP = r.v ? (r.al / r.v * 100).toFixed(0) : 0;
+      const eP = r.risk.eq.toFixed(0);
+      const bP = r.risk.bo.toFixed(0);
+      const aP = r.risk.al.toFixed(0);
+      const srcBadge = r.risk.source === 'product' ?
+        `<span style="font-size:0.65rem;color:var(--text-muted);margin-right:4px;" title="נתוני מוצר (אין נתוני חודש)">(ברירת מחדל)</span>` : '';
       return `<div class="risk-bar-row">
-        <div class="risk-bar-label" title="${r.p.name}">${r.p.name_short}</div>
+        <div class="risk-bar-label" title="${r.p.name}">${r.p.name_short}${srcBadge}</div>
         <div class="risk-bar-track">
           <div class="risk-seg" style="width:${eP}%;background:${RISK_COLORS.equities};"></div>
           <div class="risk-seg" style="width:${bP}%;background:${RISK_COLORS.bonds};"></div>
@@ -2186,7 +2266,8 @@ function renderRankTable(){
   const medals = ['🥇', '🥈', '🥉'];
   document.getElementById('rankBody').innerHTML = sorted.map((p, i) => {
     const ytd = calcYTD(p, ACTIVE_YEAR);
-    const eq = p.risk_equities || 0;
+    const riskForRank = getRiskForProduct(p, RISK_MODE);
+    const eq = riskForRank.eq || 0;
     const efficiency = eq > 0 ? ((ytd || 0) * 100 / eq).toFixed(2) : null;
     const months = MONTHS.filter(m => getVal(p.id, m) != null);
     const measureMonths = months.length;

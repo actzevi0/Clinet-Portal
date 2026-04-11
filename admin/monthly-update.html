@@ -60,6 +60,27 @@
 .chg-neu{background:var(--border);color:var(--text-muted);}
 .row-status{width:20px;text-align:center;}
 
+/* ═══ Risk + Track expand row ═══ */
+.risk-expand-row td{padding:0;border-bottom:1px solid var(--border);background:var(--bg);}
+.risk-expand-inner{padding:12px 14px 14px;display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;}
+.risk-field-group{display:flex;flex-direction:column;gap:4px;min-width:90px;}
+.risk-field-group label{font-size:.7rem;color:var(--text-muted);font-weight:600;}
+.risk-mini-input{width:80px;padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;background:var(--bg-card);color:var(--text);font-size:.85rem;text-align:center;direction:ltr;}
+.risk-mini-input:focus{outline:none;border-color:var(--primary);}
+.risk-mini-input.changed{border-color:#f59e0b;}
+.risk-mini-input.saved{border-color:#059669;}
+.track-input{min-width:130px;padding:5px 10px;border:1.5px solid var(--border);border-radius:5px;background:var(--bg-card);color:var(--text);font-size:.85rem;font-family:Heebo,sans-serif;}
+.track-input:focus{outline:none;border-color:var(--primary);}
+.track-input.changed{border-color:#f59e0b;}
+.track-input.saved{border-color:#059669;}
+.risk-sum-pill{font-size:.72rem;font-weight:700;padding:3px 8px;border-radius:10px;}
+.risk-sum-ok{background:rgba(5,150,105,.15);color:#059669;}
+.risk-sum-warn{background:rgba(245,158,11,.15);color:#f59e0b;}
+.risk-sum-err{background:rgba(239,68,68,.15);color:#ef4444;}
+.expand-btn{background:none;border:none;color:var(--text-muted);cursor:pointer;padding:2px 6px;font-size:.85rem;transition:color .15s;}
+.expand-btn:hover{color:var(--primary);}
+.track-change-badge{font-size:.68rem;padding:2px 7px;border-radius:8px;background:rgba(139,92,246,.15);color:#8b5cf6;font-weight:600;margin-right:4px;}
+
 /* ═══ Preview panel ═══ */
 .preview-bar{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:20px;display:flex;gap:24px;align-items:center;flex-wrap:wrap;}
 .preview-item{text-align:center;}
@@ -186,7 +207,8 @@
             <th>ערך חודש קודם</th>
             <th>ערך חודש נוכחי</th>
             <th>שינוי %</th>
-            <th style="width:60px;text-align:center;">סטטוס</th>
+            <th style="width:36px;text-align:center;" title="הרחב לעריכת מסלול וסיכון"><i class="fa fa-shield-alt" style="color:var(--text-muted);font-size:.8rem;"></i></th>
+            <th style="width:50px;text-align:center;">סטטוס</th>
           </tr>
         </thead>
         <tbody id="entryBody"></tbody>
@@ -498,10 +520,33 @@ function buildEntryTable(){
     const prevVal=getMVVal(p.id,prevMonth);
     const curVal=getMVVal(p.id,SEL_MONTH);
     const mvRow=getMVRow(p.id,SEL_MONTH);
-    ROW_DATA[p.id]={prevVal,curVal,mvId:mvRow?.id||null,origVal:curVal};
+    const prevMvRow=getMVRow(p.id,prevMonth);
 
+    // Risk & Track from current month (or fallback to product default)
+    const curEq  = mvRow?.risk_equities     ?? p.risk_equities     ?? 0;
+    const curBo  = mvRow?.risk_bonds        ?? p.risk_bonds        ?? 0;
+    const curAl  = mvRow?.risk_alternatives ?? p.risk_alternatives ?? 0;
+    const curTrack = mvRow?.track ?? p.track ?? '';
+
+    // Prev month track for change detection
+    const prevTrack = prevMvRow?.track ?? p.track ?? '';
+
+    ROW_DATA[p.id]={
+      prevVal, curVal, mvId:mvRow?.id||null, origVal:curVal,
+      risk_equities:curEq, risk_bonds:curBo, risk_alternatives:curAl,
+      origEq:curEq, origBo:curBo, origAl:curAl,
+      track:curTrack, origTrack:curTrack,
+      prevTrack
+    };
+
+    const riskSum=curEq+curBo+curAl;
+    const riskSumCls=Math.abs(riskSum-100)<1?'risk-sum-ok':riskSum>100?'risk-sum-err':'risk-sum-warn';
+    const riskSumTxt=riskSum>0?`${riskSum}%`:'—';
     const isInactive=p.status!=='active';
-    return `<tr id="tr-${p.id}" class="${isInactive?'inactive-row':''}">
+    const trackChanged=curTrack&&prevTrack&&curTrack!==prevTrack;
+
+    return `
+    <tr id="tr-${p.id}" class="${isInactive?'inactive-row':''}">
       <td class="row-status"><span id="st-${p.id}" title="${isInactive?'מוצר לא פעיל':''}">
         ${isInactive?'💤':''}
       </span></td>
@@ -510,7 +555,10 @@ function buildEntryTable(){
           <span class="prod-dot" style="background:${p.color||'#888'}"></span>
           <div>
             <div style="font-weight:600;font-size:.88rem;">${p.name_short||p.name}</div>
-            <div style="font-size:.72rem;color:var(--text-muted);">${p.institution||''}</div>
+            <div style="font-size:.72rem;color:var(--text-muted);">${p.institution||''}
+              ${curTrack?`<span style="margin-right:4px;color:var(--primary-light);">${curTrack}</span>`:''}
+              ${trackChanged?`<span class="track-change-badge">שינוי מסלול!</span>`:''}
+            </div>
           </div>
         </div>
       </td>
@@ -526,8 +574,54 @@ function buildEntryTable(){
           dir="ltr" step="1">
       </td>
       <td id="chg-${p.id}">${renderChg(prevVal,curVal)}</td>
+      <td style="text-align:center;">
+        <button class="expand-btn" onclick="toggleRiskRow('${p.id}')" title="הרחב / כווץ">
+          <span id="riskSumPill-${p.id}" class="risk-sum-pill ${riskSumCls}">${riskSumTxt}</span>
+          <i class="fa fa-chevron-down" id="expandIcon-${p.id}" style="font-size:.6rem;margin-right:3px;"></i>
+        </button>
+      </td>
       <td style="text-align:center;" id="rowSt-${p.id}">
         ${curVal!=null?'<span style="color:#059669;font-size:.85rem;">✓</span>':'<span style="color:var(--text-muted);font-size:.85rem;">—</span>'}
+      </td>
+    </tr>
+    <tr id="risk-row-${p.id}" class="risk-expand-row" style="display:none;">
+      <td colspan="7">
+        <div class="risk-expand-inner">
+          <div class="risk-field-group">
+            <label><i class="fa fa-chart-line" style="color:#ef4444;margin-left:3px;"></i>מניות %</label>
+            <input type="number" class="risk-mini-input ${curEq>0?'saved':''}" id="req-${p.id}"
+              value="${curEq||''}" min="0" max="100" step="1" placeholder="0"
+              oninput="onRiskInput('${p.id}')">
+          </div>
+          <div class="risk-field-group">
+            <label><i class="fa fa-university" style="color:#3b82f6;margin-left:3px;"></i>אג"ח %</label>
+            <input type="number" class="risk-mini-input ${curBo>0?'saved':''}" id="rbo-${p.id}"
+              value="${curBo||''}" min="0" max="100" step="1" placeholder="0"
+              oninput="onRiskInput('${p.id}')">
+          </div>
+          <div class="risk-field-group">
+            <label><i class="fa fa-building" style="color:#10b981;margin-left:3px;"></i>לא סחיר %</label>
+            <input type="number" class="risk-mini-input ${curAl>0?'saved':''}" id="ral-${p.id}"
+              value="${curAl||''}" min="0" max="100" step="1" placeholder="0"
+              oninput="onRiskInput('${p.id}')">
+          </div>
+          <div class="risk-field-group" style="min-width:150px;">
+            <label><i class="fa fa-route" style="color:#8b5cf6;margin-left:3px;"></i>מסלול השקעה</label>
+            <input type="text" class="track-input ${curTrack?'saved':''}" id="trk-${p.id}"
+              value="${curTrack}" placeholder="כללי / מניות / ..."
+              oninput="onTrackInput('${p.id}',this)">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label style="font-size:.7rem;color:var(--text-muted);font-weight:600;">סכום חשיפה</label>
+            <span id="riskSumFull-${p.id}" class="risk-sum-pill ${riskSumCls}" style="align-self:flex-start;">${riskSumTxt}</span>
+          </div>
+          ${prevTrack&&curTrack&&prevTrack!==curTrack?`
+          <div style="background:rgba(139,92,246,.1);border:1px solid rgba(139,92,246,.3);border-radius:6px;padding:6px 10px;font-size:.75rem;color:#8b5cf6;">
+            <i class="fa fa-exchange-alt" style="margin-left:4px;"></i>
+            שינוי מסלול: <strong>${prevTrack}</strong> → <strong>${curTrack}</strong><br>
+            <span style="color:var(--text-muted);font-size:.68rem;">אירוע יוסף אוטומטית בשמירה</span>
+          </div>`:''}
+        </div>
       </td>
     </tr>`;
   }).join('');
@@ -541,6 +635,56 @@ function renderChg(prev,cur){
   const pct=(cur-prev)/prev*100;
   const cls=pct>0?'chg-pos':pct<0?'chg-neg':'chg-neu';
   return `<span class="chg-badge ${cls}">${PCT(pct)}</span>`;
+}
+
+// ── Risk & Track expand/collapse ──
+function toggleRiskRow(pid){
+  const row=document.getElementById('risk-row-'+pid);
+  const icon=document.getElementById('expandIcon-'+pid);
+  if(!row) return;
+  const open=row.style.display==='table-row';
+  row.style.display=open?'none':'table-row';
+  if(icon) icon.style.transform=open?'':'rotate(180deg)';
+}
+
+function onRiskInput(pid){
+  const eq=parseFloat(document.getElementById('req-'+pid)?.value)||0;
+  const bo=parseFloat(document.getElementById('rbo-'+pid)?.value)||0;
+  const al=parseFloat(document.getElementById('ral-'+pid)?.value)||0;
+  const sum=eq+bo+al;
+  const cls=Math.abs(sum-100)<1?'risk-sum-ok':sum>100?'risk-sum-err':'risk-sum-warn';
+  const txt=sum>0?`${sum}%`:'—';
+
+  // Update pill in main row + full
+  ['riskSumPill-'+pid,'riskSumFull-'+pid].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){el.className=`risk-sum-pill ${cls}`;el.textContent=txt;}
+  });
+  // Mark inputs changed
+  ['req-'+pid,'rbo-'+pid,'ral-'+pid].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){el.classList.remove('saved');el.classList.add('changed');}
+  });
+  // Update ROW_DATA & mark dirty
+  if(ROW_DATA[pid]){
+    ROW_DATA[pid].risk_equities=eq;
+    ROW_DATA[pid].risk_bonds=bo;
+    ROW_DATA[pid].risk_alternatives=al;
+    const riskChanged=(eq!==ROW_DATA[pid].origEq||bo!==ROW_DATA[pid].origBo||al!==ROW_DATA[pid].origAl);
+    if(riskChanged||ROW_DATA[pid].curVal!==ROW_DATA[pid].origVal) DIRTY.add(pid);
+    else DIRTY.delete(pid);
+    updateSaveSummary();
+  }
+}
+
+function onTrackInput(pid, input){
+  if(ROW_DATA[pid]){
+    ROW_DATA[pid].track=input.value.trim();
+    input.classList.remove('saved');
+    input.classList.add('changed');
+    DIRTY.add(pid);
+    updateSaveSummary();
+  }
 }
 
 function onValInput(prodId, input){
@@ -669,20 +813,22 @@ async function saveAll(){
   btn.disabled=true;
   btn.innerHTML='<span class="status-dot saving"></span> שומר...';
 
-  let ok=0, fail=0;
+  let ok=0, fail=0, trackEvents=0;
   const toSave=[...DIRTY];
 
   for(const prodId of toSave){
     const d=ROW_DATA[prodId];
     const p=PRODUCTS.find(x=>x.id===prodId);
 
-    // אם ניקו את הערך (null) ויש רשומה קיימת — לא מוחקים, רק מדלגים
-    if(d.curVal===null && d.mvId){
+    // אם ניקו את הערך (null) ויש רשומה קיימת ואין שינוי בsisק/מסלול — דלג
+    const hasRiskChange = d.risk_equities!==d.origEq||d.risk_bonds!==d.origBo||d.risk_alternatives!==d.origAl;
+    const hasTrackChange = d.track!==d.origTrack;
+    if(d.curVal===null && d.mvId && !hasRiskChange && !hasTrackChange){
       addLog(`⏭ דולג: ${p.name_short} — ערך ריק (לא נמחק)`, 'log-warn');
       DIRTY.delete(prodId);
       continue;
     }
-    if(d.curVal===null){
+    if(d.curVal===null && !d.mvId && !hasRiskChange && !hasTrackChange){
       DIRTY.delete(prodId);
       continue;
     }
@@ -692,33 +838,70 @@ async function saveAll(){
         client_id: SEL_CLIENT.id,
         product_id: prodId,
         month: SEL_MONTH,
-        value: d.curVal
+        value: d.curVal,
+        risk_equities: d.risk_equities||0,
+        risk_bonds: d.risk_bonds||0,
+        risk_alternatives: d.risk_alternatives||0,
+        track: d.track||''
       };
 
       let result;
       if(d.mvId){
-        // עדכון ערך קיים — PATCH (רק שדות ששינינו)
-        result=await apiPatch(`${API_BASE}/tables/monthly_values/${d.mvId}`, {value: d.curVal});
+        result=await apiPatch(`${API_BASE}/tables/monthly_values/${d.mvId}`, {
+          value: d.curVal,
+          risk_equities: body.risk_equities,
+          risk_bonds: body.risk_bonds,
+          risk_alternatives: body.risk_alternatives,
+          track: body.track
+        });
       } else {
-        // יצירת רשומה חדשה — POST
         result=await apiPost(`${API_BASE}/tables/monthly_values`, body);
         d.mvId=result.id;
       }
 
+      // אם המסלול השתנה — צור אירוע בלוח אירועים
+      if(hasTrackChange && d.prevTrack && d.track && d.prevTrack!==d.track){
+        const eventBody={
+          client_id: SEL_CLIENT.id,
+          product_id: prodId,
+          event_date: SEL_MONTH,
+          event_type: 'track_change',
+          title: `שינוי מסלול – ${p.name_short||p.name}`,
+          description: `מסלול שונה מ-"${d.prevTrack}" ל-"${d.track}"`,
+          amount: null
+        };
+        try{
+          await apiPost(`${API_BASE}/tables/timeline_events`, eventBody);
+          addLog(`🔄 אירוע שינוי מסלול נוצר: ${p.name_short} (${d.prevTrack} → ${d.track})`, 'log-ok');
+          trackEvents++;
+        }catch(e2){
+          addLog(`⚠️ אירוע שינוי מסלול נכשל: ${e2.message}`, 'log-warn');
+        }
+      }
+
       // עדכן מצב מקומי
-      d.origVal=d.curVal;
+      d.origVal=d.curVal; d.origEq=d.risk_equities; d.origBo=d.risk_bonds; d.origAl=d.risk_alternatives; d.origTrack=d.track;
+      d.prevTrack=d.track; // מעדכן prevTrack לחודש הנוכחי
       DIRTY.delete(prodId);
       // עדכן MV
       if(!MV[prodId]) MV[prodId]=[];
       const idx=MV[prodId].findIndex(r=>r.month===SEL_MONTH);
-      if(idx>=0) MV[prodId][idx]={...MV[prodId][idx],value:d.curVal};
-      else MV[prodId].push({id:d.mvId,product_id:prodId,client_id:SEL_CLIENT.id,month:SEL_MONTH,value:d.curVal});
+      const mvEntry={id:d.mvId,product_id:prodId,client_id:SEL_CLIENT.id,month:SEL_MONTH,value:d.curVal,risk_equities:body.risk_equities,risk_bonds:body.risk_bonds,risk_alternatives:body.risk_alternatives,track:body.track};
+      if(idx>=0) MV[prodId][idx]=mvEntry;
+      else MV[prodId].push(mvEntry);
 
       // Visual feedback
       const input=document.getElementById('inp-'+prodId);
       if(input){ input.classList.remove('changed','error'); input.classList.add('saved'); }
+      // Mark risk inputs saved
+      ['req-'+prodId,'rbo-'+prodId,'ral-'+prodId].forEach(id=>{
+        const el=document.getElementById(id);
+        if(el){el.classList.remove('changed');el.classList.add('saved');}
+      });
+      const trkEl=document.getElementById('trk-'+prodId);
+      if(trkEl){trkEl.classList.remove('changed');trkEl.classList.add('saved');}
       document.getElementById('rowSt-'+prodId).innerHTML='<span style="color:#059669;">✓</span>';
-      addLog(`✅ נשמר: ${p.name_short} = ${ILS(d.curVal)}`, 'log-ok');
+      addLog(`✅ נשמר: ${p.name_short} = ${d.curVal!=null?ILS(d.curVal):'—'} | ${body.risk_equities}/${body.risk_bonds}/${body.risk_alternatives}%${body.track?' | '+body.track:''}`, 'log-ok');
       ok++;
     }catch(e){
       addLog(`❌ שגיאה: ${p.name_short} — ${e.message}`, 'log-err');
@@ -732,14 +915,13 @@ async function saveAll(){
   btn.innerHTML='<i class="fa fa-save"></i> שמור הכל';
   updateSaveSummary();
   updatePreview();
-
-  // רענן את רשת החודשים כדי לסמן את החודש שנשמר
   renderMonthGrid();
 
   if(fail===0){
-    addLog(`🎉 הושלם בהצלחה — ${ok} ערכים נשמרו`, 'log-ok');
-    // הצג toast
-    showToast(`✅ ${ok} ערכים נשמרו בהצלחה!`, 'success');
+    let msg=`✅ ${ok} ערכים נשמרו בהצלחה!`;
+    if(trackEvents) msg+=` | ${trackEvents} שינויי מסלול`;
+    addLog(`🎉 הושלם — ${ok} ערכים${trackEvents?`, ${trackEvents} אירועי מסלול`:''}`, 'log-ok');
+    showToast(msg, 'success');
   } else {
     showToast(`⚠️ ${ok} נשמרו, ${fail} נכשלו`, 'warn');
   }

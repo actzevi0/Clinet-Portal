@@ -1,6 +1,6 @@
--- EasyFinance Dashboard – D1 Schema v4.0
+-- EasyFinance Dashboard – D1 Schema v5.0
 -- הרץ את זה בקונסול Cloudflare D1 אם הטבלאות לא קיימות
--- לגרסה קיימת: הרץ את migrate_v4.sql בנפרד
+-- לגרסה קיימת: הרץ את migrate_v5.sql בנפרד
 
 CREATE TABLE IF NOT EXISTS clients (
   id TEXT PRIMARY KEY,
@@ -56,6 +56,11 @@ CREATE TABLE IF NOT EXISTS monthly_values (
   product_id TEXT,
   month TEXT,
   value REAL,
+  -- פילוח סיכון חודשי v5.0
+  risk_equities REAL DEFAULT 0,
+  risk_bonds REAL DEFAULT 0,
+  risk_alternatives REAL DEFAULT 0,
+  track TEXT,
   created_at INTEGER,
   updated_at INTEGER,
   deleted INTEGER DEFAULT 0
