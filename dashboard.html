@@ -544,13 +544,13 @@ tbody tr:last-child td{border-bottom:none;}
     <!-- Risk mode toggle -->
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
       <span style="font-size:0.82rem;color:var(--text-muted);font-weight:600;">הצג לפי:</span>
-      <button class="btn btn-sm" id="riskModeLatest" onclick="setRiskMode('latest')" style="font-size:0.78rem;padding:4px 12px;">חודש אחרון</button>
+      <button class="btn btn-sm btn-secondary" id="riskModeLatest" onclick="setRiskMode('latest')" style="font-size:0.78rem;padding:4px 12px;">חודש אחרון</button>
       <button class="btn btn-sm btn-secondary" id="riskModeAvg" onclick="setRiskMode('avg')" style="font-size:0.78rem;padding:4px 12px;">ממוצע שנתי</button>
-      <button class="btn btn-sm btn-secondary" id="riskModeMonth" onclick="setRiskMode('month')" style="font-size:0.78rem;padding:4px 12px;">חודש ספציפי</button>
+      <button class="btn btn-sm" id="riskModeMonth" onclick="setRiskMode('month')" style="font-size:0.78rem;padding:4px 12px;">חודש ספציפי</button>
       <span id="riskModeLabel" style="font-size:0.78rem;color:var(--text-muted);margin-right:4px;"></span>
     </div>
     <!-- Month picker grid (shown only in 'month' mode) -->
-    <div id="riskMonthPickerWrap" style="display:none;margin-bottom:16px;background:var(--bg-card2,var(--bg-card));border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
+    <div id="riskMonthPickerWrap" style="margin-bottom:16px;background:var(--bg-card2,var(--bg-card));border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
       <div id="riskMonthPickerContent"></div>
     </div>
     <div class="g2">
@@ -1158,7 +1158,8 @@ function setActiveYear(year){
   // Reset RISK_SEL_MONTH to the last available month in the new year
   const yy = String(year).slice(-2);
   const yearMonths = MONTHS.filter(m => m.endsWith('/'+yy)).sort((a,b)=>monthToNum(b)-monthToNum(a));
-  if (yearMonths.length) RISK_SEL_MONTH = yearMonths[0];
+  // Always reset RISK_SEL_MONTH — if no data for year, set to null
+  RISK_SEL_MONTH = yearMonths.length ? yearMonths[0] : null;
   renderKPIs();
   renderTable();       // טבלת מוצרים + תשואות
   renderProdCards();   // כרטיסי מוצרים
@@ -2322,7 +2323,7 @@ function renderInsights(){
 const RISK_COLORS = { equities: '#1a56db', bonds: '#10b981', alternatives: '#f59e0b' };
 const RISK_LABELS = { equities: 'מניות', bonds: 'אג"ח', alternatives: 'נכסים לא סחירים' };
 
-let RISK_MODE = 'latest'; // 'latest' or 'avg'
+let RISK_MODE = 'month'; // 'latest', 'avg', or 'month' — default: specific month view
 
 function setRiskMode(mode){
   RISK_MODE = mode;
@@ -2361,9 +2362,11 @@ function _populateRiskMonthSel() {
     return;
   }
 
-  // Default selection: latest month
+  // Default selection: latest month IN ACTIVE_YEAR, then fallback to global latest
+  const yy = String(ACTIVE_YEAR).slice(-2);
+  const yearMonths = allMonths.filter(m => m.endsWith('/'+yy));
   if (!RISK_SEL_MONTH || !allMonths.includes(RISK_SEL_MONTH)) {
-    RISK_SEL_MONTH = allMonths[0];
+    RISK_SEL_MONTH = yearMonths.length ? yearMonths[0] : allMonths[0];
   }
 
   // Group months by year
@@ -2483,19 +2486,29 @@ function renderRisk(){
   document.getElementById('riskModeAvg').className = RISK_MODE==='avg' ? 'btn btn-sm' : 'btn btn-sm btn-secondary';
   document.getElementById('riskModeMonth').className = RISK_MODE==='month' ? 'btn btn-sm' : 'btn btn-sm btn-secondary';
 
+  // Show/hide month picker
+  const wrap = document.getElementById('riskMonthPickerWrap');
+  if (wrap) {
+    if (RISK_MODE === 'month') {
+      wrap.style.display = '';
+      _populateRiskMonthSel();
+    } else {
+      wrap.style.display = 'none';
+    }
+  }
+
   // ── helper: get the portfolio value of a product relevant to the current mode ──
   function getValForMode(p) {
     if (RISK_MODE === 'month') {
-      // Use the value at RISK_SEL_MONTH (exact or nearest-earlier)
+      // Use the value at RISK_SEL_MONTH (exact match only — no fallback to earlier months)
       const sel = RISK_SEL_MONTH;
       if (sel) {
         const exact = getVal(p.id, sel);
         if (exact != null) return exact;
-        // nearest earlier month
-        const sorted = (MV[p.id]||[]).slice().sort((a,b)=>monthToNum(b.month)-monthToNum(a.month));
-        const earlier = sorted.find(r => monthToNum(r.month) <= monthToNum(sel));
-        return earlier ? earlier.value : null;
+        // No fallback to earlier months — product had no data at selected month
+        return null;
       }
+      return null;
     }
     if (RISK_MODE === 'avg') {
       // Use year-end (last month of ACTIVE_YEAR) or latest available in that year
@@ -2523,22 +2536,26 @@ function renderRisk(){
       if (!sel) return null;
       const mvRows = (MV[p.id]||[]).filter(r => r.risk_equities != null || r.risk_bonds != null || r.risk_alternatives != null);
       if (!mvRows.length) {
-        // check if product existed at all at that month (any MV row <= sel)
-        const anyRow = (MV[p.id]||[]).slice().sort((a,b)=>monthToNum(b.month)-monthToNum(a.month))
-          .find(r => monthToNum(r.month) <= monthToNum(sel));
-        if (!anyRow) return null; // product didn't exist yet
+        // check if product had any MV row for EXACTLY that month
+        const exactRow = (MV[p.id]||[]).find(r => r.month === sel);
+        if (!exactRow) return null; // product had no data at selected month
         return { eq: p.risk_equities||0, bo: p.risk_bonds||0, al: p.risk_alternatives||0, source:'product' };
       }
-      // check if product existed at sel
-      const allRows = (MV[p.id]||[]).slice().sort((a,b)=>monthToNum(b.month)-monthToNum(a.month));
-      const existsAtSel = allRows.find(r => monthToNum(r.month) <= monthToNum(sel));
-      if (!existsAtSel) return null; // product didn't exist at selected month
+      // Product must have an MV row for exactly that month (no fallback to earlier months)
       const row = mvRows.find(r => r.month === sel);
       if (row) return { eq: parseFloat(row.risk_equities)||0, bo: parseFloat(row.risk_bonds)||0, al: parseFloat(row.risk_alternatives)||0, source:'month', month: sel };
-      const sorted = [...mvRows].sort((a,b)=>monthToNum(b.month)-monthToNum(a.month));
-      const earlier = sorted.find(r => monthToNum(r.month) <= monthToNum(sel));
-      if (earlier) return { eq: parseFloat(earlier.risk_equities)||0, bo: parseFloat(earlier.risk_bonds)||0, al: parseFloat(earlier.risk_alternatives)||0, source:'month', month: earlier.month };
-      return { eq: p.risk_equities||0, bo: p.risk_bonds||0, al: p.risk_alternatives||0, source:'product' };
+      // No risk row for selected month — check if product has any MV value for that exact month
+      const valRow = (MV[p.id]||[]).find(r => r.month === sel);
+      if (valRow) {
+        // Product has value but no risk data for this month — use nearest earlier risk row (same year only)
+        const selYY = sel.split('/')[1];
+        const sameYearRiskRows = mvRows.filter(r => r.month && r.month.endsWith('/'+selYY));
+        const sorted = sameYearRiskRows.sort((a,b)=>monthToNum(b.month)-monthToNum(a.month));
+        const earlier = sorted.find(r => monthToNum(r.month) <= monthToNum(sel));
+        if (earlier) return { eq: parseFloat(earlier.risk_equities)||0, bo: parseFloat(earlier.risk_bonds)||0, al: parseFloat(earlier.risk_alternatives)||0, source:'month', month: earlier.month };
+        return { eq: p.risk_equities||0, bo: p.risk_bonds||0, al: p.risk_alternatives||0, source:'product' };
+      }
+      return null; // product had no data at selected month
     }
     // avg / latest — filter to ACTIVE_YEAR
     const yy = String(ACTIVE_YEAR).slice(-2);
@@ -2580,7 +2597,7 @@ function renderRisk(){
     totalBonds += bo;
     totalAlt += al;
     totalVal += v;
-    if (risk.source === 'latest' && risk.month > latestMonth) latestMonth = risk.month;
+    if (risk.month && monthToNum(risk.month) > monthToNum(latestMonth || '00/00')) latestMonth = risk.month;
     prodRisks.push({ p, v, eq, bo, al, risk });
   }
   const eqPct = totalVal ? totalEquities / totalVal * 100 : 0;
@@ -2633,10 +2650,18 @@ function renderRisk(){
 
   // בארים לפי מוצר
   const barsEl = document.getElementById('riskBars');
-  const hasAnyRisk = prodRisks.some(r => r.risk.eq || r.risk.bo || r.risk.al);
-  if (!hasAnyRisk) {
-    barsEl.innerHTML = '<div style="color:var(--text-dim);font-size:0.82rem;padding:12px 0;">אחוזי חשיפות לא הוגדרו עדיין. הגדר בפאנל היועץ.</div>';
+  if (!prodRisks.length) {
+    const noDataMsg = RISK_MODE === 'month' && !RISK_SEL_MONTH
+      ? 'אין נתונים לשנה זו. בחר שנה אחרת.'
+      : RISK_MODE === 'month'
+        ? `אין נתונים לחודש ${_mmyyToHeb(RISK_SEL_MONTH||'')}. בחר חודש אחר.`
+        : `אין נתונים לשנת ${ACTIVE_YEAR}.`;
+    barsEl.innerHTML = `<div style="color:var(--text-dim);font-size:0.82rem;padding:12px 0;">${noDataMsg}</div>`;
   } else {
+    const hasAnyRisk = prodRisks.some(r => r.risk.eq || r.risk.bo || r.risk.al);
+    if (!hasAnyRisk) {
+      barsEl.innerHTML = '<div style="color:var(--text-dim);font-size:0.82rem;padding:12px 0;">אחוזי חשיפות לא הוגדרו עדיין. הגדר בפאנל היועץ.</div>';
+    } else {
     barsEl.innerHTML = prodRisks.map(r => {
       const eP = r.risk.eq.toFixed(0);
       const bP = r.risk.bo.toFixed(0);
@@ -2653,7 +2678,8 @@ function renderRisk(){
         <div class="risk-pct-label">${eP}%/${bP}%/${aP}%</div>
       </div>`;
     }).join('');
-  }
+    } // end hasAnyRisk else
+  } // end prodRisks.length else
 
   // טבלת דירוג
   renderRankTable();
