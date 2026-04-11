@@ -2135,8 +2135,8 @@ let RISK_MODE = 'latest'; // 'latest' or 'avg'
 
 function setRiskMode(mode){
   RISK_MODE = mode;
-  document.getElementById('riskModeLatest').className = 'btn btn-sm' + (mode==='latest'?' ':'  btn-secondary');
-  document.getElementById('riskModeAvg').className = 'btn btn-sm' + (mode==='avg'?' ':'  btn-secondary');
+  document.getElementById('riskModeLatest').className = mode==='latest' ? 'btn btn-sm' : 'btn btn-sm btn-secondary';
+  document.getElementById('riskModeAvg').className = mode==='avg' ? 'btn btn-sm' : 'btn btn-sm btn-secondary';
   renderRisk();
 }
 
@@ -2172,8 +2172,8 @@ function getRiskForProduct(p, mode){
 
 function renderRisk(){
   // Update mode buttons appearance
-  document.getElementById('riskModeLatest').className = 'btn btn-sm' + (RISK_MODE==='latest' ? '' : ' btn-secondary');
-  document.getElementById('riskModeAvg').className = 'btn btn-sm' + (RISK_MODE==='avg' ? '' : ' btn-secondary');
+  document.getElementById('riskModeLatest').className = RISK_MODE==='latest' ? 'btn btn-sm' : 'btn btn-sm btn-secondary';
+  document.getElementById('riskModeAvg').className = RISK_MODE==='avg' ? 'btn btn-sm' : 'btn btn-sm btn-secondary';
 
   // Calculate weighted exposure for whole portfolio
   let totalEquities = 0, totalBonds = 0, totalAlt = 0, totalVal = 0;
