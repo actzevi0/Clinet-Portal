@@ -127,6 +127,14 @@
     </div>
   </div>
 
+  <!-- Refresh bar -->
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding:10px 16px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);">
+    <span style="font-size:0.82rem;color:var(--text-muted);flex:1;" id="lastRefreshLabel">לחץ רענן לאחר עדכון נתונים חודשיים</span>
+    <button class="btn btn-secondary btn-sm" onclick="refreshAll()" id="refreshBtn">
+      <i class="fa fa-sync-alt"></i> רענן נתונים
+    </button>
+  </div>
+
   <!-- Alert -->
   <div class="alert alert-info mb-24">
     <i class="fa fa-info-circle" style="flex-shrink:0; margin-top:2px;"></i>
@@ -440,23 +448,44 @@ async function createNewClient() {
     errEl.style.display = 'flex';
     return;
   }
+  // Check for duplicate ID
+  if (CLIENTS.find(c => c.id === id)) {
+    errEl.textContent = 'מזהה זה כבר קיים. בחר מזהה ייחודי.';
+    errEl.style.display = 'flex';
+    return;
+  }
   errEl.style.display = 'none';
 
-  // Save to API
   const btn = document.querySelector('#newClientModal .btn-primary');
   btn.disabled=true; btn.innerHTML='<div class="spinner"></div> יוצר...';
+
+  const newClient = {
+    id, name,
+    report_title: `דוח מצב – סיכום שנה ${year}`,
+    report_period: year,
+    active: true,
+    enable_goals: 0, enable_whatif: 0, enable_insights: 0, enable_notifications: 0,
+    whatsapp_phone: '', goals_json: '', insights_json: ''
+  };
+
+  // Demo Mode: add locally
+  if (IS_DEMO_MODE) {
+    CLIENTS.push(newClient);
+    CLIENTS.sort((a,b)=>a.name.localeCompare(b.name,'he'));
+    renderClientsGrid();
+    alert(`✅ לקוח ${name} נוצר (Demo Mode)!\n\nהלקוח נוסף מקומית. בפרודקשן הנתונים יישמרו ב-DB.`);
+    document.getElementById('newClientModal').classList.remove('open');
+    document.getElementById('newClientName').value='';
+    document.getElementById('newClientId').value='';
+    btn.disabled=false; btn.innerHTML='<i class="fa fa-plus"></i> צור לקוח';
+    return;
+  }
 
   try{
     const r=await fetch(`${API_BASE}/tables/clients`,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        id: id,
-        name: name,
-        report_title: `דוח מצב – סיכום שנה ${year}`,
-        report_period: year,
-        active: true
-      })
+      body:JSON.stringify(newClient)
     });
     if(!r.ok) throw new Error(`HTTP ${r.status}`);
     alert(`✅ לקוח ${name} נוצר בהצלחה!\n\nעכשיו כנס לעדכון חודשי להוספת מוצרים ונתונים.`);
@@ -473,6 +502,29 @@ async function createNewClient() {
 }
 
 loadClients();
+
+// Auto-refresh when tab becomes visible (e.g. after returning from monthly-update)
+let _lastVisibleTime = Date.now();
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    const elapsed = Date.now() - _lastVisibleTime;
+    if (elapsed > 15000) { // Only if away for >15 seconds
+      refreshAll();
+    }
+  } else {
+    _lastVisibleTime = Date.now();
+  }
+});
+
+async function refreshAll() {
+  const btn = document.getElementById('refreshBtn');
+  const label = document.getElementById('lastRefreshLabel');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> מרענן...'; }
+  MV_ALL = {};
+  await loadClients();
+  if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa fa-sync-alt"></i> רענן נתונים'; }
+  if (label) label.textContent = `עודכן: ${new Date().toLocaleTimeString('he-IL')}`;
+}
 </script>
 
 <!-- Client Settings Modal -->

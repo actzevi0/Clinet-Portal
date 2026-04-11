@@ -540,6 +540,9 @@ tbody tr:last-child td{border-bottom:none;}
       <span style="font-size:0.82rem;color:var(--text-muted);font-weight:600;">הצג לפי:</span>
       <button class="btn btn-sm" id="riskModeLatest" onclick="setRiskMode('latest')" style="font-size:0.78rem;padding:4px 12px;">חודש אחרון</button>
       <button class="btn btn-sm btn-secondary" id="riskModeAvg" onclick="setRiskMode('avg')" style="font-size:0.78rem;padding:4px 12px;">ממוצע שנתי</button>
+      <button class="btn btn-sm btn-secondary" id="riskModeMonth" onclick="setRiskMode('month')" style="font-size:0.78rem;padding:4px 12px;">חודש ספציפי</button>
+      <!-- Month picker (shown only in 'month' mode) -->
+      <select id="riskMonthSel" style="display:none;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;background:var(--bg-card);color:var(--text);font-size:0.78rem;" onchange="renderRisk()"></select>
       <span id="riskModeLabel" style="font-size:0.78rem;color:var(--text-muted);margin-right:4px;"></span>
     </div>
     <div class="g2">
@@ -859,18 +862,18 @@ const DEMO_DATA = {
     { id:'prod-ayalon', client_id:'menachem-gilor', name:'איילון – קופת גמל', name_short:'איילון גמל', institution:'איילון', product_type:'קופת גמל', track:'מסלול מניות', status:'active', color:'#f59e0b', ytd_start_value:0, ytd_start_month:'11/25', inception_value:295000, inception_date:'2025-11-01', sort_order:3, exclude_open:true, risk_equities:80, risk_bonds:15, risk_alternatives:5 },
   ],
   monthly_values: [
-    { id:'mv-1',  client_id:'menachem-gilor', product_id:'prod-menora-allstars', month:'02/25', value:300000 },
-    { id:'mv-2',  client_id:'menachem-gilor', product_id:'prod-menora-allstars', month:'03/25', value:316228 },
-    { id:'mv-3',  client_id:'menachem-gilor', product_id:'prod-menora-allstars', month:'04/25', value:322000 },
-    { id:'mv-4',  client_id:'menachem-gilor', product_id:'prod-menora-allstars', month:'05/25', value:330193 },
-    { id:'mv-5',  client_id:'menachem-gilor', product_id:'prod-hachshara', month:'02/25', value:1050000 },
-    { id:'mv-6',  client_id:'menachem-gilor', product_id:'prod-hachshara', month:'03/25', value:1074000 },
-    { id:'mv-7',  client_id:'menachem-gilor', product_id:'prod-hachshara', month:'04/25', value:1088000 },
-    { id:'mv-8',  client_id:'menachem-gilor', product_id:'prod-hachshara', month:'05/25', value:1105000 },
-    { id:'mv-9',  client_id:'menachem-gilor', product_id:'prod-ayalon', month:'11/25', value:295000 },
-    { id:'mv-10', client_id:'menachem-gilor', product_id:'prod-ayalon', month:'12/25', value:312000 },
-    { id:'mv-11', client_id:'menachem-gilor', product_id:'prod-ayalon', month:'01/26', value:328000 },
-    { id:'mv-12', client_id:'menachem-gilor', product_id:'prod-ayalon', month:'02/26', value:330193 },
+    { id:'mv-1',  client_id:'menachem-gilor', product_id:'prod-menora-allstars', month:'02/25', value:300000, risk_equities:60, risk_bonds:30, risk_alternatives:10, track:'מסלול כללי' },
+    { id:'mv-2',  client_id:'menachem-gilor', product_id:'prod-menora-allstars', month:'03/25', value:316228, risk_equities:62, risk_bonds:28, risk_alternatives:10, track:'מסלול כללי' },
+    { id:'mv-3',  client_id:'menachem-gilor', product_id:'prod-menora-allstars', month:'04/25', value:322000, risk_equities:65, risk_bonds:25, risk_alternatives:10, track:'מסלול מניות' },
+    { id:'mv-4',  client_id:'menachem-gilor', product_id:'prod-menora-allstars', month:'05/25', value:330193, risk_equities:65, risk_bonds:25, risk_alternatives:10, track:'מסלול מניות' },
+    { id:'mv-5',  client_id:'menachem-gilor', product_id:'prod-hachshara', month:'02/25', value:1050000, risk_equities:75, risk_bonds:20, risk_alternatives:5, track:'מסלול כללי מניות' },
+    { id:'mv-6',  client_id:'menachem-gilor', product_id:'prod-hachshara', month:'03/25', value:1074000, risk_equities:75, risk_bonds:20, risk_alternatives:5, track:'מסלול כללי מניות' },
+    { id:'mv-7',  client_id:'menachem-gilor', product_id:'prod-hachshara', month:'04/25', value:1088000, risk_equities:78, risk_bonds:17, risk_alternatives:5, track:'מסלול מניות ועוד' },
+    { id:'mv-8',  client_id:'menachem-gilor', product_id:'prod-hachshara', month:'05/25', value:1105000, risk_equities:78, risk_bonds:17, risk_alternatives:5, track:'מסלול מניות ועוד' },
+    { id:'mv-9',  client_id:'menachem-gilor', product_id:'prod-ayalon', month:'11/25', value:295000, risk_equities:80, risk_bonds:15, risk_alternatives:5, track:'מסלול מניות' },
+    { id:'mv-10', client_id:'menachem-gilor', product_id:'prod-ayalon', month:'12/25', value:312000, risk_equities:80, risk_bonds:15, risk_alternatives:5, track:'מסלול מניות' },
+    { id:'mv-11', client_id:'menachem-gilor', product_id:'prod-ayalon', month:'01/26', value:328000, risk_equities:82, risk_bonds:13, risk_alternatives:5, track:'מסלול מניות' },
+    { id:'mv-12', client_id:'menachem-gilor', product_id:'prod-ayalon', month:'02/26', value:330193, risk_equities:82, risk_bonds:13, risk_alternatives:5, track:'מסלול מניות' },
   ],
   timeline_events: [
     { id:'ev-1', client_id:'menachem-gilor', product_id:'prod-menora-allstars', event_date:'2025-02-01', event_type:'deposit', title:'הפקדה ראשונה – מנורה', description:'פתיחת קרן פנסיה', amount:300000 },
@@ -2137,16 +2140,68 @@ function setRiskMode(mode){
   RISK_MODE = mode;
   document.getElementById('riskModeLatest').className = mode==='latest' ? 'btn btn-sm' : 'btn btn-sm btn-secondary';
   document.getElementById('riskModeAvg').className = mode==='avg' ? 'btn btn-sm' : 'btn btn-sm btn-secondary';
+  document.getElementById('riskModeMonth').className = mode==='month' ? 'btn btn-sm' : 'btn btn-sm btn-secondary';
+  // Show/hide month picker
+  const sel = document.getElementById('riskMonthSel');
+  if (mode === 'month') {
+    sel.style.display = '';
+    _populateRiskMonthSel();
+  } else {
+    sel.style.display = 'none';
+  }
   renderRisk();
 }
 
+function _populateRiskMonthSel() {
+  const sel = document.getElementById('riskMonthSel');
+  // Collect all months with risk data across all products
+  const monthsSet = new Set();
+  for (const p of PRODUCTS) {
+    for (const r of (MV[p.id] || [])) {
+      if (r.month && (r.risk_equities != null || r.risk_bonds != null || r.risk_alternatives != null)) {
+        monthsSet.add(r.month);
+      }
+    }
+  }
+  // Sort desc
+  const months = [...monthsSet].sort((a,b)=>b.localeCompare(a));
+  const curVal = sel.value;
+  sel.innerHTML = months.length
+    ? months.map(m => `<option value="${m}" ${m===curVal?'selected':''}>${_mmyyToHeb(m)}</option>`).join('')
+    : '<option value="">אין נתוני סיכון</option>';
+}
+
+function _mmyyToHeb(mmyy) {
+  if (!mmyy) return '';
+  const MONTHS_HE = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+  const [mm, yy] = mmyy.split('/');
+  return `${MONTHS_HE[+mm-1]} 20${yy}`;
+}
+
 // Get risk percentages for a product from monthly_values
-// mode: 'latest' = use latest month's MV risk, 'avg' = average over ACTIVE_YEAR months
+// mode: 'latest' = use latest month's MV risk, 'avg' = average over ACTIVE_YEAR months, 'month' = specific month
 function getRiskForProduct(p, mode){
   const mvRows = (MV[p.id] || []).filter(r => r.risk_equities != null || r.risk_bonds != null || r.risk_alternatives != null);
   if (!mvRows.length) {
     // Fallback: use product-level risk
     return { eq: p.risk_equities||0, bo: p.risk_bonds||0, al: p.risk_alternatives||0, source:'product' };
+  }
+  if (mode === 'month') {
+    // Specific selected month
+    const selMonth = document.getElementById('riskMonthSel')?.value;
+    if (selMonth) {
+      const row = mvRows.find(r => r.month === selMonth);
+      if (row) return {
+        eq: parseFloat(row.risk_equities)||0,
+        bo: parseFloat(row.risk_bonds)||0,
+        al: parseFloat(row.risk_alternatives)||0,
+        source: 'month', month: selMonth
+      };
+    }
+    // fallback to latest
+    const sorted = [...mvRows].sort((a,b)=>b.month.localeCompare(a.month));
+    const latest = sorted[0];
+    return { eq: parseFloat(latest.risk_equities)||0, bo: parseFloat(latest.risk_bonds)||0, al: parseFloat(latest.risk_alternatives)||0, source:'latest', month:latest.month };
   }
   if (mode === 'avg') {
     // Average over months in ACTIVE_YEAR
@@ -2174,6 +2229,7 @@ function renderRisk(){
   // Update mode buttons appearance
   document.getElementById('riskModeLatest').className = RISK_MODE==='latest' ? 'btn btn-sm' : 'btn btn-sm btn-secondary';
   document.getElementById('riskModeAvg').className = RISK_MODE==='avg' ? 'btn btn-sm' : 'btn btn-sm btn-secondary';
+  document.getElementById('riskModeMonth').className = RISK_MODE==='month' ? 'btn btn-sm' : 'btn btn-sm btn-secondary';
 
   // Calculate weighted exposure for whole portfolio
   let totalEquities = 0, totalBonds = 0, totalAlt = 0, totalVal = 0;
@@ -2200,12 +2256,17 @@ function renderRisk(){
   const modeLabel = document.getElementById('riskModeLabel');
   const cardSub = document.getElementById('riskCardSub');
   if (RISK_MODE === 'latest') {
-    const lm = latestMonth ? ` (${latestMonth})` : '';
+    const lm = latestMonth ? ` (${_mmyyToHeb(latestMonth)})` : '';
     if (modeLabel) modeLabel.textContent = `נתוני חודש אחרון${lm}`;
     if (cardSub) cardSub.textContent = `חשיפות לפי החודש האחרון${lm}`;
-  } else {
+  } else if (RISK_MODE === 'avg') {
     if (modeLabel) modeLabel.textContent = `ממוצע ${ACTIVE_YEAR}`;
     if (cardSub) cardSub.textContent = `חשיפות ממוצע שנתי ${ACTIVE_YEAR}`;
+  } else {
+    const selM = document.getElementById('riskMonthSel')?.value || '';
+    const selLabel = selM ? _mmyyToHeb(selM) : '—';
+    if (modeLabel) modeLabel.textContent = selLabel;
+    if (cardSub) cardSub.textContent = `חשיפות לחודש ${selLabel}`;
   }
 
   // עוגת כלל
