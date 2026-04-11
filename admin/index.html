@@ -153,8 +153,51 @@ function toggleTheme() {
 let CLIENTS=[];
 let PRODUCTS_ALL=[];
 let MV_ALL={};
+let IS_DEMO_MODE = false;
+
+// ── Demo data (מופעל כשה-DB לא מחובר בסביבת פיתוח) ─────────────
+const DEMO_CLIENTS = [
+  { id:'menachem-gilor', name:'מנחם גילור', report_title:'דוח מצב – 2025', report_period:'2025', active:1, whatsapp_phone:'+972501234567', enable_goals:1, enable_whatif:1, enable_insights:1, enable_notifications:1 },
+  { id:'demo-client-2',  name:'לקוח לדוגמה ב\'', report_title:'דוח מצב – 2025', report_period:'2025', active:1 },
+];
+const DEMO_PRODUCTS = [
+  { id:'prod-1', client_id:'menachem-gilor', name:'מנורה מבטחים – אלסטאר', name_short:'מנורה ALLSTARS', institution:'מנורה', product_type:'קרן פנסיה', status:'active', color:'#1a56db', ytd_start_value:300000, sort_order:1 },
+  { id:'prod-2', client_id:'menachem-gilor', name:'הכשרה ביטוח – מסלול כללי', name_short:'הכשרה', institution:'הכשרה', product_type:'ביטוח מנהלים', status:'active', color:'#10b981', ytd_start_value:1050000, sort_order:2 },
+  { id:'prod-3', client_id:'demo-client-2',  name:'מגדל – פנסיה', name_short:'מגדל', institution:'מגדל', product_type:'קרן פנסיה', status:'active', color:'#8b5cf6', ytd_start_value:500000, sort_order:1 },
+];
+const DEMO_MV = [
+  { id:'mv-1', client_id:'menachem-gilor', product_id:'prod-1', month:'01/25', value:305000 },
+  { id:'mv-2', client_id:'menachem-gilor', product_id:'prod-1', month:'02/25', value:316228 },
+  { id:'mv-3', client_id:'menachem-gilor', product_id:'prod-1', month:'03/25', value:330193 },
+  { id:'mv-4', client_id:'menachem-gilor', product_id:'prod-2', month:'01/25', value:1060000 },
+  { id:'mv-5', client_id:'menachem-gilor', product_id:'prod-2', month:'02/25', value:1080000 },
+  { id:'mv-6', client_id:'menachem-gilor', product_id:'prod-2', month:'03/25', value:1100000 },
+  { id:'mv-7', client_id:'demo-client-2',  product_id:'prod-3', month:'01/25', value:510000 },
+  { id:'mv-8', client_id:'demo-client-2',  product_id:'prod-3', month:'03/25', value:525000 },
+];
 
 async function fetchAll(url){
+  // בדיקה ראשונה: האם ה-API עובד?
+  if (!IS_DEMO_MODE) {
+    try {
+      const testUrl = `${API_BASE}/tables/clients?page=1&limit=1`;
+      const testR = await fetch(testUrl);
+      const testD = await testR.json();
+      if (testD.error && testD.error.includes('D1 not bound')) {
+        IS_DEMO_MODE = true;
+        console.warn('[Demo Mode] DB לא מחובר – מציג נתוני demo');
+      }
+    } catch(e) { IS_DEMO_MODE = true; }
+  }
+
+  if (IS_DEMO_MODE) {
+    // החזר נתוני demo לפי ה-URL
+    if (url.includes('/tables/clients'))       return [...DEMO_CLIENTS];
+    if (url.includes('/tables/products'))      return [...DEMO_PRODUCTS];
+    if (url.includes('/tables/monthly_values')) return [...DEMO_MV];
+    return [];
+  }
+
   const all=[];let page=1,total=Infinity;
   const base = url.startsWith('http') ? '' : API_BASE;
   while(all.length<total){
@@ -174,6 +217,13 @@ async function loadClients() {
     CLIENTS = await fetchAll('/tables/clients?limit=100');
     CLIENTS = CLIENTS.sort((a,b)=>a.name.localeCompare(b.name,'he'));
 
+    // הצג באנר Demo Mode אם צריך
+    if (IS_DEMO_MODE) {
+      const demoBar = document.createElement('div');
+      demoBar.style.cssText = 'background:linear-gradient(90deg,rgba(245,158,11,0.2),rgba(245,158,11,0.1));border:1px solid rgba(245,158,11,0.4);color:#f59e0b;padding:10px 20px;text-align:center;font-size:0.84rem;';
+      demoBar.innerHTML = '<i class="fa fa-flask" style="margin-left:6px;"></i><strong>מצב Demo</strong> – ה-DB לא מחובר בסביבת הפיתוח. מציג נתוני דוגמה. הנתונים האמיתיים יופיעו בפרודקשן.';
+      document.querySelector('main').prepend(demoBar);
+    }
     // Load all products
     PRODUCTS_ALL = await fetchAll('/tables/products?sort=sort_order');
 

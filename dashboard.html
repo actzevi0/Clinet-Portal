@@ -827,7 +827,64 @@ function calcPortfolioTotals(){
 // LOAD DATA
 // ═══════════════════════════════════════════
 const API_BASE='';
+let IS_DEMO_MODE = false;
+
+// ── Demo data לסביבת פיתוח (כשה-DB לא מחובר) ────────────────────
+const DEMO_DATA = {
+  clients: [
+    { id:'menachem-gilor', name:'מנחם גילור', report_title:'דוח מצב – 2025', report_period:'2025', active:1,
+      whatsapp_phone:'+972501234567', enable_goals:1, enable_whatif:1, enable_insights:1, enable_notifications:1,
+      goals_json:'[{"name":"פרישה","target_amount":3000000,"icon":"fa-umbrella-beach","description":"גיל 65","linked_to_portfolio":true}]',
+      insights_json:'[{"text":"מנחם, שים לב שהתיק שלך מציג תשואה טובה מעל הממוצע בענף. מומלץ לבחון הגדלת חשיפה לאגרות חוב לאיזון.","date":"אפריל 2026"}]'
+    }
+  ],
+  products: [
+    { id:'prod-menora-allstars', client_id:'menachem-gilor', name:'מנורה מבטחים – אלסטאר', name_short:'מנורה ALLSTARS', institution:'מנורה', product_type:'קרן פנסיה', track:'מסלול כללי', status:'active', color:'#1a56db', ytd_start_value:300000, ytd_start_month:'02/25', inception_value:280000, inception_date:'2023-01-01', sort_order:1, exclude_open:false, risk_equities:60, risk_bonds:30, risk_alternatives:10 },
+    { id:'prod-hachshara', client_id:'menachem-gilor', name:'הכשרה ביטוח – מסלול כללי', name_short:'הכשרה', institution:'הכשרה', product_type:'ביטוח מנהלים', track:'מסלול כללי מניות', status:'active', color:'#10b981', ytd_start_value:1050000, ytd_start_month:'02/25', inception_value:950000, inception_date:'2021-06-01', sort_order:2, exclude_open:false, risk_equities:75, risk_bonds:20, risk_alternatives:5 },
+    { id:'prod-ayalon', client_id:'menachem-gilor', name:'איילון – קופת גמל', name_short:'איילון גמל', institution:'איילון', product_type:'קופת גמל', track:'מסלול מניות', status:'active', color:'#f59e0b', ytd_start_value:0, ytd_start_month:'11/25', inception_value:295000, inception_date:'2025-11-01', sort_order:3, exclude_open:true, risk_equities:80, risk_bonds:15, risk_alternatives:5 },
+  ],
+  monthly_values: [
+    { id:'mv-1',  client_id:'menachem-gilor', product_id:'prod-menora-allstars', month:'02/25', value:300000 },
+    { id:'mv-2',  client_id:'menachem-gilor', product_id:'prod-menora-allstars', month:'03/25', value:316228 },
+    { id:'mv-3',  client_id:'menachem-gilor', product_id:'prod-menora-allstars', month:'04/25', value:322000 },
+    { id:'mv-4',  client_id:'menachem-gilor', product_id:'prod-menora-allstars', month:'05/25', value:330193 },
+    { id:'mv-5',  client_id:'menachem-gilor', product_id:'prod-hachshara', month:'02/25', value:1050000 },
+    { id:'mv-6',  client_id:'menachem-gilor', product_id:'prod-hachshara', month:'03/25', value:1074000 },
+    { id:'mv-7',  client_id:'menachem-gilor', product_id:'prod-hachshara', month:'04/25', value:1088000 },
+    { id:'mv-8',  client_id:'menachem-gilor', product_id:'prod-hachshara', month:'05/25', value:1105000 },
+    { id:'mv-9',  client_id:'menachem-gilor', product_id:'prod-ayalon', month:'11/25', value:295000 },
+    { id:'mv-10', client_id:'menachem-gilor', product_id:'prod-ayalon', month:'12/25', value:312000 },
+    { id:'mv-11', client_id:'menachem-gilor', product_id:'prod-ayalon', month:'01/26', value:328000 },
+    { id:'mv-12', client_id:'menachem-gilor', product_id:'prod-ayalon', month:'02/26', value:330193 },
+  ],
+  timeline_events: [
+    { id:'ev-1', client_id:'menachem-gilor', product_id:'prod-menora-allstars', event_date:'2025-02-01', event_type:'deposit', title:'הפקדה ראשונה – מנורה', description:'פתיחת קרן פנסיה', amount:300000 },
+    { id:'ev-2', client_id:'menachem-gilor', product_id:'prod-hachshara', event_date:'2025-02-01', event_type:'deposit', title:'הפקדה ראשונה – הכשרה', description:'פתיחת ביטוח מנהלים', amount:1050000 },
+    { id:'ev-3', client_id:'menachem-gilor', product_id:'prod-ayalon', event_date:'2025-11-15', event_type:'deposit', title:'ניוד לאיילון גמל', description:'ניוד מקרן קודמת', amount:295000 },
+  ]
+};
+
 async function fetchAll(url){
+  // בדיקה אם ה-API עובד (פעם אחת)
+  if (!IS_DEMO_MODE) {
+    try {
+      const testR = await fetch(`${API_BASE}/tables/clients?page=1&limit=1`);
+      const testD = await testR.json();
+      if (testD.error && testD.error.includes('D1 not bound')) {
+        IS_DEMO_MODE = true;
+        console.warn('[Demo Mode] אין חיבור DB – מציג נתוני demo');
+      }
+    } catch(e) { IS_DEMO_MODE = true; }
+  }
+
+  if (IS_DEMO_MODE) {
+    if (url.includes('/tables/clients'))        return [...DEMO_DATA.clients];
+    if (url.includes('/tables/products'))       return [...DEMO_DATA.products];
+    if (url.includes('/tables/monthly_values')) return [...DEMO_DATA.monthly_values];
+    if (url.includes('/tables/timeline_events'))return [...DEMO_DATA.timeline_events];
+    return [];
+  }
+
   const all=[];let page=1,total=Infinity;
   const base=url.startsWith('http')?'':API_BASE;
   while(all.length<total){
@@ -847,11 +904,18 @@ async function loadData(){
   if(!cid){window.location.href='index.html';return;}
 
   try{
-    // Load client
-    const cRes=await fetch(`${API_BASE}/tables/clients?limit=100`);
-    const cData=await cRes.json();
-    CLIENT=(cData.data||[]).find(c=>c.id===cid);
-    if(!CLIENT)throw new Error('client not found');
+    // Load client – תמיד דרך fetchAll (שמנהל demo mode)
+    const allClients = await fetchAll(`${API_BASE}/tables/clients?limit=100`);
+    CLIENT = allClients.find(c=>c.id===cid);
+    if(!CLIENT) throw new Error('client not found');
+
+    // הצג באנר demo mode
+    if (IS_DEMO_MODE) {
+      const bar = document.createElement('div');
+      bar.style.cssText = 'background:linear-gradient(90deg,rgba(245,158,11,0.2),rgba(245,158,11,0.1));border-bottom:1px solid rgba(245,158,11,0.3);color:#f59e0b;padding:8px 20px;text-align:center;font-size:0.82rem;position:sticky;top:62px;z-index:99;';
+      bar.innerHTML = '<i class="fa fa-flask" style="margin-left:6px;"></i><strong>מצב Demo</strong> – נתוני דוגמה בלבד. הנתונים האמיתיים יופיעו לאחר חיבור ה-DB בפרודקשן.';
+      document.body.insertBefore(bar, document.getElementById('loadingEl'));
+    }
 
     // Load products
     PRODUCTS=(await fetchAll(`${API_BASE}/tables/products?sort=sort_order`))
