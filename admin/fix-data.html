@@ -42,6 +42,13 @@ input[type=number]{background:#1e293b;border:1px solid #334155;color:#f1f5f9;pad
 <script>
 let PRODUCTS=[];
 const log=[];
+let IS_DEMO_MODE_FIX = false;
+
+const DEMO_PRODUCTS_FIX = [
+  { id:'prod-menora-allstars', client_id:'menachem-gilor', name:'מנורה מבטחים – אלסטאר', name_short:'מנורה ALLSTARS', institution:'מנורה', product_type:'קרן פנסיה', status:'active', color:'#1a56db', ytd_start_value:300000, ytd_start_month:'01/25', inception_value:295000, inception_date:'2024-01-01', exclude_open:0, sort_order:1 },
+  { id:'prod-hachshara', client_id:'menachem-gilor', name:'הכשרה ביטוח – מסלול כללי', name_short:'הכשרה', institution:'הכשרה', product_type:'ביטוח מנהלים', status:'active', color:'#10b981', ytd_start_value:1050000, ytd_start_month:'01/25', inception_value:1000000, inception_date:'2023-06-01', exclude_open:0, sort_order:2 },
+  { id:'prod-ayalon', client_id:'menachem-gilor', name:'איילון – גימל', name_short:'איילון ג׳', institution:'איילון', product_type:'גמל', status:'active', color:'#f59e0b', ytd_start_value:285000, ytd_start_month:'01/25', inception_value:280000, inception_date:'2023-01-01', exclude_open:0, sort_order:3 },
+];
 
 function addLog(msg){log.push(msg);document.getElementById('logEl').textContent=log.join('\n');}
 function addMsg(txt,ok){const d=document.createElement('div');d.className='msg '+(ok?'msg-ok':'msg-err');d.textContent=txt;document.getElementById('msgs').prepend(d);setTimeout(()=>d.remove(),6000);}
@@ -49,6 +56,10 @@ function addMsg(txt,ok){const d=document.createElement('div');d.className='msg '
 const API_BASE='';
 
 async function fetchAll(url){
+  if (IS_DEMO_MODE_FIX) {
+    if (url.includes('/tables/products')) return [...DEMO_PRODUCTS_FIX];
+    return [];
+  }
   const all=[];let page=1,total=Infinity;
   const base = url.startsWith('http') ? '' : API_BASE;
   while(all.length<total){
@@ -67,14 +78,23 @@ async function loadProducts(){
   document.getElementById('tableWrap').innerHTML='<p style="color:#64748b;">טוען...</p>';
   try{
     PRODUCTS=await fetchAll(`${API_BASE}/tables/products?sort=sort_order`);
-    console.log('נטענו',PRODUCTS.length,'מוצרים');
-    PRODUCTS.forEach(p=>console.log(p.name_short||p.name,'ytd=',p.ytd_start_value,'excl=',p.exclude_open,'status=',p.status));
+    if (!PRODUCTS.length) throw new Error('no data');
     addLog(`נטענו ${PRODUCTS.length} מוצרים`);
     renderTable();
   }catch(e){
-    console.error('שגיאה בטעינה:',e);
-    addLog('❌ שגיאה בטעינה: '+e.message);
-    document.getElementById('tableWrap').innerHTML='<p style="color:#ef4444;">שגיאה בטעינת נתונים</p>';
+    // Demo Mode
+    IS_DEMO_MODE_FIX = true;
+    PRODUCTS = [...DEMO_PRODUCTS_FIX];
+    addLog(`[Demo Mode] ${PRODUCTS.length} מוצרי דוגמה`);
+    // הצג באנר
+    if (!document.getElementById('demoBannerFix')) {
+      const b=document.createElement('div');
+      b.id='demoBannerFix';
+      b.style.cssText='background:linear-gradient(90deg,rgba(245,158,11,0.2),rgba(245,158,11,0.1));border-bottom:1px solid rgba(245,158,11,0.4);color:#f59e0b;padding:10px 20px;text-align:center;font-size:0.84rem;font-weight:600;';
+      b.innerHTML='<i class="fa fa-flask" style="margin-left:6px;"></i><strong>מצב Demo</strong> – ה-DB לא מחובר. שינויים לא ישמרו לצמיתות.';
+      document.body.insertBefore(b, document.body.firstChild);
+    }
+    renderTable();
   }
 }
 
@@ -114,6 +134,13 @@ async function saveProduct(id){
   
   const body={ytd_start_value:ytdV,inception_value:incV,exclude_open:excl};
   addLog(`שומר ${p.name_short}: ytd=${ytdV}, inc=${incV}, excl=${excl}`);
+
+  if (IS_DEMO_MODE_FIX) {
+    Object.assign(p,body);
+    addMsg(`✅ Demo: ${p.name_short} עודכן מקומית`,true);
+    addLog(`✅ Demo: ${p.name_short} עודכן מקומית`);
+    return;
+  }
   
   const res=await fetch(`${API_BASE}/tables/products/${id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   if(res.ok){

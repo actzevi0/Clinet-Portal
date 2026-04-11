@@ -266,10 +266,59 @@ let ROW_DATA={}; // prodId → {prevVal, curVal, mvId (if exists)}
 let DIRTY=new Set(); // prodIds with unsaved changes
 
 // ══════════════════════════════════════════════════════════
+// Demo Data (מופעל כשה-DB לא מחובר בסביבת פיתוח)
+// ══════════════════════════════════════════════════════════
+let IS_DEMO_MODE = false;
+
+const DEMO_CLIENTS_MU = [
+  { id:'menachem-gilor', name:'מנחם גילור', report_title:'דוח מצב – 2025', report_period:'2025', active:1 },
+  { id:'demo-client-2',  name:'לקוח לדוגמה ב׳', report_title:'דוח מצב – 2025', report_period:'2025', active:1 },
+];
+const DEMO_PRODUCTS_MU = [
+  { id:'prod-menora-allstars', client_id:'menachem-gilor', name:'מנורה מבטחים – אלסטאר', name_short:'מנורה ALLSTARS', institution:'מנורה', product_type:'קרן פנסיה', status:'active', color:'#1a56db', sort_order:1 },
+  { id:'prod-hachshara',       client_id:'menachem-gilor', name:'הכשרה ביטוח – מסלול כללי', name_short:'הכשרה', institution:'הכשרה', product_type:'ביטוח מנהלים', status:'active', color:'#10b981', sort_order:2 },
+  { id:'prod-ayalon',          client_id:'menachem-gilor', name:'איילון – גימל', name_short:'איילון ג׳', institution:'איילון', product_type:'גמל', status:'active', color:'#f59e0b', sort_order:3 },
+  { id:'prod-migdal',          client_id:'demo-client-2',  name:'מגדל – פנסיה', name_short:'מגדל', institution:'מגדל', product_type:'קרן פנסיה', status:'active', color:'#8b5cf6', sort_order:1 },
+];
+const DEMO_MV_ALL = [
+  { id:'mv-1',  client_id:'menachem-gilor', product_id:'prod-menora-allstars', month:'01/25', value:305000 },
+  { id:'mv-2',  client_id:'menachem-gilor', product_id:'prod-menora-allstars', month:'02/25', value:316228 },
+  { id:'mv-3',  client_id:'menachem-gilor', product_id:'prod-menora-allstars', month:'03/25', value:330193 },
+  { id:'mv-4',  client_id:'menachem-gilor', product_id:'prod-hachshara',       month:'01/25', value:1060000 },
+  { id:'mv-5',  client_id:'menachem-gilor', product_id:'prod-hachshara',       month:'02/25', value:1080000 },
+  { id:'mv-6',  client_id:'menachem-gilor', product_id:'prod-hachshara',       month:'03/25', value:1100000 },
+  { id:'mv-7',  client_id:'menachem-gilor', product_id:'prod-ayalon',          month:'01/25', value:290000 },
+  { id:'mv-8',  client_id:'menachem-gilor', product_id:'prod-ayalon',          month:'02/25', value:295000 },
+  { id:'mv-9',  client_id:'menachem-gilor', product_id:'prod-ayalon',          month:'03/25', value:302000 },
+  { id:'mv-10', client_id:'demo-client-2',  product_id:'prod-migdal',          month:'01/25', value:510000 },
+  { id:'mv-11', client_id:'demo-client-2',  product_id:'prod-migdal',          month:'03/25', value:525000 },
+];
+
+// Demo save: ממדמה שמירה ללא API
+function demoSave(prodId, month, value, mvId) {
+  if (mvId) {
+    const idx = DEMO_MV_ALL.findIndex(r => r.id === mvId);
+    if (idx >= 0) DEMO_MV_ALL[idx].value = value;
+    return { id: mvId };
+  } else {
+    const newId = 'mv-demo-' + Date.now() + '-' + prodId;
+    DEMO_MV_ALL.push({ id: newId, client_id: SEL_CLIENT.id, product_id: prodId, month, value });
+    return { id: newId };
+  }
+}
+
+// ══════════════════════════════════════════════════════════
 // API helpers
 // ══════════════════════════════════════════════════════════
 const API_BASE='';
 async function fetchAll(path){
+  // Demo Mode: החזר נתונים מדומים
+  if (IS_DEMO_MODE) {
+    if (path.includes('/tables/clients'))        return [...DEMO_CLIENTS_MU];
+    if (path.includes('/tables/products'))       return [...DEMO_PRODUCTS_MU];
+    if (path.includes('/tables/monthly_values')) return [...DEMO_MV_ALL];
+    return [];
+  }
   // path can be relative (starts with '/') or absolute
   const fullPath = path.startsWith('http') ? path : `${API_BASE}${path}`;
   let all=[],page=1;
@@ -284,6 +333,10 @@ async function fetchAll(path){
   return all;
 }
 async function apiPost(path,body){
+  if (IS_DEMO_MODE) {
+    const result = demoSave(body.product_id, body.month, body.value, null);
+    return result;
+  }
   console.log('[POST]', path, body);
   const r=await fetch(`${path}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   const d=await r.json();
@@ -292,6 +345,12 @@ async function apiPost(path,body){
   return d;
 }
 async function apiPatch(path,body){
+  if (IS_DEMO_MODE) {
+    // path is like /tables/monthly_values/mv-1 — extract ID
+    const mvId = path.split('/').pop();
+    const result = demoSave(null, SEL_MONTH, body.value, mvId);
+    return result;
+  }
   console.log('[PATCH]', path, body);
   const r=await fetch(`${path}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   const d=await r.json();
@@ -709,24 +768,27 @@ function showToast(msg, type='success'){
 async function checkAPIConnection(){
   try{
     const r = await fetch(`${API_BASE}/tables/clients?limit=1`);
-    if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    if(!r.ok) return 'demo';  // כל שגיאת HTTP = Demo Mode
     const d = await r.json();
     console.log('✅ API connection OK, clients:', d.total);
-    return true;
+    return 'ok';
   }catch(e){
-    console.error('❌ API connection FAILED:', e.message);
-    // הצג הודעה בולטת
-    const warn = document.createElement('div');
-    warn.style.cssText = 'background:#7f1d1d;color:#fca5a5;padding:14px 20px;text-align:center;font-weight:600;font-size:.9rem;border-bottom:2px solid #ef4444;';
-    warn.innerHTML = `⚠️ לא ניתן להתחבר ל-API (${e.message}). ודא שאתה פותח את הדף <strong>מהשרת המקוון</strong> ולא מקובץ מקומי.`;
-    document.body.insertBefore(warn, document.body.firstChild);
-    return false;
+    console.warn('[Demo Mode] DB לא מחובר:', e.message);
+    return 'demo';
   }
 }
 
 async function init(){
-  const ok = await checkAPIConnection();
-  if(ok) loadClients();
+  const status = await checkAPIConnection();
+  if(status === 'demo'){
+    IS_DEMO_MODE = true;
+    // הצג באנר Demo Mode
+    const warn = document.createElement('div');
+    warn.style.cssText = 'background:linear-gradient(90deg,rgba(245,158,11,0.2),rgba(245,158,11,0.1));border-bottom:1px solid rgba(245,158,11,0.4);color:#f59e0b;padding:10px 20px;text-align:center;font-size:0.84rem;font-weight:600;';
+    warn.innerHTML = '<i class="fa fa-flask" style="margin-left:6px;"></i><strong>מצב Demo</strong> – ה-DB לא מחובר בסביבת הפיתוח. מציג נתוני דוגמה. ניתן לגלוש בממשק אך הנתונים לא ישמרו לצמיתות.';
+    document.body.insertBefore(warn, document.body.firstChild);
+  }
+  loadClients();
 }
 init();
 </script>
