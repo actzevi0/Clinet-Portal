@@ -379,34 +379,63 @@ const DEMO_CLIENTS_MU = [
   { id:'demo-client-2',  name:'לקוח לדוגמה ב׳', report_title:'דוח מצב – 2025', report_period:'2025', active:1 },
 ];
 const DEMO_PRODUCTS_MU = [
-  { id:'prod-menora-allstars', client_id:'menachem-gilor', name:'מנורה מבטחים – אלסטאר', name_short:'מנורה ALLSTARS', institution:'מנורה', product_type:'קרן פנסיה', status:'active', color:'#1a56db', sort_order:1 },
-  { id:'prod-hachshara',       client_id:'menachem-gilor', name:'הכשרה ביטוח – מסלול כללי', name_short:'הכשרה', institution:'הכשרה', product_type:'ביטוח מנהלים', status:'active', color:'#10b981', sort_order:2 },
-  { id:'prod-ayalon',          client_id:'menachem-gilor', name:'איילון – גימל', name_short:'איילון ג׳', institution:'איילון', product_type:'גמל', status:'active', color:'#f59e0b', sort_order:3 },
-  { id:'prod-migdal',          client_id:'demo-client-2',  name:'מגדל – פנסיה', name_short:'מגדל', institution:'מגדל', product_type:'קרן פנסיה', status:'active', color:'#8b5cf6', sort_order:1 },
+  { id:'prod-menora-allstars', client_id:'menachem-gilor', name:'מנורה מבטחים – אלסטאר', name_short:'מנורה ALLSTARS', institution:'מנורה', product_type:'קרן פנסיה', status:'active', color:'#1a56db', sort_order:1, risk_equities:60, risk_bonds:30, risk_alternatives:10, track:'מסלול כללי' },
+  { id:'prod-hachshara',       client_id:'menachem-gilor', name:'הכשרה ביטוח – מסלול כללי', name_short:'הכשרה', institution:'הכשרה', product_type:'ביטוח מנהלים', status:'active', color:'#10b981', sort_order:2, risk_equities:75, risk_bonds:20, risk_alternatives:5, track:'מסלול כללי מניות' },
+  { id:'prod-ayalon',          client_id:'menachem-gilor', name:'איילון – קופת גמל', name_short:'איילון גמל', institution:'איילון', product_type:'קופת גמל', status:'active', color:'#f59e0b', sort_order:3, risk_equities:80, risk_bonds:15, risk_alternatives:5, track:'מסלול מניות' },
+  { id:'prod-migdal',          client_id:'demo-client-2',  name:'מגדל – פנסיה', name_short:'מגדל', institution:'מגדל', product_type:'קרן פנסיה', status:'active', color:'#8b5cf6', sort_order:1, risk_equities:50, risk_bonds:40, risk_alternatives:10, track:'מסלול כללי' },
 ];
-const DEMO_MV_ALL = [
-  { id:'mv-1',  client_id:'menachem-gilor', product_id:'prod-menora-allstars', month:'01/25', value:305000 },
-  { id:'mv-2',  client_id:'menachem-gilor', product_id:'prod-menora-allstars', month:'02/25', value:316228 },
-  { id:'mv-3',  client_id:'menachem-gilor', product_id:'prod-menora-allstars', month:'03/25', value:330193 },
-  { id:'mv-4',  client_id:'menachem-gilor', product_id:'prod-hachshara',       month:'01/25', value:1060000 },
-  { id:'mv-5',  client_id:'menachem-gilor', product_id:'prod-hachshara',       month:'02/25', value:1080000 },
-  { id:'mv-6',  client_id:'menachem-gilor', product_id:'prod-hachshara',       month:'03/25', value:1100000 },
-  { id:'mv-7',  client_id:'menachem-gilor', product_id:'prod-ayalon',          month:'01/25', value:290000 },
-  { id:'mv-8',  client_id:'menachem-gilor', product_id:'prod-ayalon',          month:'02/25', value:295000 },
-  { id:'mv-9',  client_id:'menachem-gilor', product_id:'prod-ayalon',          month:'03/25', value:302000 },
-  { id:'mv-10', client_id:'demo-client-2',  product_id:'prod-migdal',          month:'01/25', value:510000 },
-  { id:'mv-11', client_id:'demo-client-2',  product_id:'prod-migdal',          month:'03/25', value:525000 },
+// נתוני demo מתואמים עם dashboard.html
+const DEMO_MV_DEFAULT = [
+  { id:'mv-1',  client_id:'menachem-gilor', product_id:'prod-menora-allstars', month:'02/25', value:300000, risk_equities:60, risk_bonds:30, risk_alternatives:10, track:'מסלול כללי' },
+  { id:'mv-2',  client_id:'menachem-gilor', product_id:'prod-menora-allstars', month:'03/25', value:316228, risk_equities:62, risk_bonds:28, risk_alternatives:10, track:'מסלול כללי' },
+  { id:'mv-3',  client_id:'menachem-gilor', product_id:'prod-menora-allstars', month:'04/25', value:322000, risk_equities:65, risk_bonds:25, risk_alternatives:10, track:'מסלול מניות' },
+  { id:'mv-4',  client_id:'menachem-gilor', product_id:'prod-menora-allstars', month:'05/25', value:330193, risk_equities:65, risk_bonds:25, risk_alternatives:10, track:'מסלול מניות' },
+  { id:'mv-5',  client_id:'menachem-gilor', product_id:'prod-hachshara', month:'02/25', value:1050000, risk_equities:75, risk_bonds:20, risk_alternatives:5, track:'מסלול כללי מניות' },
+  { id:'mv-6',  client_id:'menachem-gilor', product_id:'prod-hachshara', month:'03/25', value:1074000, risk_equities:75, risk_bonds:20, risk_alternatives:5, track:'מסלול כללי מניות' },
+  { id:'mv-7',  client_id:'menachem-gilor', product_id:'prod-hachshara', month:'04/25', value:1088000, risk_equities:78, risk_bonds:17, risk_alternatives:5, track:'מסלול מניות ועוד' },
+  { id:'mv-8',  client_id:'menachem-gilor', product_id:'prod-hachshara', month:'05/25', value:1105000, risk_equities:78, risk_bonds:17, risk_alternatives:5, track:'מסלול מניות ועוד' },
+  { id:'mv-9',  client_id:'menachem-gilor', product_id:'prod-ayalon', month:'11/25', value:295000, risk_equities:80, risk_bonds:15, risk_alternatives:5, track:'מסלול מניות' },
+  { id:'mv-10', client_id:'menachem-gilor', product_id:'prod-ayalon', month:'12/25', value:312000, risk_equities:80, risk_bonds:15, risk_alternatives:5, track:'מסלול מניות' },
+  { id:'mv-11', client_id:'menachem-gilor', product_id:'prod-ayalon', month:'01/26', value:328000, risk_equities:82, risk_bonds:13, risk_alternatives:5, track:'מסלול מניות' },
+  { id:'mv-12', client_id:'menachem-gilor', product_id:'prod-ayalon', month:'02/26', value:330193, risk_equities:82, risk_bonds:13, risk_alternatives:5, track:'מסלול מניות' },
+];
+const DEMO_EVENTS_DEFAULT = [
+  { id:'ev-1', client_id:'menachem-gilor', product_id:'prod-menora-allstars', event_date:'2025-02-01', event_type:'deposit', title:'הפקדה ראשונה – מנורה', description:'פתיחת קרן פנסיה', amount:300000 },
+  { id:'ev-2', client_id:'menachem-gilor', product_id:'prod-hachshara', event_date:'2025-02-01', event_type:'deposit', title:'הפקדה ראשונה – הכשרה', description:'פתיחת ביטוח מנהלים', amount:1050000 },
+  { id:'ev-3', client_id:'menachem-gilor', product_id:'prod-ayalon', event_date:'2025-11-15', event_type:'deposit', title:'ניוד לאיילון גמל', description:'ניוד מקרן קודמת', amount:295000 },
+  { id:'ev-4', client_id:'menachem-gilor', product_id:'prod-menora-allstars', event_date:'2025-04-01', event_type:'track_change', title:'שינוי מסלול – מנורה ALLSTARS', description:'מסלול שונה מ-"מסלול כללי" ל-"מסלול מניות"', amount:null },
+  { id:'ev-5', client_id:'menachem-gilor', product_id:'prod-hachshara', event_date:'2025-04-01', event_type:'track_change', title:'שינוי מסלול – הכשרה', description:'מסלול שונה מ-"מסלול כללי מניות" ל-"מסלול מניות ועוד"', amount:null },
 ];
 
-// Demo save: ממדמה שמירה ללא API
-function demoSave(prodId, month, value, mvId) {
+// DEMO_MV_ALL ו-DEMO_EVENTS_ALL נטענים מ-localStorage (או ברירת מחדל)
+let DEMO_MV_ALL = (() => {
+  try { const s = localStorage.getItem('easyfinance_demo_mv'); return s ? JSON.parse(s) : [...DEMO_MV_DEFAULT]; }
+  catch(e) { return [...DEMO_MV_DEFAULT]; }
+})();
+let DEMO_EVENTS_ALL = (() => {
+  try { const s = localStorage.getItem('easyfinance_demo_events'); return s ? JSON.parse(s) : [...DEMO_EVENTS_DEFAULT]; }
+  catch(e) { return [...DEMO_EVENTS_DEFAULT]; }
+})();
+
+// שמור נתוני demo ל-localStorage כדי שהדשבורד יוכל לקרוא אותם
+function persistDemoData() {
+  try {
+    localStorage.setItem('easyfinance_demo_mv', JSON.stringify(DEMO_MV_ALL));
+    localStorage.setItem('easyfinance_demo_events', JSON.stringify(DEMO_EVENTS_ALL));
+  } catch(e) { console.warn('[Demo] localStorage save failed:', e); }
+}
+
+// Demo save: ממדמה שמירה ללא API — שומר גם risk fields ו-track
+function demoSave(prodId, month, value, mvId, extraFields) {
   if (mvId) {
     const idx = DEMO_MV_ALL.findIndex(r => r.id === mvId);
-    if (idx >= 0) DEMO_MV_ALL[idx].value = value;
+    if (idx >= 0) {
+      DEMO_MV_ALL[idx] = { ...DEMO_MV_ALL[idx], value, ...(extraFields||{}) };
+    }
     return { id: mvId };
   } else {
-    const newId = 'mv-demo-' + Date.now() + '-' + prodId;
-    DEMO_MV_ALL.push({ id: newId, client_id: SEL_CLIENT.id, product_id: prodId, month, value });
+    const newId = 'mv-demo-' + Date.now() + '-' + (prodId||'x');
+    DEMO_MV_ALL.push({ id: newId, client_id: SEL_CLIENT?.id||'', product_id: prodId, month, value, ...(extraFields||{}) });
     return { id: newId };
   }
 }
@@ -421,6 +450,7 @@ async function fetchAll(path){
     if (path.includes('/tables/clients'))        return [...DEMO_CLIENTS_MU];
     if (path.includes('/tables/products'))       return [...DEMO_PRODUCTS_MU];
     if (path.includes('/tables/monthly_values')) return [...DEMO_MV_ALL];
+    if (path.includes('/tables/timeline_events'))return [...DEMO_EVENTS_ALL];
     return [];
   }
   // path can be relative (starts with '/') or absolute
@@ -439,12 +469,17 @@ async function fetchAll(path){
 async function apiPost(path,body){
   if (IS_DEMO_MODE) {
     if(path.includes('/tables/timeline_events')){
-      // Demo: simulate creating a timeline event
+      // Demo: שמור אירוע בזיכרון ו-localStorage
       const newId='ev-demo-'+Date.now();
+      const newEv = { id: newId, ...body };
+      DEMO_EVENTS_ALL.push(newEv);
+      persistDemoData();
       addLog(`📋 [Demo] אירוע נוצר: ${body.event_type} – ${body.title||''}`, 'log-info');
-      return { id: newId, ...body };
+      return newEv;
     }
-    const result = demoSave(body.product_id, body.month, body.value, null);
+    const extraFields = { risk_equities:body.risk_equities, risk_bonds:body.risk_bonds, risk_alternatives:body.risk_alternatives, track:body.track };
+    const result = demoSave(body.product_id, body.month, body.value, null, extraFields);
+    persistDemoData();
     return result;
   }
   console.log('[POST]', path, body);
@@ -458,7 +493,9 @@ async function apiPatch(path,body){
   if (IS_DEMO_MODE) {
     // path is like /tables/monthly_values/mv-1 — extract ID
     const mvId = path.split('/').pop();
-    const result = demoSave(null, SEL_MONTH, body.value, mvId);
+    const extraFields = { risk_equities:body.risk_equities, risk_bonds:body.risk_bonds, risk_alternatives:body.risk_alternatives, track:body.track };
+    const result = demoSave(null, SEL_MONTH, body.value, mvId, extraFields);
+    persistDemoData();
     return result;
   }
   console.log('[PATCH]', path, body);
@@ -1212,11 +1249,19 @@ async function init(){
     // הצג באנר Demo Mode
     const warn = document.createElement('div');
     warn.style.cssText = 'background:linear-gradient(90deg,rgba(245,158,11,0.2),rgba(245,158,11,0.1));border-bottom:1px solid rgba(245,158,11,0.4);color:#f59e0b;padding:10px 20px;text-align:center;font-size:0.84rem;font-weight:600;';
-    warn.innerHTML = '<i class="fa fa-flask" style="margin-left:6px;"></i><strong>מצב Demo</strong> – ה-DB לא מחובר בסביבת הפיתוח. מציג נתוני דוגמה. ניתן לגלוש בממשק אך הנתונים לא ישמרו לצמיתות.';
+    warn.innerHTML = '<i class="fa fa-flask" style="margin-left:6px;"></i><strong>מצב Demo</strong> – ה-DB לא מחובר. שינויים נשמרים ב-localStorage ומשתקפים בדשבורד. <button onclick="resetDemoDataMU()" style="background:rgba(245,158,11,0.3);border:1px solid rgba(245,158,11,0.5);color:#f59e0b;border-radius:4px;padding:2px 8px;font-size:.78rem;cursor:pointer;margin-right:8px;">איפוס Demo</button>';
     document.body.insertBefore(warn, document.body.firstChild);
   }
   loadClients();
 }
+
+function resetDemoDataMU(){
+  if(!confirm('לאפס את כל נתוני ה-Demo לברירת המחדל?')) return;
+  localStorage.removeItem('easyfinance_demo_mv');
+  localStorage.removeItem('easyfinance_demo_events');
+  location.reload();
+}
+
 init();
 </script>
 </body>

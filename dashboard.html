@@ -358,10 +358,13 @@ tbody tr:last-child td{border-bottom:none;}
       <div class="card span2">
         <div class="card-hdr">
           <div><div class="card-title">התפתחות תיק ההשקעות</div><div class="card-sub">שווי כולל לאורך התקופה</div></div>
-          <select id="portMode" onchange="renderPortfolioChart()" style="padding:6px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:var(--font);font-size:0.82rem;">
-            <option value="total">סה״כ תיק</option>
-            <option value="stacked">לפי מוצרים</option>
-          </select>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <div id="portYearBtns" style="display:flex;gap:4px;"></div>
+            <select id="portMode" onchange="renderPortfolioChart()" style="padding:6px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:var(--font);font-size:0.82rem;">
+              <option value="total">סה״כ תיק</option>
+              <option value="stacked">לפי מוצרים</option>
+            </select>
+          </div>
         </div>
         <div class="ch"><canvas id="portChart"></canvas></div>
       </div>
@@ -410,7 +413,10 @@ tbody tr:last-child td{border-bottom:none;}
   <!-- PERFORMANCE -->
   <div class="tab-pane" id="pane-performance">
     <div class="card mb22">
-      <div class="card-hdr"><div><div class="card-title">השוואת מוצרים</div></div></div>
+      <div class="card-hdr">
+        <div><div class="card-title">השוואת מוצרים</div></div>
+        <div id="perfYearBtns" style="display:flex;gap:4px;flex-wrap:wrap;"></div>
+      </div>
       <div class="toggles" id="compToggles"></div>
       <div class="ch-tall"><canvas id="compChart"></canvas></div>
     </div>
@@ -536,14 +542,16 @@ tbody tr:last-child td{border-bottom:none;}
   <!-- RISK (סיכון) -->
   <div class="tab-pane" id="pane-risk">
     <!-- Risk mode toggle -->
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
       <span style="font-size:0.82rem;color:var(--text-muted);font-weight:600;">הצג לפי:</span>
       <button class="btn btn-sm" id="riskModeLatest" onclick="setRiskMode('latest')" style="font-size:0.78rem;padding:4px 12px;">חודש אחרון</button>
       <button class="btn btn-sm btn-secondary" id="riskModeAvg" onclick="setRiskMode('avg')" style="font-size:0.78rem;padding:4px 12px;">ממוצע שנתי</button>
       <button class="btn btn-sm btn-secondary" id="riskModeMonth" onclick="setRiskMode('month')" style="font-size:0.78rem;padding:4px 12px;">חודש ספציפי</button>
-      <!-- Month picker (shown only in 'month' mode) -->
-      <select id="riskMonthSel" style="display:none;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;background:var(--bg-card);color:var(--text);font-size:0.78rem;" onchange="renderRisk()"></select>
       <span id="riskModeLabel" style="font-size:0.78rem;color:var(--text-muted);margin-right:4px;"></span>
+    </div>
+    <!-- Month picker grid (shown only in 'month' mode) -->
+    <div id="riskMonthPickerWrap" style="display:none;margin-bottom:16px;background:var(--bg-card2,var(--bg-card));border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
+      <div id="riskMonthPickerContent"></div>
     </div>
     <div class="g2">
       <div class="card">
@@ -619,6 +627,7 @@ let CLIENT=null, PRODUCTS=[], MV={}, MONTHS=[], EVENTS=[];
 let COMP_ON=[], PIE_MODE='institution', CHARTS={};
 let modalChart=null;
 let ACTIVE_YEAR=new Date().getFullYear(); // שנה פעילה לחישוב YTD
+let CHART_YEAR_FILTER=null; // null=כל הנתונים (ברירת מחדל), number=שנה ספציפית
 
 // Theme
 const TH=localStorage.getItem('theme')||'dark';
@@ -900,8 +909,22 @@ async function fetchAll(url){
   if (IS_DEMO_MODE) {
     if (url.includes('/tables/clients'))        return [...DEMO_DATA.clients];
     if (url.includes('/tables/products'))       return [...DEMO_DATA.products];
-    if (url.includes('/tables/monthly_values')) return [...DEMO_DATA.monthly_values];
-    if (url.includes('/tables/timeline_events'))return [...DEMO_DATA.timeline_events];
+    if (url.includes('/tables/monthly_values')){
+      // טען מ-localStorage אם קיים (עדכונים מדף עדכון חודשי)
+      try {
+        const saved = localStorage.getItem('easyfinance_demo_mv');
+        if (saved) return JSON.parse(saved);
+      } catch(e) {}
+      return [...DEMO_DATA.monthly_values];
+    }
+    if (url.includes('/tables/timeline_events')){
+      // טען מ-localStorage אם קיים (אירועי שינוי מסלול שנוספו)
+      try {
+        const saved = localStorage.getItem('easyfinance_demo_events');
+        if (saved) return JSON.parse(saved);
+      } catch(e) {}
+      return [...DEMO_DATA.timeline_events];
+    }
     return [];
   }
 
@@ -933,7 +956,7 @@ async function loadData(){
     if (IS_DEMO_MODE) {
       const bar = document.createElement('div');
       bar.style.cssText = 'background:linear-gradient(90deg,rgba(245,158,11,0.2),rgba(245,158,11,0.1));border-bottom:1px solid rgba(245,158,11,0.3);color:#f59e0b;padding:8px 20px;text-align:center;font-size:0.82rem;position:sticky;top:62px;z-index:99;';
-      bar.innerHTML = '<i class="fa fa-flask" style="margin-left:6px;"></i><strong>מצב Demo</strong> – נתוני דוגמה בלבד. הנתונים האמיתיים יופיעו לאחר חיבור ה-DB בפרודקשן.';
+      bar.innerHTML = '<i class="fa fa-flask" style="margin-left:6px;"></i><strong>מצב Demo</strong> – נתוני דוגמה. עדכונים מדף עדכון חודשי ישתקפו כאן. <button onclick="resetDemoData()" style="background:rgba(245,158,11,0.3);border:1px solid rgba(245,158,11,0.5);color:#f59e0b;border-radius:4px;padding:2px 8px;font-size:.78rem;cursor:pointer;margin-right:8px;">איפוס נתוני Demo</button>';
       document.body.insertBefore(bar, document.getElementById('loadingEl'));
     }
 
@@ -996,6 +1019,7 @@ function initUI(){
   ['fType','pfType'].forEach(id=>{const el=document.getElementById(id);types.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;el.appendChild(o);});});
 
   renderKPIs();
+  renderYearBtns();  // אתחל כפתורי שנה לגרפים
   renderPortfolioChart();
   renderPieChart();
   renderYTDBar();
@@ -1123,18 +1147,69 @@ function lineOpts(d,yFmt){
 }
 
 // ═══════════════════════════════════════════
+// ═══════════════════════════════════════════
+// CHART YEAR FILTER
+// ═══════════════════════════════════════════
+function getChartMonths(){
+  if(CHART_YEAR_FILTER===null) return MONTHS; // כל הנתונים
+  const yy=String(CHART_YEAR_FILTER).slice(-2);
+  return MONTHS.filter(m=>m.endsWith('/'+yy));
+}
+
+function renderYearBtns(){
+  // Collect all years in data
+  const years=new Set();
+  MONTHS.forEach(m=>{const yy=m.split('/')[1];if(yy)years.add(parseInt('20'+yy));});
+  const sortedYears=[...years].sort((a,b)=>a-b);
+
+  const makeBtn=(label, value, title='')=>{
+    const active=(CHART_YEAR_FILTER===value);
+    return `<button onclick="setChartYear(${value===null?'null':value})"
+      title="${title}"
+      style="padding:4px 11px;font-size:.76rem;font-weight:600;border-radius:20px;border:1.5px solid ${active?'var(--primary)':'var(--border)'};
+      background:${active?'var(--primary)':'transparent'};color:${active?'#fff':'var(--text)'};cursor:pointer;transition:.15s;font-family:Heebo,sans-serif;">
+      ${label}</button>`;
+  };
+
+  const allBtns = makeBtn('כל הנתונים', null, 'הצג את כל החודשים הזמינים')
+    + sortedYears.map(y=>makeBtn(String(y), y, `הצג רק את ${y}`)).join('');
+
+  ['portYearBtns','perfYearBtns'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.innerHTML=allBtns;
+  });
+}
+
+function setChartYear(year){
+  CHART_YEAR_FILTER = (year===null||year==='null') ? null : parseInt(year);
+  // עדכן גם ACTIVE_YEAR לפי הבחירה (ל-heatmap ו-YTD)
+  if (CHART_YEAR_FILTER !== null) {
+    ACTIVE_YEAR = CHART_YEAR_FILTER;
+  } else {
+    // כל הנתונים: קבע ACTIVE_YEAR לפי החודש האחרון
+    if(MONTHS.length) ACTIVE_YEAR = parseInt('20' + MONTHS[MONTHS.length-1].split('/')[1]);
+  }
+  renderYearBtns();
+  renderKPIs();
+  renderPortfolioChart();
+  renderCompChart();
+  renderNormChart();
+  renderHeatmap();
+}
+
 // PORTFOLIO CHART
 // ═══════════════════════════════════════════
 function renderPortfolioChart(){
   destroyChart('port');
   const d=cd(), mode=document.getElementById('portMode').value;
-  const labels=MONTHS.map(monthLabel);
+  const CMonths=getChartMonths();
+  const labels=CMonths.map(monthLabel);
   const ctx=document.getElementById('portChart').getContext('2d');
   if(mode==='total'){
     const totals=calcPortfolioTotals();
-    CHARTS.port=new Chart(ctx,{type:'line',data:{labels,datasets:[{label:'שווי תיק',data:MONTHS.map(m=>totals[m]||0),borderColor:'#1a56db',backgroundColor:'rgba(26,86,219,0.1)',fill:true,tension:.4,pointRadius:4,borderWidth:2.5}]},options:lineOpts(d)});
+    CHARTS.port=new Chart(ctx,{type:'line',data:{labels,datasets:[{label:'שווי תיק',data:CMonths.map(m=>totals[m]||0),borderColor:'#1a56db',backgroundColor:'rgba(26,86,219,0.1)',fill:true,tension:.4,pointRadius:4,borderWidth:2.5}]},options:lineOpts(d)});
   }else{
-    const datasets=PRODUCTS.filter(p=>p.status==='active').map(p=>({label:p.name_short,data:MONTHS.map(m=>getVal(p.id,m)),borderColor:p.color,backgroundColor:p.color+'18',fill:false,tension:.4,pointRadius:3,borderWidth:2,spanGaps:true}));
+    const datasets=PRODUCTS.filter(p=>p.status==='active').map(p=>({label:p.name_short,data:CMonths.map(m=>getVal(p.id,m)),borderColor:p.color,backgroundColor:p.color+'18',fill:false,tension:.4,pointRadius:3,borderWidth:2,spanGaps:true}));
     CHARTS.port=new Chart(ctx,{type:'line',data:{labels,datasets},options:lineOpts(d)});
   }
 }
@@ -1303,7 +1378,9 @@ function evDateToMMYY(dateStr){
 
 function renderCompChart(){
   destroyChart('comp');
-  const d=cd(), labels=MONTHS.map(monthLabel);
+  const d=cd();
+  const CMonths=getChartMonths();
+  const labels=CMonths.map(monthLabel);
   
   // ── מפות אירועים לפי סוג ──────────────────────────────────────────────
   const depositMap={};    // month → [{prodId,name,amount,color}]
@@ -1328,13 +1405,13 @@ function renderCompChart(){
   }
 
   for(const ev of EVENTS){
-    if(!ev.amount || !ev.event_date) continue;
+    if(!ev.event_date) continue;
     const m=evDateToMMYY(ev.event_date);
     if(!m){ console.warn('[events] תאריך לא תקין:', ev.event_date); continue; }
     const prod=findProd(ev.product_id);
     if(!prod) continue;
 
-    if(ev.event_type==='deposit'){
+    if(ev.event_type==='deposit' && ev.amount){
       if(!depositMap[m]) depositMap[m]=[];
       // מנורה אינדקס — 600K בDB אבל ytd_start_value=300K
       const displayAmt=(prod.ytd_start_value && prod.ytd_start_value < ev.amount)
@@ -1343,13 +1420,13 @@ function renderCompChart(){
       if(dup) dup.amount+=displayAmt;
       else depositMap[m].push({prodId:prod.id,name:prod.name_short,amount:displayAmt,color:prod.color});
     }
-    else if(ev.event_type==='withdrawal'){
+    else if(ev.event_type==='withdrawal' && ev.amount){
       if(!withdrawalMap[m]) withdrawalMap[m]=[];
       const dup=withdrawalMap[m].find(x=>x.prodId===prod.id);
       if(dup) dup.amount+=ev.amount;
       else withdrawalMap[m].push({prodId:prod.id,name:prod.name_short,amount:ev.amount,color:prod.color});
     }
-    else if(ev.event_type==='transfer'){
+    else if(ev.event_type==='transfer' && ev.amount){
       if(!transferMap[m]) transferMap[m]=[];
       const dup=transferMap[m].find(x=>x.prodId===prod.id);
       if(dup) dup.amount+=ev.amount;
@@ -1362,16 +1439,9 @@ function renderCompChart(){
     }
   }
 
-  // ── ALLSTARS 02/25: הוסף ידנית כ-deposit 300K (ה-event נרשם תחת menora-index בלבד) ──
-  const allstarsProd=PRODUCTS.find(p=>p.id==='menora-allstars');
-  if(allstarsProd && !depositMap['02/25']?.find(x=>x.prodId==='menora-allstars')){
-    if(!depositMap['02/25']) depositMap['02/25']=[];
-    depositMap['02/25'].push({prodId:'menora-allstars',name:allstarsProd.name_short,amount:300000,color:allstarsProd.color});
-  }
-
   console.log('[compChart] EVENTS:', EVENTS.length,
     '| depositMap:', depositMap,
-    '| withdrawalMap:', withdrawalMap,
+    '| trackChangeMap:', trackChangeMap,
     '| PRODUCTS ids:', PRODUCTS.map(p=>p.id));
   
   // נקודות גדולות בחודשי הפקדה/פדיון
@@ -1412,14 +1482,14 @@ function renderCompChart(){
     const hasEvent=m=>hasDeposit(m)||hasWithdrawal(m)||hasTransfer(m)||hasTrackChange(m);
     return{
       label:p.name_short,
-      data:MONTHS.map(m=>getVal(p.id,m)),
+      data:CMonths.map(m=>getVal(p.id,m)),
       borderColor:p.color,
       borderDash:p.status!=='active'?[5,3]:[],
       backgroundColor:'transparent',
       tension:.4,
-      pointRadius:MONTHS.map(m=>hasEvent(m)?8:3),
-      pointStyle:MONTHS.map(m=>hasWithdrawal(m)?'triangle':hasTrackChange(m)&&!hasDeposit(m)&&!hasTransfer(m)?'crossRot':hasDeposit(m)||hasTransfer(m)?'rectRot':'circle'),
-      pointBackgroundColor:MONTHS.map(m=>hasEvent(m)?p.color:'transparent'),
+      pointRadius:CMonths.map(m=>hasEvent(m)?8:3),
+      pointStyle:CMonths.map(m=>hasWithdrawal(m)?'triangle':hasTrackChange(m)?'crossRot':hasDeposit(m)||hasTransfer(m)?'rectRot':'circle'),
+      pointBackgroundColor:CMonths.map(m=>hasEvent(m)?p.color:'transparent'),
       pointBorderWidth:2,
       borderWidth:p.status!=='active'?1.5:2,
       spanGaps:true
@@ -1433,7 +1503,7 @@ function renderCompChart(){
     label:ctx=>` ${ctx.dataset.label}: ${ILS(ctx.parsed.y)}`,
     afterBody:(items)=>{
       if(!items.length) return [];
-      const m=MONTHS[items[0].dataIndex];
+      const m=CMonths[items[0].dataIndex];
       const lines=[];
       // הצג את כל אירועי החודש — ללא סינון לפי dataset שנבחר
       (depositMap[m]||[])
@@ -1462,8 +1532,8 @@ function renderCompChart(){
         ...Object.keys(trackChangeMap)
       ]);
       allEventMonths.forEach(month=>{
-        const idx=MONTHS.indexOf(month);
-        if(idx<0) return;
+        const idx=CMonths.indexOf(month);
+        if(idx<0) return; // month not in visible range
         const xPx=x.getPixelForValue(idx);
         const deps=depositMap[month]||[];
         const wds=withdrawalMap[month]||[];
@@ -1473,10 +1543,9 @@ function renderCompChart(){
         const hasWd=wds.length>0, hasDep=deps.length>0, hasTr=trs.length>0, hasTrk=trks.length>0;
         c.save();
         c.setLineDash([4,4]);
-        // אדום=פדיון, כחול=הפקדה, סגול=ניוד, כתום=שינוי מסלול, אפור=ברירת מחדל
-        c.strokeStyle=hasWd&&!hasDep&&!hasTr&&!hasTrk?'#ef4444':
-                      hasTr&&!hasDep&&!hasWd&&!hasTrk?'#8b5cf6':
-                      hasTrk&&!hasDep&&!hasWd&&!hasTr?'#f59e0b':d.grid;
+        // אדום=פדיון, כחול=הפקדה, סגול=ניוד, כתום=שינוי מסלול
+        // עדיפות: פדיון > ניוד > שינוי מסלול > הפקדה
+        c.strokeStyle=hasWd?'#ef4444':hasTrk?'#f59e0b':hasTr?'#8b5cf6':hasDep?'#1a56db':d.grid;
         c.lineWidth=1.5;
         c.beginPath();c.moveTo(xPx,top);c.lineTo(xPx,bottom);c.stroke();
         // ── תוויות: אחת או שתיים מעל הקו ──────────────────────────────
@@ -1514,34 +1583,32 @@ function renderCompChart(){
 
 function renderNormChart(){
   destroyChart('norm');
-  const d=cd(), labels=MONTHS.map(monthLabel);
+  const d=cd();
+  const CMonths=getChartMonths();
+  const labels=CMonths.map(monthLabel);
   const datasets=PRODUCTS.filter(p=>COMP_ON.includes(p.id)).map(p=>{
     let idx=100;
     const series=[];
     let started=false;
-    // מתחילים מ-ytd_start_month (אם הוגדר) — לא מהחודש הראשון עם נתונים
-    // כך מוצרים שנפתחו באמצע השנה מציגים תשואה נכונה מנקודת ההפקדה
     const startMonth=p.ytd_start_month||null;
 
-    for(let i=0;i<MONTHS.length;i++){
-      const m=MONTHS[i];
+    for(let i=0;i<CMonths.length;i++){
+      const m=CMonths[i];
       const v=getVal(p.id,m);
 
       if(!started){
         if(startMonth){
-          // מחכה לחודש ytd_start_month
           if(m===startMonth && v!=null){series.push(100);started=true;idx=100;}
           else series.push(null);
         } else {
-          // ללא start_month — מתחיל מהחודש הראשון עם נתונים
           if(v!=null){series.push(100);started=true;idx=100;}
           else series.push(null);
         }
         continue;
       }
 
-      // לאחר הפתיחה — חישוב צמיחה לפי החודש הקודם
-      const prev=getVal(p.id,MONTHS[i-1]);
+      // לאחר הפתיחה — חישוב צמיחה לפי החודש הקודם ב-CMonths
+      const prev=getVal(p.id,CMonths[i-1]);
       if(prev!=null&&v!=null&&prev!==0) idx=idx*(v/prev);
       series.push(v!=null?parseFloat(idx.toFixed(2)):null);
     }
@@ -1990,6 +2057,14 @@ function initWhatsApp(){
   btn.style.display = 'flex';
 }
 
+// ── Demo mode: איפוס נתונים לברירת מחדל ─────────────────────────
+function resetDemoData(){
+  if(!confirm('לאפס את כל נתוני ה-Demo לברירת המחדל?')) return;
+  localStorage.removeItem('easyfinance_demo_mv');
+  localStorage.removeItem('easyfinance_demo_events');
+  location.reload();
+}
+
 // ═══════════════════════════════════════════
 // GOALS יעדים
 // ═══════════════════════════════════════════
@@ -2163,36 +2238,88 @@ function setRiskMode(mode){
   document.getElementById('riskModeLatest').className = mode==='latest' ? 'btn btn-sm' : 'btn btn-sm btn-secondary';
   document.getElementById('riskModeAvg').className = mode==='avg' ? 'btn btn-sm' : 'btn btn-sm btn-secondary';
   document.getElementById('riskModeMonth').className = mode==='month' ? 'btn btn-sm' : 'btn btn-sm btn-secondary';
-  // Show/hide month picker
-  const sel = document.getElementById('riskMonthSel');
+  const wrap = document.getElementById('riskMonthPickerWrap');
   if (mode === 'month') {
-    sel.style.display = '';
+    wrap.style.display = '';
     _populateRiskMonthSel();
   } else {
-    sel.style.display = 'none';
+    wrap.style.display = 'none';
   }
   renderRisk();
 }
 
+let RISK_SEL_MONTH = null; // currently selected month in 'month' mode
+
 function _populateRiskMonthSel() {
-  const sel = document.getElementById('riskMonthSel');
-  // Collect ALL months that have ANY data across all products (not only those with risk)
+  const container = document.getElementById('riskMonthPickerContent');
+  if (!container) return;
+
+  // Collect ALL months from ALL products' MV data
   const monthsSet = new Set();
   for (const p of PRODUCTS) {
     for (const r of (MV[p.id] || [])) {
       if (r.month) monthsSet.add(r.month);
     }
   }
-  // Sort desc using numeric key so cross-year order is correct (e.g. 01/26 > 12/25)
-  const months = [...monthsSet].sort((a,b)=>monthToNum(b)-monthToNum(a));
-  const curVal = sel.value;
-  if (!months.length) {
-    sel.innerHTML = '<option value="">אין נתונים</option>';
+
+  // Sort desc: most recent first, using numeric key for cross-year correctness
+  const allMonths = [...monthsSet].sort((a,b) => monthToNum(b) - monthToNum(a));
+
+  if (!allMonths.length) {
+    container.innerHTML = '<p style="color:var(--text-muted);font-size:.82rem;">אין נתונים זמינים</p>';
     return;
   }
-  sel.innerHTML = months.map(m => `<option value="${m}" ${m===curVal?'selected':''}>${_mmyyToHeb(m)}</option>`).join('');
-  // If nothing was selected yet – default to latest month
-  if (!curVal || !months.includes(curVal)) sel.value = months[0];
+
+  // Default selection: latest month
+  if (!RISK_SEL_MONTH || !allMonths.includes(RISK_SEL_MONTH)) {
+    RISK_SEL_MONTH = allMonths[0];
+  }
+
+  // Group months by year
+  const byYear = {};
+  allMonths.forEach(m => {
+    const yy = m.split('/')[1];
+    const year = '20' + yy;
+    if (!byYear[year]) byYear[year] = [];
+    byYear[year].push(m);
+  });
+
+  const HE_SHORT = ['ינו','פבר','מרץ','אפר','מאי','יונ','יול','אוג','ספט','אוק','נוב','דצמ'];
+  const HE_FULL  = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+
+  const years = Object.keys(byYear).sort((a,b) => b-a); // newest year first
+
+  container.innerHTML = years.map(year => {
+    // Show all 12 months for this year, mark which have data
+    const dataMonths = new Set(byYear[year]);
+    const monthBtns = Array.from({length:12}, (_,i) => {
+      const mm = String(i+1).padStart(2,'0');
+      const yy = year.slice(-2);
+      const key = `${mm}/${yy}`;
+      const hasData = dataMonths.has(key);
+      const isSelected = key === RISK_SEL_MONTH;
+      const btnStyle = isSelected
+        ? 'background:var(--primary);color:#fff;border-color:var(--primary);'
+        : hasData
+          ? 'background:var(--bg-card);color:var(--text);border-color:var(--border);cursor:pointer;'
+          : 'background:transparent;color:var(--text-muted);border-color:var(--border);opacity:0.35;cursor:default;';
+      return `<button
+        style="padding:5px 0;border:1.5px solid var(--border);border-radius:7px;font-size:.72rem;font-weight:600;font-family:Heebo,sans-serif;min-width:44px;${btnStyle}transition:.15s;"
+        ${!hasData ? 'disabled' : `onclick="selectRiskMonth('${key}')"`}
+        title="${HE_FULL[i]} ${year}"
+      >${HE_SHORT[i]}</button>`;
+    }).join('');
+    return `<div style="margin-bottom:10px;">
+      <div style="font-size:.73rem;font-weight:700;color:var(--text-muted);margin-bottom:6px;">${year}</div>
+      <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:4px;">${monthBtns}</div>
+    </div>`;
+  }).join('');
+}
+
+function selectRiskMonth(mmyy) {
+  RISK_SEL_MONTH = mmyy;
+  _populateRiskMonthSel(); // re-render to highlight selection
+  renderRisk();
 }
 
 function _mmyyToHeb(mmyy) {
@@ -2211,9 +2338,10 @@ function getRiskForProduct(p, mode){
     return { eq: p.risk_equities||0, bo: p.risk_bonds||0, al: p.risk_alternatives||0, source:'product' };
   }
   if (mode === 'month') {
-    // Specific selected month
-    const selMonth = document.getElementById('riskMonthSel')?.value;
+    // Specific selected month — use RISK_SEL_MONTH global
+    const selMonth = RISK_SEL_MONTH || document.getElementById('riskMonthSel')?.value;
     if (selMonth) {
+      // Find exact match first, then fallback to nearest earlier month
       const row = mvRows.find(r => r.month === selMonth);
       if (row) return {
         eq: parseFloat(row.risk_equities)||0,
@@ -2221,9 +2349,18 @@ function getRiskForProduct(p, mode){
         al: parseFloat(row.risk_alternatives)||0,
         source: 'month', month: selMonth
       };
+      // Nearest earlier month with data
+      const sorted = [...mvRows].sort((a,b)=>monthToNum(b.month)-monthToNum(a.month));
+      const earlier = sorted.find(r => monthToNum(r.month) <= monthToNum(selMonth));
+      if (earlier) return {
+        eq: parseFloat(earlier.risk_equities)||0,
+        bo: parseFloat(earlier.risk_bonds)||0,
+        al: parseFloat(earlier.risk_alternatives)||0,
+        source: 'month', month: earlier.month
+      };
     }
     // fallback to latest
-    const sorted = [...mvRows].sort((a,b)=>b.month.localeCompare(a.month));
+    const sorted = [...mvRows].sort((a,b)=>monthToNum(b.month)-monthToNum(a.month));
     const latest = sorted[0];
     return { eq: parseFloat(latest.risk_equities)||0, bo: parseFloat(latest.risk_bonds)||0, al: parseFloat(latest.risk_alternatives)||0, source:'latest', month:latest.month };
   }
@@ -2237,8 +2374,8 @@ function getRiskForProduct(p, mode){
     const al = rows.reduce((s,r)=>s+(parseFloat(r.risk_alternatives)||0),0)/n;
     return { eq, bo, al, source:'avg', n };
   } else {
-    // Latest month
-    const sorted = [...mvRows].sort((a,b)=>b.month.localeCompare(a.month));
+    // Latest month — sort by monthToNum לדיוק חוצה שנים
+    const sorted = [...mvRows].sort((a,b)=>monthToNum(b.month)-monthToNum(a.month));
     const latest = sorted[0];
     return {
       eq: parseFloat(latest.risk_equities)||0,
@@ -2287,7 +2424,7 @@ function renderRisk(){
     if (modeLabel) modeLabel.textContent = `ממוצע ${ACTIVE_YEAR}`;
     if (cardSub) cardSub.textContent = `חשיפות ממוצע שנתי ${ACTIVE_YEAR}`;
   } else {
-    const selM = document.getElementById('riskMonthSel')?.value || '';
+    const selM = RISK_SEL_MONTH || '';
     const selLabel = selM ? _mmyyToHeb(selM) : '—';
     if (modeLabel) modeLabel.textContent = selLabel;
     if (cardSub) cardSub.textContent = `חשיפות לחודש ${selLabel}`;
