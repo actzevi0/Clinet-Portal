@@ -1414,6 +1414,7 @@ function renderCompChart(){
   const withdrawalMap={}; // month → [{prodId,name,amount,color}]
   const transferMap={};   // month → [{prodId,name,amount,color}]
   const trackChangeMap={}; // month → [{prodId,name,desc,color}]
+  const agentAppointMap={}; // month → [{desc,color}]
   
   // פונקציה לאיתור מוצר לפי product_id — עם fallback להתאמה חלקית
   function findProd(productId){
@@ -1435,6 +1436,14 @@ function renderCompChart(){
     if(!ev.event_date) continue;
     const m=evDateToMMYY(ev.event_date);
     if(!m){ console.warn('[events] תאריך לא תקין:', ev.event_date); continue; }
+
+    // agent_appointment has no product
+    if(ev.event_type==='agent_appointment'){
+      if(!agentAppointMap[m]) agentAppointMap[m]=[];
+      agentAppointMap[m].push({title:ev.title||'מינוי סוכן',desc:ev.description||'',color:'#8b5cf6'});
+      continue;
+    }
+
     const prod=findProd(ev.product_id);
     if(!prod) continue;
 
@@ -1541,6 +1550,8 @@ function renderCompChart(){
         .forEach(t=>lines.push(`  🔄 ${t.name}: ניוד ${ILS(t.amount)}`));
       (trackChangeMap[m]||[])
         .forEach(t=>lines.push(`  🛤️ ${t.name}: ${t.desc}`));
+      (agentAppointMap[m]||[])
+        .forEach(a=>lines.push(`  🤝 ${a.title}`));
       return lines.length?['── אירועי חודש ──',...lines]:[];
     }
   };
@@ -1556,7 +1567,8 @@ function renderCompChart(){
         ...Object.keys(depositMap),
         ...Object.keys(withdrawalMap),
         ...Object.keys(transferMap),
-        ...Object.keys(trackChangeMap)
+        ...Object.keys(trackChangeMap),
+        ...Object.keys(agentAppointMap)
       ]);
       allEventMonths.forEach(month=>{
         const idx=CMonths.indexOf(month);
@@ -1566,13 +1578,14 @@ function renderCompChart(){
         const wds=withdrawalMap[month]||[];
         const trs=transferMap[month]||[];
         const trks=trackChangeMap[month]||[];
+        const agts=agentAppointMap[month]||[];
         // קבע את סוג/צבע הקו לפי סוג האירוע הדומיננטי
-        const hasWd=wds.length>0, hasDep=deps.length>0, hasTr=trs.length>0, hasTrk=trks.length>0;
+        const hasWd=wds.length>0, hasDep=deps.length>0, hasTr=trs.length>0, hasTrk=trks.length>0, hasAgt=agts.length>0;
         c.save();
         c.setLineDash([4,4]);
-        // אדום=פדיון, כחול=הפקדה, סגול=ניוד, כתום=שינוי מסלול
-        // עדיפות: פדיון > ניוד > שינוי מסלול > הפקדה
-        c.strokeStyle=hasWd?'#ef4444':hasTrk?'#f59e0b':hasTr?'#8b5cf6':hasDep?'#1a56db':d.grid;
+        // אדום=פדיון, כחול=הפקדה, סגול=ניוד, כתום=שינוי מסלול, סגול כהה=מינוי סוכן
+        // עדיפות: פדיון > ניוד > שינוי מסלול > הפקדה > מינוי סוכן
+        c.strokeStyle=hasWd?'#ef4444':hasTrk?'#f59e0b':hasTr?'#8b5cf6':hasDep?'#1a56db':hasAgt?'#8b5cf6':'#94a3b8';
         c.lineWidth=1.5;
         c.beginPath();c.moveTo(xPx,top);c.lineTo(xPx,bottom);c.stroke();
         // ── תוויות: אחת או שתיים מעל הקו ──────────────────────────────
@@ -1585,6 +1598,7 @@ function renderCompChart(){
         if(hasTr)   badges.push({text:'ניוד',    bg:'#8b5cf6'});
         if(hasWd)   badges.push({text:'פדיון',   bg:'#ef4444'});
         if(hasTrk)  badges.push({text:'שינוי מסלול', bg:'#f59e0b'});
+        if(hasAgt)  badges.push({text:'מינוי סוכן', bg:'#8b5cf6'});
         // ציור התוויות זו לצד זו
         const GAP=4, H=16;
         const totalW=badges.reduce((s,b)=>s+c.measureText(b.text).width+12+GAP,0)-GAP;
@@ -1743,19 +1757,20 @@ function renderChgChart(){
 // TIMELINE
 // ═══════════════════════════════════════════
 function renderTimeline(){
-  const colors={deposit:'#10b981',withdrawal:'#ef4444',transfer:'#1a56db',management:'#f59e0b'};
-  const icons={deposit:'fa-plus-circle',withdrawal:'fa-minus-circle',transfer:'fa-exchange-alt',management:'fa-cog'};
-  const labels={deposit:'הפקדה',withdrawal:'פדיון',transfer:'ניוד',management:'שינוי ניהול'};
+  const colors={deposit:'#10b981',withdrawal:'#ef4444',transfer:'#1a56db',management:'#f59e0b',track_change:'#f97316',agent_appointment:'#8b5cf6',new_product:'#06b6d4'};
+  const icons={deposit:'fa-plus-circle',withdrawal:'fa-minus-circle',transfer:'fa-exchange-alt',management:'fa-cog',track_change:'fa-route',agent_appointment:'fa-handshake',new_product:'fa-folder-plus'};
+  const labels={deposit:'הפקדה',withdrawal:'פדיון',transfer:'ניוד',management:'שינוי ניהול',track_change:'שינוי מסלול',agent_appointment:'מינוי סוכן',new_product:'פתיחת מוצר'};
   document.getElementById('tlContainer').innerHTML=EVENTS.map(ev=>{
     const c=colors[ev.event_type]||'#94a3b8';
-    const d=ev.event_date.replace('-','/');
+    const d=ev.event_date.replace(/-/g,'/');
     const p=PRODUCTS.find(x=>x.id===ev.product_id);
+    const prodBadge=p?`<span style="font-size:0.72rem;color:var(--text-muted);margin-right:6px;">${p.name_short||p.name}</span>`:'';
     return`<div class="tl-item">
       <div class="tl-dot" style="background:${c};"></div>
       <div style="padding:10px 12px;border-radius:8px;background:var(--bg-card2);">
-        <div class="tl-date"><span class="badge" style="background:${c}22;color:${c};font-size:0.7rem;padding:2px 7px;"><i class="fa ${icons[ev.event_type]||'fa-circle'}" style="margin-left:3px;"></i>${labels[ev.event_type]||ev.event_type}</span><span style="margin-right:8px;">${d}</span></div>
-        <div class="tl-title" style="margin-top:5px;">${ev.title}</div>
-        <div class="tl-desc">${ev.description}</div>
+        <div class="tl-date"><span class="badge" style="background:${c}22;color:${c};font-size:0.7rem;padding:2px 7px;"><i class="fa ${icons[ev.event_type]||'fa-circle'}" style="margin-left:3px;"></i>${labels[ev.event_type]||ev.event_type}</span><span style="margin-right:8px;">${d}</span>${prodBadge}</div>
+        <div class="tl-title" style="margin-top:5px;">${ev.title||''}</div>
+        ${ev.description?`<div class="tl-desc">${ev.description}</div>`:''}
         ${ev.amount?`<div style="font-size:0.78rem;font-weight:700;color:${c};margin-top:4px;">${ILS(ev.amount)}</div>`:''}
       </div>
     </div>`;}).join('');

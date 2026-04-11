@@ -325,8 +325,11 @@
   <div class="container">
     <div class="save-summary" id="saveSummary">0 שורות שונו</div>
     <div class="flex gap-12">
-      <button class="btn btn-secondary" onclick="openEventModal()" title="הוסף אירוע: הפקדה, פדיון, ניוד או פתיחת מוצר">
+      <button class="btn btn-secondary" onclick="openEventModal()" title="הוסף אירוע: הפקדה, פדיון, ניוד, מינוי סוכן ועוד">
         <i class="fa fa-calendar-plus"></i> הוסף אירוע
+      </button>
+      <button class="btn btn-secondary" onclick="openAddProductModal()" title="הוסף מוצר ללקוח (ללא אירוע)">
+        <i class="fa fa-plus-circle"></i> הוסף מוצר
       </button>
       <button class="btn btn-secondary" onclick="previewChanges()">
         <i class="fa fa-eye"></i> תצוגה מקדימה
@@ -340,12 +343,13 @@
 
 <!-- Event Modal -->
 <div class="route-modal-overlay" id="eventModal" onclick="closeEventModal(event)">
-  <div class="route-modal" style="max-width:480px;" onclick="event.stopPropagation()">
-    <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+  <div class="route-modal" style="max-width:520px;max-height:90vh;overflow-y:auto;" onclick="event.stopPropagation()">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
       <h3 style="margin:0;font-size:1rem;"><i class="fa fa-calendar-plus" style="margin-left:8px;color:var(--primary-light);"></i>הוספת אירוע</h3>
       <button onclick="closeEventModal()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--text-muted);"><i class="fa fa-times"></i></button>
     </div>
 
+    <!-- סוג אירוע -->
     <div style="margin-bottom:14px;">
       <label style="font-size:.82rem;color:var(--text-muted);font-weight:600;display:block;margin-bottom:6px;">סוג אירוע</label>
       <select id="evType" onchange="updateEventForm()" style="width:100%;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:.88rem;">
@@ -353,32 +357,97 @@
         <option value="withdrawal">📤 פדיון</option>
         <option value="transfer">🔄 ניוד</option>
         <option value="new_product">🆕 פתיחת מוצר חדש</option>
+        <option value="agent_appointment">🤝 מינוי סוכן</option>
       </select>
     </div>
 
-    <div style="margin-bottom:14px;">
+    <!-- בחירת מוצר: dropdown + ידנית -->
+    <div style="margin-bottom:14px;" id="evProductWrap">
       <label style="font-size:.82rem;color:var(--text-muted);font-weight:600;display:block;margin-bottom:6px;">מוצר</label>
-      <select id="evProduct" style="width:100%;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:.88rem;"></select>
+
+      <!-- Toggle: קיים / ידני -->
+      <div style="display:flex;gap:0;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:8px;">
+        <button id="evProdToggleExist" onclick="setEvProdMode('existing')"
+          style="flex:1;padding:7px 0;font-size:.8rem;font-weight:600;font-family:Heebo,sans-serif;border:none;cursor:pointer;
+                 background:var(--primary);color:#fff;transition:.15s;">
+          <i class="fa fa-list" style="margin-left:4px;"></i>מוצר קיים
+        </button>
+        <button id="evProdToggleManual" onclick="setEvProdMode('manual')"
+          style="flex:1;padding:7px 0;font-size:.8rem;font-weight:600;font-family:Heebo,sans-serif;border:none;cursor:pointer;
+                 background:var(--bg-card2);color:var(--text-muted);transition:.15s;">
+          <i class="fa fa-pencil-alt" style="margin-left:4px;"></i>הזנה ידנית
+        </button>
+      </div>
+
+      <!-- בחירה מרשימה -->
+      <div id="evProdExistingBlock">
+        <select id="evProduct" onchange="updateEventForm()"
+          style="width:100%;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:.88rem;"></select>
+        <p id="evNoProductsMsg" style="display:none;color:#f59e0b;font-size:.8rem;margin-top:6px;">
+          <i class="fa fa-exclamation-triangle" style="margin-left:4px;"></i>
+          ללקוח אין מוצרים רשומים — השתמש בהזנה ידנית או הוסף מוצר תחילה.
+        </p>
+      </div>
+
+      <!-- הזנה ידנית -->
+      <div id="evProdManualBlock" style="display:none;">
+        <input type="text" id="evProdName" placeholder="שם המוצר (לדוגמה: מנורה מבטחים – אלסטאר)"
+          style="width:100%;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:.88rem;box-sizing:border-box;margin-bottom:8px;"
+          oninput="updateEventForm()">
+        <input type="text" id="evProdTrack" placeholder="מסלול השקעה (לדוגמה: מסלול כללי)"
+          style="width:100%;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:.88rem;box-sizing:border-box;margin-bottom:8px;">
+        <div style="display:flex;gap:8px;align-items:center;">
+          <div style="flex:1;">
+            <label style="font-size:.74rem;color:var(--text-muted);display:block;margin-bottom:3px;">מניות %</label>
+            <input type="number" id="evProdEq" min="0" max="100" placeholder="60"
+              style="width:100%;padding:7px 10px;border-radius:6px;border:1.5px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:.84rem;box-sizing:border-box;" oninput="updateEvProdSum()">
+          </div>
+          <div style="flex:1;">
+            <label style="font-size:.74rem;color:var(--text-muted);display:block;margin-bottom:3px;">אג"ח %</label>
+            <input type="number" id="evProdBo" min="0" max="100" placeholder="30"
+              style="width:100%;padding:7px 10px;border-radius:6px;border:1.5px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:.84rem;box-sizing:border-box;" oninput="updateEvProdSum()">
+          </div>
+          <div style="flex:1;">
+            <label style="font-size:.74rem;color:var(--text-muted);display:block;margin-bottom:3px;">לא סחיר %</label>
+            <input type="number" id="evProdAl" min="0" max="100" placeholder="10"
+              style="width:100%;padding:7px 10px;border-radius:6px;border:1.5px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:.84rem;box-sizing:border-box;" oninput="updateEvProdSum()">
+          </div>
+          <div style="padding-top:18px;">
+            <span id="evProdSumPill" class="risk-sum-pill risk-sum-warn">—</span>
+          </div>
+        </div>
+        <p style="font-size:.76rem;color:var(--text-muted);margin-top:6px;">
+          <i class="fa fa-info-circle" style="margin-left:3px;"></i>
+          המוצר יישמר ויופיע בטבלת הנתונים החודשיים
+        </p>
+      </div>
     </div>
 
+    <!-- תאריך -->
     <div style="margin-bottom:14px;">
       <label style="font-size:.82rem;color:var(--text-muted);font-weight:600;display:block;margin-bottom:6px;">תאריך האירוע</label>
       <input type="date" id="evDate" style="width:100%;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:.88rem;box-sizing:border-box;">
     </div>
 
+    <!-- סכום -->
     <div style="margin-bottom:14px;" id="evAmountWrap">
       <label style="font-size:.82rem;color:var(--text-muted);font-weight:600;display:block;margin-bottom:6px;">סכום (₪)</label>
-      <input type="number" id="evAmount" min="0" placeholder="300000" style="width:100%;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:.88rem;box-sizing:border-box;">
+      <input type="number" id="evAmount" min="0" placeholder="300000"
+        style="width:100%;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:.88rem;box-sizing:border-box;">
     </div>
 
+    <!-- כותרת -->
     <div style="margin-bottom:14px;">
       <label style="font-size:.82rem;color:var(--text-muted);font-weight:600;display:block;margin-bottom:6px;">כותרת האירוע (אופציונלי)</label>
-      <input type="text" id="evTitle" placeholder="לדוגמה: הפקדה חודשית" style="width:100%;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:.88rem;box-sizing:border-box;">
+      <input type="text" id="evTitle" placeholder="לדוגמה: הפקדה חודשית"
+        style="width:100%;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:.88rem;box-sizing:border-box;">
     </div>
 
+    <!-- הערה -->
     <div style="margin-bottom:20px;">
       <label style="font-size:.82rem;color:var(--text-muted);font-weight:600;display:block;margin-bottom:6px;">הערה (אופציונלי)</label>
-      <textarea id="evDesc" rows="2" placeholder="פרטים נוספים..." style="width:100%;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:.88rem;resize:vertical;box-sizing:border-box;"></textarea>
+      <textarea id="evDesc" rows="2" placeholder="פרטים נוספים..."
+        style="width:100%;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:.88rem;resize:vertical;box-sizing:border-box;"></textarea>
     </div>
 
     <div style="display:flex;gap:10px;">
@@ -386,6 +455,93 @@
         <i class="fa fa-check"></i> שמור אירוע
       </button>
       <button class="btn btn-secondary" onclick="closeEventModal()">ביטול</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Product Modal -->
+<div class="route-modal-overlay" id="addProductModal" onclick="closeAddProductModal(event)">
+  <div class="route-modal" style="max-width:480px;" onclick="event.stopPropagation()">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h3 style="margin:0;font-size:1rem;"><i class="fa fa-plus-circle" style="margin-left:8px;color:var(--primary-light);"></i>הוספת מוצר ללקוח</h3>
+      <button onclick="closeAddProductModal()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--text-muted);"><i class="fa fa-times"></i></button>
+    </div>
+    <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:16px;">
+      הוסף מוצר שהיה ללקוח לפני מינויך — כך תוכל לשקף לו היסטוריה מלאה.
+    </p>
+
+    <div style="margin-bottom:12px;">
+      <label style="font-size:.82rem;color:var(--text-muted);font-weight:600;display:block;margin-bottom:6px;">שם מוצר <span style="color:#ef4444;">*</span></label>
+      <input type="text" id="apName" placeholder="לדוגמה: מנורה מבטחים – אלסטאר"
+        style="width:100%;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:.88rem;box-sizing:border-box;">
+    </div>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:.82rem;color:var(--text-muted);font-weight:600;display:block;margin-bottom:6px;">שם קצר</label>
+      <input type="text" id="apShortName" placeholder="לדוגמה: מנורה ALLSTARS"
+        style="width:100%;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:.88rem;box-sizing:border-box;">
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:12px;">
+      <div style="flex:1;">
+        <label style="font-size:.82rem;color:var(--text-muted);font-weight:600;display:block;margin-bottom:6px;">חברה / גוף</label>
+        <input type="text" id="apInstitution" placeholder="לדוגמה: מנורה"
+          style="width:100%;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:.88rem;box-sizing:border-box;">
+      </div>
+      <div style="flex:1;">
+        <label style="font-size:.82rem;color:var(--text-muted);font-weight:600;display:block;margin-bottom:6px;">סוג מוצר</label>
+        <select id="apType" style="width:100%;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:.88rem;">
+          <option>קרן פנסיה</option>
+          <option>ביטוח מנהלים</option>
+          <option>קופת גמל</option>
+          <option>קרן השתלמות</option>
+          <option>פוליסת חיסכון</option>
+          <option>תיק ניירות ערך</option>
+          <option>אחר</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:.82rem;color:var(--text-muted);font-weight:600;display:block;margin-bottom:6px;">מסלול השקעה</label>
+      <input type="text" id="apTrack" placeholder="לדוגמה: מסלול כללי"
+        style="width:100%;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:.88rem;box-sizing:border-box;">
+    </div>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:.82rem;color:var(--text-muted);font-weight:600;display:block;margin-bottom:6px;">חשיפות (%)</label>
+      <div style="display:flex;gap:8px;">
+        <div style="flex:1;"><label style="font-size:.74rem;color:var(--text-muted);">מניות</label>
+          <input type="number" id="apEq" min="0" max="100" placeholder="60" oninput="updateApSum()"
+            style="width:100%;padding:7px 10px;border-radius:6px;border:1.5px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:.84rem;box-sizing:border-box;"></div>
+        <div style="flex:1;"><label style="font-size:.74rem;color:var(--text-muted);">אג"ח</label>
+          <input type="number" id="apBo" min="0" max="100" placeholder="30" oninput="updateApSum()"
+            style="width:100%;padding:7px 10px;border-radius:6px;border:1.5px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:.84rem;box-sizing:border-box;"></div>
+        <div style="flex:1;"><label style="font-size:.74rem;color:var(--text-muted);">לא סחיר</label>
+          <input type="number" id="apAl" min="0" max="100" placeholder="10" oninput="updateApSum()"
+            style="width:100%;padding:7px 10px;border-radius:6px;border:1.5px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:.84rem;box-sizing:border-box;"></div>
+        <div style="padding-top:18px;"><span id="apSumPill" class="risk-sum-pill risk-sum-warn">—</span></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:12px;">
+      <div style="flex:1;">
+        <label style="font-size:.82rem;color:var(--text-muted);font-weight:600;display:block;margin-bottom:6px;">צבע</label>
+        <input type="color" id="apColor" value="#1a56db"
+          style="width:100%;height:38px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg-card2);cursor:pointer;">
+      </div>
+      <div style="flex:1;">
+        <label style="font-size:.82rem;color:var(--text-muted);font-weight:600;display:block;margin-bottom:6px;">תאריך פתיחה</label>
+        <input type="date" id="apInceptionDate"
+          style="width:100%;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:.88rem;box-sizing:border-box;">
+      </div>
+    </div>
+    <div style="margin-bottom:20px;">
+      <label style="font-size:.82rem;color:var(--text-muted);font-weight:600;display:block;margin-bottom:6px;">יתרת פתיחה (₪) — אופציונלי</label>
+      <input type="number" id="apOpenValue" min="0" placeholder="300000"
+        style="width:100%;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:.88rem;box-sizing:border-box;">
+    </div>
+
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="saveNewProduct()">
+        <i class="fa fa-plus"></i> הוסף מוצר
+      </button>
+      <button class="btn btn-secondary" onclick="closeAddProductModal()">ביטול</button>
     </div>
   </div>
 </div>
@@ -633,7 +789,7 @@ function goStep(n){
     if(i<n) el.classList.add('done');
     else if(i===n) el.classList.add('active');
   });
-  document.getElementById('actionBar').style.display = n===3?'flex':'none';
+  document.getElementById('actionBar').style.display = (n===2||n===3)?'flex':'none';
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1325,11 +1481,49 @@ function showToast(msg, type='success'){
 // ══════════════════════════════════════════════════════════
 // Event Modal — הוספת אירוע (הפקדה / פדיון / ניוד / פתיחת מוצר)
 // ══════════════════════════════════════════════════════════
+let EV_PROD_MODE = 'existing'; // 'existing' | 'manual'
+
+function setEvProdMode(mode){
+  EV_PROD_MODE = mode;
+  const existBtn = document.getElementById('evProdToggleExist');
+  const manualBtn = document.getElementById('evProdToggleManual');
+  const existBlock = document.getElementById('evProdExistingBlock');
+  const manualBlock = document.getElementById('evProdManualBlock');
+  if(mode === 'existing'){
+    existBtn.style.background = 'var(--primary)'; existBtn.style.color = '#fff';
+    manualBtn.style.background = 'var(--bg-card2)'; manualBtn.style.color = 'var(--text-muted)';
+    existBlock.style.display = '';
+    manualBlock.style.display = 'none';
+  } else {
+    manualBtn.style.background = 'var(--primary)'; manualBtn.style.color = '#fff';
+    existBtn.style.background = 'var(--bg-card2)'; existBtn.style.color = 'var(--text-muted)';
+    existBlock.style.display = 'none';
+    manualBlock.style.display = '';
+  }
+  updateEventForm();
+}
+
+function updateEvProdSum(){
+  const eq = parseFloat(document.getElementById('evProdEq').value)||0;
+  const bo = parseFloat(document.getElementById('evProdBo').value)||0;
+  const al = parseFloat(document.getElementById('evProdAl').value)||0;
+  const sum = eq+bo+al;
+  const cls = Math.abs(sum-100)<1?'risk-sum-ok':sum>100?'risk-sum-err':'risk-sum-warn';
+  const pill = document.getElementById('evProdSumPill');
+  if(pill){ pill.className=`risk-sum-pill ${cls}`; pill.textContent=sum>0?`${sum}%`:'—'; }
+}
+
 function openEventModal(){
   if(!SEL_CLIENT){ showToast('יש לבחור לקוח תחילה','warn'); return; }
   // Populate product list
   const sel=document.getElementById('evProduct');
-  sel.innerHTML=PRODUCTS.map(p=>`<option value="${p.id}">${p.name_short||p.name}</option>`).join('');
+  if(PRODUCTS.length){
+    sel.innerHTML=PRODUCTS.map(p=>`<option value="${p.id}">${p.name_short||p.name}</option>`).join('');
+    document.getElementById('evNoProductsMsg').style.display='none';
+  } else {
+    sel.innerHTML='<option value="">— אין מוצרים —</option>';
+    document.getElementById('evNoProductsMsg').style.display='';
+  }
   // Default date = first day of SEL_MONTH or today
   let defaultDate=new Date().toISOString().slice(0,10);
   if(SEL_MONTH){
@@ -1341,6 +1535,13 @@ function openEventModal(){
   document.getElementById('evTitle').value='';
   document.getElementById('evDesc').value='';
   document.getElementById('evType').value='deposit';
+  document.getElementById('evProdName').value='';
+  document.getElementById('evProdTrack').value='';
+  document.getElementById('evProdEq').value='';
+  document.getElementById('evProdBo').value='';
+  document.getElementById('evProdAl').value='';
+  // If no products → switch to manual mode automatically
+  setEvProdMode(PRODUCTS.length ? 'existing' : 'manual');
   updateEventForm();
   document.getElementById('eventModal').classList.add('open');
 }
@@ -1350,25 +1551,44 @@ function closeEventModal(e){
     document.getElementById('eventModal').classList.remove('open');
 }
 
-const EV_TYPE_LABELS={deposit:'הפקדה',withdrawal:'פדיון',transfer:'ניוד',new_product:'פתיחת מוצר'};
-const EV_TYPE_ICONS={deposit:'💰',withdrawal:'📤',transfer:'🔄',new_product:'🆕'};
+const EV_TYPE_LABELS={deposit:'הפקדה',withdrawal:'פדיון',transfer:'ניוד',new_product:'פתיחת מוצר',agent_appointment:'מינוי סוכן',track_change:'שינוי מסלול'};
+const EV_TYPE_ICONS={deposit:'💰',withdrawal:'📤',transfer:'🔄',new_product:'🆕',agent_appointment:'🤝',track_change:'🔀'};
 
 function updateEventForm(){
   const type=document.getElementById('evType').value;
-  // hide amount for new_product? No - still useful
   const amtWrap=document.getElementById('evAmountWrap');
+  const prodWrap=document.getElementById('evProductWrap');
+
+  // agent_appointment: hide product + amount fields
+  if(type === 'agent_appointment'){
+    prodWrap.style.display='none';
+    amtWrap.style.display='none';
+    const titleInp=document.getElementById('evTitle');
+    if(!titleInp.value || Object.values(EV_TYPE_LABELS).some(v=>titleInp.value.startsWith(v))){
+      titleInp.value='מינוי סוכן';
+    }
+    return;
+  }
+
+  prodWrap.style.display='';
   amtWrap.style.display='';
+
   // auto-fill title
   const titleInp=document.getElementById('evTitle');
   if(!titleInp.value || Object.values(EV_TYPE_LABELS).some(v=>titleInp.value.startsWith(v))){
-    const prod=PRODUCTS.find(p=>p.id===document.getElementById('evProduct').value);
-    titleInp.value=`${EV_TYPE_LABELS[type]||type}${prod?' – '+prod.name_short:''}`;
+    let prodName='';
+    if(EV_PROD_MODE==='existing'){
+      const prod=PRODUCTS.find(p=>p.id===document.getElementById('evProduct').value);
+      prodName=prod?prod.name_short:'';
+    } else {
+      prodName=document.getElementById('evProdName').value.trim();
+    }
+    titleInp.value=`${EV_TYPE_LABELS[type]||type}${prodName?' – '+prodName:''}`;
   }
 }
 
 async function saveEvent(){
   const type=document.getElementById('evType').value;
-  const prodId=document.getElementById('evProduct').value;
   const dateVal=document.getElementById('evDate').value;
   const amountVal=document.getElementById('evAmount').value;
   const title=document.getElementById('evTitle').value.trim();
@@ -1377,15 +1597,93 @@ async function saveEvent(){
   if(!dateVal){ showToast('יש להזין תאריך','warn'); return; }
 
   const amount=amountVal?parseFloat(amountVal):null;
-  const prod=PRODUCTS.find(p=>p.id===prodId);
   const icon=EV_TYPE_ICONS[type]||'📋';
 
+  // agent_appointment: no product needed
+  if(type === 'agent_appointment'){
+    const body={
+      client_id: SEL_CLIENT.id,
+      product_id: null,
+      event_date: dateVal,
+      event_type: 'agent_appointment',
+      title: title || 'מינוי סוכן',
+      description: desc||null,
+      amount: null
+    };
+    try{
+      await apiPost(`${API_BASE}/tables/timeline_events`, body);
+      addLog(`🤝 אירוע נשמר: ${body.title}`, 'log-ok');
+      showToast(`✅ אירוע נוסף: ${body.title}`,'success');
+      document.getElementById('eventModal').classList.remove('open');
+    }catch(e){
+      addLog(`❌ שגיאה בשמירת אירוע: ${e.message}`,'log-err');
+      showToast(`⚠️ שגיאה: ${e.message}`,'warn');
+    }
+    return;
+  }
+
+  let prodId = '';
+  let newProdCreated = false;
+
+  if(EV_PROD_MODE === 'manual'){
+    // Create new product first
+    const prodName = document.getElementById('evProdName').value.trim();
+    if(!prodName){ showToast('יש להזין שם מוצר','warn'); return; }
+    const track = document.getElementById('evProdTrack').value.trim();
+    const eq = parseFloat(document.getElementById('evProdEq').value)||0;
+    const bo = parseFloat(document.getElementById('evProdBo').value)||0;
+    const al = parseFloat(document.getElementById('evProdAl').value)||0;
+
+    // Build product id from name
+    const newProdId = 'prod-'+Date.now();
+    const newProd = {
+      id: newProdId,
+      client_id: SEL_CLIENT.id,
+      name: prodName,
+      name_short: prodName.length>20 ? prodName.slice(0,20)+'…' : prodName,
+      institution: '',
+      product_type: 'אחר',
+      status: 'active',
+      color: '#6366f1',
+      sort_order: PRODUCTS.length + 1,
+      risk_equities: eq||0,
+      risk_bonds: bo||0,
+      risk_alternatives: al||0,
+      track: track||''
+    };
+
+    // Save to demo products
+    if(IS_DEMO_MODE){
+      let allProds;
+      try{ allProds = JSON.parse(localStorage.getItem('easyfinance_demo_products'))||[...DEMO_PRODUCTS_MU]; }
+      catch(e){ allProds = [...DEMO_PRODUCTS_MU]; }
+      allProds.push(newProd);
+      localStorage.setItem('easyfinance_demo_products', JSON.stringify(allProds));
+      PRODUCTS.push(newProd);
+      addLog(`🆕 מוצר נוסף: ${prodName}`, 'log-ok');
+    } else {
+      try{
+        await apiPost(`${API_BASE}/tables/products`, newProd);
+        PRODUCTS.push(newProd);
+      }catch(e){
+        showToast(`⚠️ שגיאה ביצירת מוצר: ${e.message}`,'warn');
+        return;
+      }
+    }
+    prodId = newProdId;
+    newProdCreated = true;
+  } else {
+    prodId = document.getElementById('evProduct').value;
+    if(!prodId){ showToast('יש לבחור מוצר','warn'); return; }
+  }
+
+  const prod=PRODUCTS.find(p=>p.id===prodId);
   const body={
     client_id: SEL_CLIENT.id,
     product_id: prodId,
     event_date: dateVal,
     event_type: type,
-    title: title || `${EV_TYPE_LABELS[type]||type}${prod?' – '+prod.name_short:''}`,
+    title: title || `${EV_TYPE_LABELS[type]||type}${prod?' – '+(prod.name_short||prod.name):''}`,
     description: desc||null,
     amount: amount
   };
@@ -1393,10 +1691,100 @@ async function saveEvent(){
   try{
     const result=await apiPost(`${API_BASE}/tables/timeline_events`, body);
     addLog(`${icon} אירוע נשמר: ${body.title}${amount?' | '+ILS(amount):''}`, 'log-ok');
-    showToast(`✅ אירוע נוסף: ${body.title}`,'success');
+    showToast(`✅ אירוע נוסף: ${body.title}`+(newProdCreated?' (מוצר חדש נוסף)':''),'success');
     document.getElementById('eventModal').classList.remove('open');
   }catch(e){
     addLog(`❌ שגיאה בשמירת אירוע: ${e.message}`,'log-err');
+    showToast(`⚠️ שגיאה: ${e.message}`,'warn');
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// Add Product Modal (standalone)
+// ══════════════════════════════════════════════════════════
+function openAddProductModal(){
+  if(!SEL_CLIENT){ showToast('יש לבחור לקוח תחילה','warn'); return; }
+  document.getElementById('apName').value='';
+  document.getElementById('apShortName').value='';
+  document.getElementById('apInstitution').value='';
+  document.getElementById('apType').value='קרן פנסיה';
+  document.getElementById('apTrack').value='';
+  document.getElementById('apEq').value='';
+  document.getElementById('apBo').value='';
+  document.getElementById('apAl').value='';
+  document.getElementById('apColor').value='#1a56db';
+  document.getElementById('apInceptionDate').value='';
+  document.getElementById('apOpenValue').value='';
+  updateApSum();
+  document.getElementById('addProductModal').classList.add('open');
+}
+
+function closeAddProductModal(e){
+  if(!e||e.target===document.getElementById('addProductModal'))
+    document.getElementById('addProductModal').classList.remove('open');
+}
+
+function updateApSum(){
+  const eq=parseFloat(document.getElementById('apEq').value)||0;
+  const bo=parseFloat(document.getElementById('apBo').value)||0;
+  const al=parseFloat(document.getElementById('apAl').value)||0;
+  const sum=eq+bo+al;
+  const cls=Math.abs(sum-100)<1?'risk-sum-ok':sum>100?'risk-sum-err':'risk-sum-warn';
+  const pill=document.getElementById('apSumPill');
+  if(pill){ pill.className=`risk-sum-pill ${cls}`; pill.textContent=sum>0?`${sum}%`:'—'; }
+}
+
+async function saveNewProduct(){
+  const name=document.getElementById('apName').value.trim();
+  if(!name){ showToast('יש להזין שם מוצר','warn'); return; }
+  const shortName=document.getElementById('apShortName').value.trim()||name.slice(0,20);
+  const institution=document.getElementById('apInstitution').value.trim();
+  const productType=document.getElementById('apType').value;
+  const track=document.getElementById('apTrack').value.trim();
+  const eq=parseFloat(document.getElementById('apEq').value)||0;
+  const bo=parseFloat(document.getElementById('apBo').value)||0;
+  const al=parseFloat(document.getElementById('apAl').value)||0;
+  const color=document.getElementById('apColor').value||'#1a56db';
+  const inceptionDate=document.getElementById('apInceptionDate').value||null;
+  const openValue=parseFloat(document.getElementById('apOpenValue').value)||null;
+
+  const newProdId='prod-'+SEL_CLIENT.id+'-'+Date.now();
+  const newProd={
+    id:newProdId,
+    client_id:SEL_CLIENT.id,
+    name:name,
+    name_short:shortName,
+    institution:institution||'',
+    product_type:productType,
+    status:'active',
+    color:color,
+    sort_order:PRODUCTS.length+1,
+    risk_equities:eq,
+    risk_bonds:bo,
+    risk_alternatives:al,
+    track:track||'',
+    inception_value:openValue||null,
+    inception_date:inceptionDate||null
+  };
+
+  try{
+    if(IS_DEMO_MODE){
+      let allProds;
+      try{ allProds=JSON.parse(localStorage.getItem('easyfinance_demo_products'))||[...DEMO_PRODUCTS_MU]; }
+      catch(e){ allProds=[...DEMO_PRODUCTS_MU]; }
+      allProds.push(newProd);
+      localStorage.setItem('easyfinance_demo_products',JSON.stringify(allProds));
+    } else {
+      await apiPost(`${API_BASE}/tables/products`, newProd);
+    }
+    PRODUCTS.push(newProd);
+    addLog(`🆕 מוצר נוסף: ${name}`, 'log-ok');
+    showToast(`✅ מוצר נוסף: ${name}`,'success');
+    closeAddProductModal();
+    // Refresh entry table if step 3 is visible
+    if(SEL_MONTH) renderEntryTable();
+  }catch(e){
+    addLog(`❌ שגיאה בהוספת מוצר: ${e.message}`,'log-err');
     showToast(`⚠️ שגיאה: ${e.message}`,'warn');
   }
 }
