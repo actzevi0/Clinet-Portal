@@ -994,7 +994,7 @@ async function loadData(){
     if (IS_DEMO_MODE) {
       const bar = document.createElement('div');
       bar.style.cssText = 'background:linear-gradient(90deg,rgba(245,158,11,0.2),rgba(245,158,11,0.1));border-bottom:1px solid rgba(245,158,11,0.3);color:#f59e0b;padding:8px 20px;text-align:center;font-size:0.82rem;position:sticky;top:62px;z-index:99;';
-      bar.innerHTML = '<i class="fa fa-flask" style="margin-left:6px;"></i><strong>מצב Demo</strong> – נתוני דוגמה. עדכונים מדף עדכון חודשי ישתקפו כאן. <button onclick="resetDemoData()" style="background:rgba(245,158,11,0.3);border:1px solid rgba(245,158,11,0.5);color:#f59e0b;border-radius:4px;padding:2px 8px;font-size:.78rem;cursor:pointer;margin-right:8px;">איפוס נתוני Demo</button>';
+      bar.innerHTML = '<i class="fa fa-flask" style="margin-left:6px;"></i><strong>מצב Demo</strong> – נתוני דוגמה. עדכונים מדף עדכון חודשי ישתקפו כאן. <button onclick="showDemoClients()" style="background:rgba(37,99,235,0.3);border:1px solid rgba(37,99,235,0.5);color:#60a5fa;border-radius:4px;padding:2px 8px;font-size:.78rem;cursor:pointer;margin-right:8px;">📋 רשימת לקוחות</button><button onclick="resetDemoData()" style="background:rgba(245,158,11,0.3);border:1px solid rgba(245,158,11,0.5);color:#f59e0b;border-radius:4px;padding:2px 8px;font-size:.78rem;cursor:pointer;margin-right:8px;">איפוס נתוני Demo</button>';
       document.body.insertBefore(bar, document.getElementById('loadingEl'));
     }
 
@@ -2127,6 +2127,23 @@ function resetDemoData(){
   localStorage.removeItem('easyfinance_demo_clients');
   localStorage.removeItem('easyfinance_demo_products');
   location.reload();
+}
+
+function showDemoClients(){
+  try {
+    const cls = JSON.parse(localStorage.getItem('easyfinance_demo_clients')||'[]');
+    const prods = JSON.parse(localStorage.getItem('easyfinance_demo_products')||'[]');
+    const mvs = JSON.parse(localStorage.getItem('easyfinance_demo_mv')||'[]');
+    const origin = window.location.origin + window.location.pathname.replace(/dashboard.*/, '');
+    let msg = `📋 לקוחות ב-localStorage (${cls.length}):\n`;
+    cls.forEach(c => {
+      const cp = prods.filter(p=>p.client_id===c.id);
+      const cm = mvs.filter(m=>cp.some(p=>p.id===m.product_id));
+      msg += `\n• ${c.name} (ID: ${c.id})\n  מוצרים: ${cp.length} | רשומות MV: ${cm.length}\n  🔗 ${origin}dashboard?client=${c.id}`;
+    });
+    if(!cls.length) msg += '(ריק – לקוחות ברירת מחדל בלבד)\n\nלקוחות ברירת מחדל: menachem-gilor, demo-client-2';
+    alert(msg);
+  } catch(e) { alert('שגיאה בקריאת localStorage: ' + e.message); }
 }
 
 // ═══════════════════════════════════════════
