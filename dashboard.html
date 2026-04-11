@@ -866,15 +866,17 @@ const DEMO_DATA = {
     }
   ],
   products: [
-    { id:'prod-menora-allstars', client_id:'menachem-gilor', name:'מנורה מבטחים – אלסטאר', name_short:'מנורה ALLSTARS', institution:'מנורה', product_type:'קרן פנסיה', track:'מסלול כללי', status:'active', color:'#1a56db', ytd_start_value:300000, ytd_start_month:'02/25', inception_value:280000, inception_date:'2023-01-01', sort_order:1, exclude_open:false, risk_equities:60, risk_bonds:30, risk_alternatives:10 },
-    { id:'prod-hachshara', client_id:'menachem-gilor', name:'הכשרה ביטוח – מסלול כללי', name_short:'הכשרה', institution:'הכשרה', product_type:'ביטוח מנהלים', track:'מסלול כללי מניות', status:'active', color:'#10b981', ytd_start_value:1050000, ytd_start_month:'02/25', inception_value:950000, inception_date:'2021-06-01', sort_order:2, exclude_open:false, risk_equities:75, risk_bonds:20, risk_alternatives:5 },
+    { id:'prod-menora-allstars', client_id:'menachem-gilor', name:'מנורה מבטחים – אלסטאר', name_short:'מנורה ALLSTARS', institution:'מנורה', product_type:'קרן פנסיה', track:'מסלול כללי', status:'active', color:'#1a56db', ytd_start_value:290000, ytd_start_month:'01/25', inception_value:280000, inception_date:'2023-01-01', sort_order:1, exclude_open:false, risk_equities:60, risk_bonds:30, risk_alternatives:10 },
+    { id:'prod-hachshara', client_id:'menachem-gilor', name:'הכשרה ביטוח – מסלול כללי', name_short:'הכשרה', institution:'הכשרה', product_type:'ביטוח מנהלים', track:'מסלול כללי מניות', status:'active', color:'#10b981', ytd_start_value:1040000, ytd_start_month:'01/25', inception_value:950000, inception_date:'2021-06-01', sort_order:2, exclude_open:false, risk_equities:75, risk_bonds:20, risk_alternatives:5 },
     { id:'prod-ayalon', client_id:'menachem-gilor', name:'איילון – קופת גמל', name_short:'איילון גמל', institution:'איילון', product_type:'קופת גמל', track:'מסלול מניות', status:'active', color:'#f59e0b', ytd_start_value:0, ytd_start_month:'11/25', inception_value:295000, inception_date:'2025-11-01', sort_order:3, exclude_open:true, risk_equities:80, risk_bonds:15, risk_alternatives:5 },
   ],
   monthly_values: [
+    { id:'mv-0a', client_id:'menachem-gilor', product_id:'prod-menora-allstars', month:'01/25', value:290000, risk_equities:60, risk_bonds:30, risk_alternatives:10, track:'מסלול כללי' },
     { id:'mv-1',  client_id:'menachem-gilor', product_id:'prod-menora-allstars', month:'02/25', value:300000, risk_equities:60, risk_bonds:30, risk_alternatives:10, track:'מסלול כללי' },
     { id:'mv-2',  client_id:'menachem-gilor', product_id:'prod-menora-allstars', month:'03/25', value:316228, risk_equities:62, risk_bonds:28, risk_alternatives:10, track:'מסלול כללי' },
     { id:'mv-3',  client_id:'menachem-gilor', product_id:'prod-menora-allstars', month:'04/25', value:322000, risk_equities:65, risk_bonds:25, risk_alternatives:10, track:'מסלול מניות' },
     { id:'mv-4',  client_id:'menachem-gilor', product_id:'prod-menora-allstars', month:'05/25', value:330193, risk_equities:65, risk_bonds:25, risk_alternatives:10, track:'מסלול מניות' },
+    { id:'mv-0b', client_id:'menachem-gilor', product_id:'prod-hachshara', month:'01/25', value:1040000, risk_equities:75, risk_bonds:20, risk_alternatives:5, track:'מסלול כללי מניות' },
     { id:'mv-5',  client_id:'menachem-gilor', product_id:'prod-hachshara', month:'02/25', value:1050000, risk_equities:75, risk_bonds:20, risk_alternatives:5, track:'מסלול כללי מניות' },
     { id:'mv-6',  client_id:'menachem-gilor', product_id:'prod-hachshara', month:'03/25', value:1074000, risk_equities:75, risk_bonds:20, risk_alternatives:5, track:'מסלול כללי מניות' },
     { id:'mv-7',  client_id:'menachem-gilor', product_id:'prod-hachshara', month:'04/25', value:1088000, risk_equities:78, risk_bonds:17, risk_alternatives:5, track:'מסלול מניות ועוד' },
@@ -885,8 +887,10 @@ const DEMO_DATA = {
     { id:'mv-12', client_id:'menachem-gilor', product_id:'prod-ayalon', month:'02/26', value:330193, risk_equities:82, risk_bonds:13, risk_alternatives:5, track:'מסלול מניות' },
   ],
   timeline_events: [
-    { id:'ev-1', client_id:'menachem-gilor', product_id:'prod-menora-allstars', event_date:'2025-02-01', event_type:'deposit', title:'הפקדה ראשונה – מנורה', description:'פתיחת קרן פנסיה', amount:300000 },
-    { id:'ev-2', client_id:'menachem-gilor', product_id:'prod-hachshara', event_date:'2025-02-01', event_type:'deposit', title:'הפקדה ראשונה – הכשרה', description:'פתיחת ביטוח מנהלים', amount:1050000 },
+    { id:'ev-0a', client_id:'menachem-gilor', product_id:'prod-menora-allstars', event_date:'2025-01-01', event_type:'deposit', title:'הפקדה ראשונה – מנורה', description:'פתיחת קרן פנסיה', amount:290000 },
+    { id:'ev-0b', client_id:'menachem-gilor', product_id:'prod-hachshara', event_date:'2025-01-01', event_type:'deposit', title:'הפקדה ראשונה – הכשרה', description:'פתיחת ביטוח מנהלים', amount:1040000 },
+    { id:'ev-1', client_id:'menachem-gilor', product_id:'prod-menora-allstars', event_date:'2025-02-01', event_type:'deposit', title:'הפקדה נוספת – מנורה', description:'הפקדה חודשית', amount:10000 },
+    { id:'ev-2', client_id:'menachem-gilor', product_id:'prod-hachshara', event_date:'2025-02-01', event_type:'deposit', title:'הפקדה נוספת – הכשרה', description:'הפקדה חודשית', amount:10000 },
     { id:'ev-3', client_id:'menachem-gilor', product_id:'prod-ayalon', event_date:'2025-11-15', event_type:'deposit', title:'ניוד לאיילון גמל', description:'ניוד מקרן קודמת', amount:295000 },
     { id:'ev-4', client_id:'menachem-gilor', product_id:'prod-menora-allstars', event_date:'2025-04-01', event_type:'track_change', title:'שינוי מסלול – מנורה ALLSTARS', description:'מסלול שונה מ-"מסלול כללי" ל-"מסלול מניות"', amount:null },
     { id:'ev-5', client_id:'menachem-gilor', product_id:'prod-hachshara', event_date:'2025-04-01', event_type:'track_change', title:'שינוי מסלול – הכשרה', description:'מסלול שונה מ-"מסלול כללי מניות" ל-"מסלול מניות ועוד"', amount:null },
@@ -907,23 +911,42 @@ async function fetchAll(url){
   }
 
   if (IS_DEMO_MODE) {
-    if (url.includes('/tables/clients'))        return [...DEMO_DATA.clients];
+    if (url.includes('/tables/clients')) {
+      try {
+        const saved = localStorage.getItem('easyfinance_demo_clients');
+        if (saved) return JSON.parse(saved);
+      } catch(e) {}
+      return [...DEMO_DATA.clients];
+    }
     if (url.includes('/tables/products'))       return [...DEMO_DATA.products];
     if (url.includes('/tables/monthly_values')){
-      // טען מ-localStorage אם קיים (עדכונים מדף עדכון חודשי)
+      // מיזוג: קרא מ-localStorage, אבל הוסף רשומות ברירת מחדל שחסרות (כגון 01/25)
+      let base = [...DEMO_DATA.monthly_values];
       try {
         const saved = localStorage.getItem('easyfinance_demo_mv');
-        if (saved) return JSON.parse(saved);
+        if (saved) {
+          const savedArr = JSON.parse(saved);
+          // מיזוג: רשומות localStorage גוברות, אבל הוסף רשומות ברירת מחדל שאינן ב-localStorage
+          const savedKeys = new Set(savedArr.map(r => r.product_id + '|' + r.month));
+          const missing = base.filter(r => !savedKeys.has(r.product_id + '|' + r.month));
+          return [...savedArr, ...missing];
+        }
       } catch(e) {}
-      return [...DEMO_DATA.monthly_values];
+      return base;
     }
     if (url.includes('/tables/timeline_events')){
-      // טען מ-localStorage אם קיים (אירועי שינוי מסלול שנוספו)
+      // מיזוג: קרא מ-localStorage, הוסף אירועים ברירת מחדל שחסרים
+      let base = [...DEMO_DATA.timeline_events];
       try {
         const saved = localStorage.getItem('easyfinance_demo_events');
-        if (saved) return JSON.parse(saved);
+        if (saved) {
+          const savedArr = JSON.parse(saved);
+          const savedIds = new Set(savedArr.map(e => e.id));
+          const missing = base.filter(e => !savedIds.has(e.id));
+          return [...savedArr, ...missing];
+        }
       } catch(e) {}
-      return [...DEMO_DATA.timeline_events];
+      return base;
     }
     return [];
   }
@@ -1152,8 +1175,12 @@ function lineOpts(d,yFmt){
 // ═══════════════════════════════════════════
 function getChartMonths(){
   if(CHART_YEAR_FILTER===null) return MONTHS; // כל הנתונים
+  // שנה ספציפית: החזר את כל 12 חודשי השנה (גם אם אין נתונים בחלקם)
   const yy=String(CHART_YEAR_FILTER).slice(-2);
-  return MONTHS.filter(m=>m.endsWith('/'+yy));
+  const all12=Array.from({length:12},(_,i)=>`${String(i+1).padStart(2,'0')}/${yy}`);
+  // השאר רק חודשים שיש להם נתונים או שנמצאים בטווח הנתונים של לפחות מוצר אחד
+  // (הצג תמיד את כל 12 — Chart.js יציג null כפערים)
+  return all12;
 }
 
 function renderYearBtns(){
@@ -1621,18 +1648,21 @@ function renderNormChart(){
 function renderHeatmap(){
   const wrap=document.getElementById('hmWrap');if(!wrap)return;
 
-  // סנן רק חודשים של השנה הפעילה
+  // כל 12 חודשי השנה הפעילה (גם אם אין נתונים בחלקם)
   const yy=String(ACTIVE_YEAR).slice(-2);
-  const yearMonths=MONTHS.filter(m=>m.split('/')[1]===yy);
-  // dispMonths = חודשים לתצוגה (ללא החודש הראשון אם הוא גם הראשון בכל הנתונים)
-  // נשתמש ב-MONTHS המלא לחישוב תשואות חודשיות (צריך prev), אבל נציג רק yearMonths
-  const dispMonths=yearMonths;
+  const all12=Array.from({length:12},(_,i)=>`${String(i+1).padStart(2,'0')}/${yy}`);
+  // dispMonths: כל 12 חודשים — תאים ריקים יוצגו כ-"—"
+  const dispMonths=all12;
 
   // מחשב maxAbs לפי p95 — רק על חודשי השנה הנבחרת
   let maxAbs=0.01;
   const allRets=[];
+  // לחישוב תשואות: צריך גם את החודש שלפני ינואר (דצמבר שנה קודמת)
+  const prevYY=String(ACTIVE_YEAR-1).slice(-2);
+  const dec_prev=`12/${prevYY}`;
+  const calcMonths=[dec_prev,...dispMonths]; // [12/24, 01/25...12/25]
   for(const p of PRODUCTS){
-    const rets=calcMonthlyRet(p.id,MONTHS);
+    const rets=calcMonthlyRet(p.id,calcMonths);
     dispMonths.forEach(m=>{const r=rets[m];if(r!=null)allRets.push(Math.abs(r));});
   }
   if(allRets.length){
@@ -1661,7 +1691,7 @@ function renderHeatmap(){
 
   let html=`<table class="hm-table"><thead><tr><th style="text-align:right;min-width:100px;">מוצר</th>${dispMonths.map(m=>`<th>${monthLabel(m)}</th>`).join('')}<th>YTD ${ACTIVE_YEAR}</th></tr></thead><tbody>`;
   for(const p of PRODUCTS){
-    const rets=calcMonthlyRet(p.id,MONTHS);
+    const rets=calcMonthlyRet(p.id,calcMonths);
     const ytd=calcYTD(p,ACTIVE_YEAR);
     const yc=hmColor(ytd);
     html+=`<tr><td class="hm-name" title="${p.name}"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${p.color};margin-left:5px;"></span>${p.name_short}</td>`;
@@ -2062,6 +2092,8 @@ function resetDemoData(){
   if(!confirm('לאפס את כל נתוני ה-Demo לברירת המחדל?')) return;
   localStorage.removeItem('easyfinance_demo_mv');
   localStorage.removeItem('easyfinance_demo_events');
+  localStorage.removeItem('easyfinance_demo_clients');
+  localStorage.removeItem('easyfinance_demo_products');
   location.reload();
 }
 

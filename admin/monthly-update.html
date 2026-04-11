@@ -179,7 +179,12 @@
     <div class="card">
       <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
         <h3><i class="fa fa-calendar" style="margin-left:8px;color:var(--primary-light)"></i>בחירת חודש</h3>
-        <button class="btn btn-secondary btn-sm" onclick="goStep(1)"><i class="fa fa-arrow-right"></i> החלף לקוח</button>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="btn btn-secondary btn-sm" onclick="openEventModal()" title="הוסף אירוע: הפקדה, פדיון, ניוד או פתיחת מוצר">
+            <i class="fa fa-calendar-plus"></i> הוסף אירוע
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="goStep(1)"><i class="fa fa-arrow-right"></i> החלף לקוח</button>
+        </div>
       </div>
       <div class="flex gap-12 mb-16" style="align-items:center;">
         <label class="form-label" style="margin:0;white-space:nowrap;">שנה:</label>
@@ -320,12 +325,67 @@
   <div class="container">
     <div class="save-summary" id="saveSummary">0 שורות שונו</div>
     <div class="flex gap-12">
+      <button class="btn btn-secondary" onclick="openEventModal()" title="הוסף אירוע: הפקדה, פדיון, ניוד או פתיחת מוצר">
+        <i class="fa fa-calendar-plus"></i> הוסף אירוע
+      </button>
       <button class="btn btn-secondary" onclick="previewChanges()">
         <i class="fa fa-eye"></i> תצוגה מקדימה
       </button>
       <button class="btn btn-primary" onclick="saveAll()" id="btnSave">
         <i class="fa fa-save"></i> שמור הכל
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- Event Modal -->
+<div class="route-modal-overlay" id="eventModal" onclick="closeEventModal(event)">
+  <div class="route-modal" style="max-width:480px;" onclick="event.stopPropagation()">
+    <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h3 style="margin:0;font-size:1rem;"><i class="fa fa-calendar-plus" style="margin-left:8px;color:var(--primary-light);"></i>הוספת אירוע</h3>
+      <button onclick="closeEventModal()" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--text-muted);"><i class="fa fa-times"></i></button>
+    </div>
+
+    <div style="margin-bottom:14px;">
+      <label style="font-size:.82rem;color:var(--text-muted);font-weight:600;display:block;margin-bottom:6px;">סוג אירוע</label>
+      <select id="evType" onchange="updateEventForm()" style="width:100%;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:.88rem;">
+        <option value="deposit">💰 הפקדה</option>
+        <option value="withdrawal">📤 פדיון</option>
+        <option value="transfer">🔄 ניוד</option>
+        <option value="new_product">🆕 פתיחת מוצר חדש</option>
+      </select>
+    </div>
+
+    <div style="margin-bottom:14px;">
+      <label style="font-size:.82rem;color:var(--text-muted);font-weight:600;display:block;margin-bottom:6px;">מוצר</label>
+      <select id="evProduct" style="width:100%;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:.88rem;"></select>
+    </div>
+
+    <div style="margin-bottom:14px;">
+      <label style="font-size:.82rem;color:var(--text-muted);font-weight:600;display:block;margin-bottom:6px;">תאריך האירוע</label>
+      <input type="date" id="evDate" style="width:100%;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:.88rem;box-sizing:border-box;">
+    </div>
+
+    <div style="margin-bottom:14px;" id="evAmountWrap">
+      <label style="font-size:.82rem;color:var(--text-muted);font-weight:600;display:block;margin-bottom:6px;">סכום (₪)</label>
+      <input type="number" id="evAmount" min="0" placeholder="300000" style="width:100%;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:.88rem;box-sizing:border-box;">
+    </div>
+
+    <div style="margin-bottom:14px;">
+      <label style="font-size:.82rem;color:var(--text-muted);font-weight:600;display:block;margin-bottom:6px;">כותרת האירוע (אופציונלי)</label>
+      <input type="text" id="evTitle" placeholder="לדוגמה: הפקדה חודשית" style="width:100%;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:.88rem;box-sizing:border-box;">
+    </div>
+
+    <div style="margin-bottom:20px;">
+      <label style="font-size:.82rem;color:var(--text-muted);font-weight:600;display:block;margin-bottom:6px;">הערה (אופציונלי)</label>
+      <textarea id="evDesc" rows="2" placeholder="פרטים נוספים..." style="width:100%;padding:9px 12px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:.88rem;resize:vertical;box-sizing:border-box;"></textarea>
+    </div>
+
+    <div style="display:flex;gap:10px;">
+      <button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="saveEvent()">
+        <i class="fa fa-check"></i> שמור אירוע
+      </button>
+      <button class="btn btn-secondary" onclick="closeEventModal()">ביטול</button>
     </div>
   </div>
 </div>
@@ -379,17 +439,19 @@ const DEMO_CLIENTS_MU = [
   { id:'demo-client-2',  name:'לקוח לדוגמה ב׳', report_title:'דוח מצב – 2025', report_period:'2025', active:1 },
 ];
 const DEMO_PRODUCTS_MU = [
-  { id:'prod-menora-allstars', client_id:'menachem-gilor', name:'מנורה מבטחים – אלסטאר', name_short:'מנורה ALLSTARS', institution:'מנורה', product_type:'קרן פנסיה', status:'active', color:'#1a56db', sort_order:1, risk_equities:60, risk_bonds:30, risk_alternatives:10, track:'מסלול כללי' },
-  { id:'prod-hachshara',       client_id:'menachem-gilor', name:'הכשרה ביטוח – מסלול כללי', name_short:'הכשרה', institution:'הכשרה', product_type:'ביטוח מנהלים', status:'active', color:'#10b981', sort_order:2, risk_equities:75, risk_bonds:20, risk_alternatives:5, track:'מסלול כללי מניות' },
+  { id:'prod-menora-allstars', client_id:'menachem-gilor', name:'מנורה מבטחים – אלסטאר', name_short:'מנורה ALLSTARS', institution:'מנורה', product_type:'קרן פנסיה', status:'active', color:'#1a56db', sort_order:1, risk_equities:60, risk_bonds:30, risk_alternatives:10, track:'מסלול כללי', ytd_start_month:'01/25', ytd_start_value:290000 },
+  { id:'prod-hachshara',       client_id:'menachem-gilor', name:'הכשרה ביטוח – מסלול כללי', name_short:'הכשרה', institution:'הכשרה', product_type:'ביטוח מנהלים', status:'active', color:'#10b981', sort_order:2, risk_equities:75, risk_bonds:20, risk_alternatives:5, track:'מסלול כללי מניות', ytd_start_month:'01/25', ytd_start_value:1040000 },
   { id:'prod-ayalon',          client_id:'menachem-gilor', name:'איילון – קופת גמל', name_short:'איילון גמל', institution:'איילון', product_type:'קופת גמל', status:'active', color:'#f59e0b', sort_order:3, risk_equities:80, risk_bonds:15, risk_alternatives:5, track:'מסלול מניות' },
   { id:'prod-migdal',          client_id:'demo-client-2',  name:'מגדל – פנסיה', name_short:'מגדל', institution:'מגדל', product_type:'קרן פנסיה', status:'active', color:'#8b5cf6', sort_order:1, risk_equities:50, risk_bonds:40, risk_alternatives:10, track:'מסלול כללי' },
 ];
 // נתוני demo מתואמים עם dashboard.html
 const DEMO_MV_DEFAULT = [
+  { id:'mv-0a', client_id:'menachem-gilor', product_id:'prod-menora-allstars', month:'01/25', value:290000, risk_equities:60, risk_bonds:30, risk_alternatives:10, track:'מסלול כללי' },
   { id:'mv-1',  client_id:'menachem-gilor', product_id:'prod-menora-allstars', month:'02/25', value:300000, risk_equities:60, risk_bonds:30, risk_alternatives:10, track:'מסלול כללי' },
   { id:'mv-2',  client_id:'menachem-gilor', product_id:'prod-menora-allstars', month:'03/25', value:316228, risk_equities:62, risk_bonds:28, risk_alternatives:10, track:'מסלול כללי' },
   { id:'mv-3',  client_id:'menachem-gilor', product_id:'prod-menora-allstars', month:'04/25', value:322000, risk_equities:65, risk_bonds:25, risk_alternatives:10, track:'מסלול מניות' },
   { id:'mv-4',  client_id:'menachem-gilor', product_id:'prod-menora-allstars', month:'05/25', value:330193, risk_equities:65, risk_bonds:25, risk_alternatives:10, track:'מסלול מניות' },
+  { id:'mv-0b', client_id:'menachem-gilor', product_id:'prod-hachshara', month:'01/25', value:1040000, risk_equities:75, risk_bonds:20, risk_alternatives:5, track:'מסלול כללי מניות' },
   { id:'mv-5',  client_id:'menachem-gilor', product_id:'prod-hachshara', month:'02/25', value:1050000, risk_equities:75, risk_bonds:20, risk_alternatives:5, track:'מסלול כללי מניות' },
   { id:'mv-6',  client_id:'menachem-gilor', product_id:'prod-hachshara', month:'03/25', value:1074000, risk_equities:75, risk_bonds:20, risk_alternatives:5, track:'מסלול כללי מניות' },
   { id:'mv-7',  client_id:'menachem-gilor', product_id:'prod-hachshara', month:'04/25', value:1088000, risk_equities:78, risk_bonds:17, risk_alternatives:5, track:'מסלול מניות ועוד' },
@@ -400,21 +462,41 @@ const DEMO_MV_DEFAULT = [
   { id:'mv-12', client_id:'menachem-gilor', product_id:'prod-ayalon', month:'02/26', value:330193, risk_equities:82, risk_bonds:13, risk_alternatives:5, track:'מסלול מניות' },
 ];
 const DEMO_EVENTS_DEFAULT = [
-  { id:'ev-1', client_id:'menachem-gilor', product_id:'prod-menora-allstars', event_date:'2025-02-01', event_type:'deposit', title:'הפקדה ראשונה – מנורה', description:'פתיחת קרן פנסיה', amount:300000 },
-  { id:'ev-2', client_id:'menachem-gilor', product_id:'prod-hachshara', event_date:'2025-02-01', event_type:'deposit', title:'הפקדה ראשונה – הכשרה', description:'פתיחת ביטוח מנהלים', amount:1050000 },
+  { id:'ev-0a', client_id:'menachem-gilor', product_id:'prod-menora-allstars', event_date:'2025-01-01', event_type:'deposit', title:'הפקדה ראשונה – מנורה', description:'פתיחת קרן פנסיה', amount:290000 },
+  { id:'ev-0b', client_id:'menachem-gilor', product_id:'prod-hachshara', event_date:'2025-01-01', event_type:'deposit', title:'הפקדה ראשונה – הכשרה', description:'פתיחת ביטוח מנהלים', amount:1040000 },
+  { id:'ev-1', client_id:'menachem-gilor', product_id:'prod-menora-allstars', event_date:'2025-02-01', event_type:'deposit', title:'הפקדה נוספת – מנורה', description:'הפקדה חודשית', amount:10000 },
+  { id:'ev-2', client_id:'menachem-gilor', product_id:'prod-hachshara', event_date:'2025-02-01', event_type:'deposit', title:'הפקדה נוספת – הכשרה', description:'הפקדה חודשית', amount:10000 },
   { id:'ev-3', client_id:'menachem-gilor', product_id:'prod-ayalon', event_date:'2025-11-15', event_type:'deposit', title:'ניוד לאיילון גמל', description:'ניוד מקרן קודמת', amount:295000 },
   { id:'ev-4', client_id:'menachem-gilor', product_id:'prod-menora-allstars', event_date:'2025-04-01', event_type:'track_change', title:'שינוי מסלול – מנורה ALLSTARS', description:'מסלול שונה מ-"מסלול כללי" ל-"מסלול מניות"', amount:null },
   { id:'ev-5', client_id:'menachem-gilor', product_id:'prod-hachshara', event_date:'2025-04-01', event_type:'track_change', title:'שינוי מסלול – הכשרה', description:'מסלול שונה מ-"מסלול כללי מניות" ל-"מסלול מניות ועוד"', amount:null },
 ];
 
-// DEMO_MV_ALL ו-DEMO_EVENTS_ALL נטענים מ-localStorage (או ברירת מחדל)
+// DEMO_MV_ALL ו-DEMO_EVENTS_ALL נטענים מ-localStorage (מיזוג עם ברירת מחדל)
 let DEMO_MV_ALL = (() => {
-  try { const s = localStorage.getItem('easyfinance_demo_mv'); return s ? JSON.parse(s) : [...DEMO_MV_DEFAULT]; }
-  catch(e) { return [...DEMO_MV_DEFAULT]; }
+  try {
+    const s = localStorage.getItem('easyfinance_demo_mv');
+    if (s) {
+      const saved = JSON.parse(s);
+      // מיזוג: הוסף רשומות ברירת מחדל שחסרות ב-localStorage (כגון 01/25)
+      const savedKeys = new Set(saved.map(r => r.product_id + '|' + r.month));
+      const missing = DEMO_MV_DEFAULT.filter(r => !savedKeys.has(r.product_id + '|' + r.month));
+      return [...saved, ...missing];
+    }
+  } catch(e) {}
+  return [...DEMO_MV_DEFAULT];
 })();
 let DEMO_EVENTS_ALL = (() => {
-  try { const s = localStorage.getItem('easyfinance_demo_events'); return s ? JSON.parse(s) : [...DEMO_EVENTS_DEFAULT]; }
-  catch(e) { return [...DEMO_EVENTS_DEFAULT]; }
+  try {
+    const s = localStorage.getItem('easyfinance_demo_events');
+    if (s) {
+      const saved = JSON.parse(s);
+      // מיזוג: הוסף אירועי ברירת מחדל שחסרים
+      const savedIds = new Set(saved.map(e => e.id));
+      const missing = DEMO_EVENTS_DEFAULT.filter(e => !savedIds.has(e.id));
+      return [...saved, ...missing];
+    }
+  } catch(e) {}
+  return [...DEMO_EVENTS_DEFAULT];
 })();
 
 // שמור נתוני demo ל-localStorage כדי שהדשבורד יוכל לקרוא אותם
@@ -447,8 +529,22 @@ const API_BASE='';
 async function fetchAll(path){
   // Demo Mode: החזר נתונים מדומים
   if (IS_DEMO_MODE) {
-    if (path.includes('/tables/clients'))        return [...DEMO_CLIENTS_MU];
-    if (path.includes('/tables/products'))       return [...DEMO_PRODUCTS_MU];
+    if (path.includes('/tables/clients')) {
+      // קרא לקוחות מ-localStorage (כולל לקוחות חדשים שנוצרו ב-Demo Mode)
+      try {
+        const saved = localStorage.getItem('easyfinance_demo_clients');
+        if (saved) return JSON.parse(saved);
+      } catch(e) {}
+      return [...DEMO_CLIENTS_MU];
+    }
+    if (path.includes('/tables/products')) {
+      // קרא מוצרים מ-localStorage אם קיים (מוצרים שנוספו ב-Demo Mode)
+      try {
+        const saved = localStorage.getItem('easyfinance_demo_products');
+        if (saved) return JSON.parse(saved);
+      } catch(e) {}
+      return [...DEMO_PRODUCTS_MU];
+    }
     if (path.includes('/tables/monthly_values')) return [...DEMO_MV_ALL];
     if (path.includes('/tables/timeline_events'))return [...DEMO_EVENTS_ALL];
     return [];
@@ -537,7 +633,7 @@ function goStep(n){
     if(i<n) el.classList.add('done');
     else if(i===n) el.classList.add('active');
   });
-  document.getElementById('actionBar').style.display = n===3?'block':'none';
+  document.getElementById('actionBar').style.display = n===3?'flex':'none';
 }
 
 // ══════════════════════════════════════════════════════════
@@ -1227,6 +1323,85 @@ function showToast(msg, type='success'){
 }
 
 // ══════════════════════════════════════════════════════════
+// Event Modal — הוספת אירוע (הפקדה / פדיון / ניוד / פתיחת מוצר)
+// ══════════════════════════════════════════════════════════
+function openEventModal(){
+  if(!SEL_CLIENT){ showToast('יש לבחור לקוח תחילה','warn'); return; }
+  // Populate product list
+  const sel=document.getElementById('evProduct');
+  sel.innerHTML=PRODUCTS.map(p=>`<option value="${p.id}">${p.name_short||p.name}</option>`).join('');
+  // Default date = first day of SEL_MONTH or today
+  let defaultDate=new Date().toISOString().slice(0,10);
+  if(SEL_MONTH){
+    const[mm,yy]=SEL_MONTH.split('/');
+    defaultDate=`20${yy}-${mm}-01`;
+  }
+  document.getElementById('evDate').value=defaultDate;
+  document.getElementById('evAmount').value='';
+  document.getElementById('evTitle').value='';
+  document.getElementById('evDesc').value='';
+  document.getElementById('evType').value='deposit';
+  updateEventForm();
+  document.getElementById('eventModal').classList.add('open');
+}
+
+function closeEventModal(e){
+  if(!e||e.target===document.getElementById('eventModal'))
+    document.getElementById('eventModal').classList.remove('open');
+}
+
+const EV_TYPE_LABELS={deposit:'הפקדה',withdrawal:'פדיון',transfer:'ניוד',new_product:'פתיחת מוצר'};
+const EV_TYPE_ICONS={deposit:'💰',withdrawal:'📤',transfer:'🔄',new_product:'🆕'};
+
+function updateEventForm(){
+  const type=document.getElementById('evType').value;
+  // hide amount for new_product? No - still useful
+  const amtWrap=document.getElementById('evAmountWrap');
+  amtWrap.style.display='';
+  // auto-fill title
+  const titleInp=document.getElementById('evTitle');
+  if(!titleInp.value || Object.values(EV_TYPE_LABELS).some(v=>titleInp.value.startsWith(v))){
+    const prod=PRODUCTS.find(p=>p.id===document.getElementById('evProduct').value);
+    titleInp.value=`${EV_TYPE_LABELS[type]||type}${prod?' – '+prod.name_short:''}`;
+  }
+}
+
+async function saveEvent(){
+  const type=document.getElementById('evType').value;
+  const prodId=document.getElementById('evProduct').value;
+  const dateVal=document.getElementById('evDate').value;
+  const amountVal=document.getElementById('evAmount').value;
+  const title=document.getElementById('evTitle').value.trim();
+  const desc=document.getElementById('evDesc').value.trim();
+
+  if(!dateVal){ showToast('יש להזין תאריך','warn'); return; }
+
+  const amount=amountVal?parseFloat(amountVal):null;
+  const prod=PRODUCTS.find(p=>p.id===prodId);
+  const icon=EV_TYPE_ICONS[type]||'📋';
+
+  const body={
+    client_id: SEL_CLIENT.id,
+    product_id: prodId,
+    event_date: dateVal,
+    event_type: type,
+    title: title || `${EV_TYPE_LABELS[type]||type}${prod?' – '+prod.name_short:''}`,
+    description: desc||null,
+    amount: amount
+  };
+
+  try{
+    const result=await apiPost(`${API_BASE}/tables/timeline_events`, body);
+    addLog(`${icon} אירוע נשמר: ${body.title}${amount?' | '+ILS(amount):''}`, 'log-ok');
+    showToast(`✅ אירוע נוסף: ${body.title}`,'success');
+    document.getElementById('eventModal').classList.remove('open');
+  }catch(e){
+    addLog(`❌ שגיאה בשמירת אירוע: ${e.message}`,'log-err');
+    showToast(`⚠️ שגיאה: ${e.message}`,'warn');
+  }
+}
+
+// ══════════════════════════════════════════════════════════
 // Init — בדיקת חיבור ל-API
 // ══════════════════════════════════════════════════════════
 async function checkAPIConnection(){
@@ -1259,6 +1434,8 @@ function resetDemoDataMU(){
   if(!confirm('לאפס את כל נתוני ה-Demo לברירת המחדל?')) return;
   localStorage.removeItem('easyfinance_demo_mv');
   localStorage.removeItem('easyfinance_demo_events');
+  localStorage.removeItem('easyfinance_demo_clients');
+  localStorage.removeItem('easyfinance_demo_products');
   location.reload();
 }
 

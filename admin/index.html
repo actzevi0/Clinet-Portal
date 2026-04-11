@@ -254,8 +254,14 @@ async function fetchAll(url){
   }
 
   if (IS_DEMO_MODE) {
-    // החזר נתוני demo לפי ה-URL
-    if (url.includes('/tables/clients'))       return [...DEMO_CLIENTS];
+    // החזר נתוני demo לפי ה-URL — קרא מ-localStorage אם קיים (כולל לקוחות חדשים)
+    if (url.includes('/tables/clients')) {
+      try {
+        const saved = localStorage.getItem('easyfinance_demo_clients');
+        if (saved) return JSON.parse(saved);
+      } catch(e) {}
+      return [...DEMO_CLIENTS];
+    }
     if (url.includes('/tables/products'))      return [...DEMO_PRODUCTS];
     if (url.includes('/tables/monthly_values')) return [...DEMO_MV];
     return [];
@@ -468,12 +474,14 @@ async function createNewClient() {
     whatsapp_phone: '', goals_json: '', insights_json: ''
   };
 
-  // Demo Mode: add locally
+  // Demo Mode: add locally and persist to localStorage
   if (IS_DEMO_MODE) {
     CLIENTS.push(newClient);
     CLIENTS.sort((a,b)=>a.name.localeCompare(b.name,'he'));
+    // שמור ב-localStorage כדי שדפים אחרים (עדכון חודשי) יוכלו לקרוא את הלקוח החדש
+    try { localStorage.setItem('easyfinance_demo_clients', JSON.stringify(CLIENTS)); } catch(e) {}
     renderClientsGrid();
-    alert(`✅ לקוח ${name} נוצר (Demo Mode)!\n\nהלקוח נוסף מקומית. בפרודקשן הנתונים יישמרו ב-DB.`);
+    alert(`✅ לקוח ${name} נוצר (Demo Mode)!\n\nהלקוח נוסף וזמין כעת גם בדף עדכון חודשי.`);
     document.getElementById('newClientModal').classList.remove('open');
     document.getElementById('newClientName').value='';
     document.getElementById('newClientId').value='';
