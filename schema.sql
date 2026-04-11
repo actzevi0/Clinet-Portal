@@ -1,5 +1,6 @@
--- EasyFinance Dashboard – D1 Schema
+-- EasyFinance Dashboard – D1 Schema v4.0
 -- הרץ את זה בקונסול Cloudflare D1 אם הטבלאות לא קיימות
+-- לגרסה קיימת: הרץ את migrate_v4.sql בנפרד
 
 CREATE TABLE IF NOT EXISTS clients (
   id TEXT PRIMARY KEY,
@@ -11,6 +12,14 @@ CREATE TABLE IF NOT EXISTS clients (
   active INTEGER DEFAULT 1,
   username TEXT,
   password_hash TEXT,
+  -- פיצ'רים חדשים v4.0
+  whatsapp_phone TEXT,
+  enable_goals INTEGER DEFAULT 0,
+  goals_json TEXT,
+  enable_whatif INTEGER DEFAULT 0,
+  enable_insights INTEGER DEFAULT 0,
+  insights_json TEXT,
+  enable_notifications INTEGER DEFAULT 0,
   created_at INTEGER,
   updated_at INTEGER,
   deleted INTEGER DEFAULT 0
@@ -32,6 +41,10 @@ CREATE TABLE IF NOT EXISTS products (
   ytd_start_value REAL,
   sort_order INTEGER DEFAULT 0,
   exclude_open INTEGER DEFAULT 0,
+  -- פילוח סיכון v4.0
+  risk_equities REAL DEFAULT 0,
+  risk_bonds REAL DEFAULT 0,
+  risk_alternatives REAL DEFAULT 0,
   created_at INTEGER,
   updated_at INTEGER,
   deleted INTEGER DEFAULT 0

@@ -2,114 +2,145 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<title>Deploy Helper – EasyFinance</title>
+<title>Deploy Helper – EasyFinance v4.0</title>
 <style>
-body{font-family:monospace;background:#0f172a;color:#f1f5f9;padding:40px;max-width:800px;margin:0 auto;}
+body{font-family:monospace;background:#0f172a;color:#f1f5f9;padding:40px;max-width:860px;margin:0 auto;}
 h1{color:#3b7ef5;margin-bottom:8px;}
+h2{color:#f59e0b;margin:28px 0 12px;}
 .subtitle{color:#64748b;margin-bottom:32px;font-size:0.9rem;}
-pre{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:20px;overflow-x:auto;font-size:0.85rem;line-height:1.6;}
+pre{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:20px;overflow-x:auto;font-size:0.85rem;line-height:1.6;position:relative;}
 .step{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:20px;margin-bottom:16px;}
 .step h3{color:#10b981;margin-bottom:12px;}
 .copy-btn{background:#1a56db;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:0.8rem;float:left;}
 .copy-btn:hover{background:#3b7ef5;}
 .note{background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);color:#f59e0b;padding:12px 16px;border-radius:8px;margin-bottom:24px;font-size:0.85rem;}
+.success{background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);color:#10b981;padding:12px 16px;border-radius:8px;margin-bottom:16px;font-size:0.85rem;}
 code{background:#0f172a;padding:2px 6px;border-radius:4px;color:#38bdf8;}
+.version-badge{display:inline-block;background:#1a56db;color:#fff;padding:3px 10px;border-radius:20px;font-size:0.75rem;margin-right:10px;}
 </style>
 </head>
 <body>
-<h1>🚀 EasyFinance – Deploy to Cloudflare Pages</h1>
-<p class="subtitle">פרסום ידני ישירות ל-Cloudflare Pages בלי Genspark</p>
+<h1>🚀 EasyFinance – Deploy Helper <span class="version-badge">v4.0</span></h1>
+<p class="subtitle">פרסום ידני ל-Cloudflare Pages עם D1 Database</p>
 
 <div class="note">
-  ⚠️ <strong>הוראות:</strong> הרץ את הפקודות האלה בסדר מהמחשב שלך (Windows CMD / Mac Terminal)
+  ⚠️ <strong>חשוב:</strong> הרץ את הפקודות מהמחשב האישי שלך (Windows CMD / Mac Terminal).<br>
+  לפני העלאה לפרודקשן — ודא שבדקת הכל בסביבת הפיתוח.
 </div>
 
+<h2>📦 שלב 1 – הכן את הקבצים</h2>
 <div class="step">
-  <h3>שלב 1 — התקן Wrangler (פעם אחת בלבד)</h3>
-  <pre id="s1">npm install -g wrangler</pre>
+  <h3>הורד את כל הקבצים מ-Genspark</h3>
+  <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:10px;">
+    הורד את כל הקבצים מלשונית Files בסנדבוקס ושמור אותם עם מבנה התיקיות:
+  </p>
+  <pre id="s-structure">easyfinance-v4/
+├── _worker.js
+├── index.html
+├── dashboard.html
+├── schema.sql
+├── migrate_v4.sql
+├── admin/
+│   ├── index.html
+│   ├── credentials.html
+│   ├── monthly-update.html
+│   ├── fix-data.html
+│   ├── check-data.html
+│   ├── edit.html
+│   └── migrate.html
+├── css/
+│   └── style.css
+└── js/
+    └── returns-engine.js</pre>
+  <button class="copy-btn" onclick="copy('s-structure')">העתק</button>
+</div>
+
+<h2>🔧 שלב 2 – הכן Wrangler</h2>
+<div class="step">
+  <h3>התקן Wrangler (פעם אחת בלבד)</h3>
+  <pre id="s1">npm install -g wrangler
+wrangler login</pre>
   <button class="copy-btn" onclick="copy('s1')">העתק</button>
 </div>
 
+<h2>🗃️ שלב 3 – Migration DB (רק אם הDB קיים)</h2>
 <div class="step">
-  <h3>שלב 2 — התחבר ל-Cloudflare</h3>
-  <pre id="s2">wrangler login</pre>
-  <button class="copy-btn" onclick="copy('s2')">העתק</button>
-  <p style="color:#64748b;font-size:0.8rem;margin-top:8px;">יפתח דפדפן → אשר → חזור ל-terminal</p>
-</div>
-
-<div class="step">
-  <h3>שלב 3 — צור תיקייה ריקה</h3>
-  <pre id="s3">mkdir easyfinance-deploy
-cd easyfinance-deploy
-mkdir admin css js</pre>
-  <button class="copy-btn" onclick="copy('s3')">העתק</button>
-</div>
-
-<div class="step">
-  <h3>שלב 4 — הורד את כל הקבצים</h3>
-  <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:10px;">הרץ את הפקודה הזו (PowerShell ב-Windows):</p>
-  <pre id="s4">$base = "https://usekmdat.gensparkspace.com"
-$files = @(
-  "index.html",
-  "dashboard.html",
-  "admin/index.html",
-  "admin/credentials.html",
-  "admin/monthly-update.html",
-  "admin/fix-data.html",
-  "admin/check-data.html",
-  "css/style.css"
-)
-
-# התחבר ל-Genspark קודם
-$loginBody = @{username="admin";password="your-password"} | ConvertTo-Json
-# הורד כל קובץ
-foreach ($f in $files) {
-  $url = "$base/$f"
-  $out = $f -replace "/","\"
-  $dir = Split-Path $out
-  if ($dir) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
-  Invoke-WebRequest -Uri $url -OutFile $out
-  Write-Host "✅ $f"
-}</pre>
-  <button class="copy-btn" onclick="copy('s4')">העתק</button>
-  <p style="color:#ef4444;font-size:0.8rem;margin-top:8px;">⚠️ זה לא יעבוד כי האתר דורש התחברות. ראה שלב חלופי למטה ↓</p>
-</div>
-
-<div class="step" style="border-color:#10b981;">
-  <h3 style="color:#3b7ef5;">✅ שלב 4 חלופי — השתמש בקבצים שנוצרו כאן</h3>
+  <h3>הרץ migration להוספת השדות החדשים</h3>
   <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:10px;">
-    כל הקבצים כבר נמצאים ב-Genspark ותקינים. <br>
-    פשוט <strong>לחץ "Download" על כל קובץ</strong> בממשק Genspark (לשונית Files בצד שמאל) ושמור אותו.
+    אם ה-DB כבר קיים ויש בו נתונים, הרץ את migrate_v4.sql ב-Cloudflare D1 Console:
   </p>
-  <p style="color:#f59e0b;font-size:0.85rem;">
-    📁 צור מבנה תיקיות:<br>
-    <code>easyfinance-deploy/</code><br>
-    <code>easyfinance-deploy/admin/</code><br>
-    <code>easyfinance-deploy/css/</code>
+  <pre id="s-migrate">-- בקונסול Cloudflare D1, הרץ את הפקודות מ-migrate_v4.sql:
+-- Dashboard → D1 → easyfinance-dashboard-db → Console
+
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS whatsapp_phone TEXT;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS enable_goals INTEGER DEFAULT 0;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS goals_json TEXT;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS enable_whatif INTEGER DEFAULT 0;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS enable_insights INTEGER DEFAULT 0;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS insights_json TEXT;
+ALTER TABLE clients ADD COLUMN IF NOT EXISTS enable_notifications INTEGER DEFAULT 0;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS risk_equities REAL DEFAULT 0;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS risk_bonds REAL DEFAULT 0;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS risk_alternatives REAL DEFAULT 0;</pre>
+  <button class="copy-btn" onclick="copy('s-migrate')">העתק</button>
+  <div class="success" style="margin-top:12px;margin-bottom:0;">✅ בטוח להרצה — לא ימחק נתונים קיימים</div>
+</div>
+
+<h2>🚀 שלב 4 – פרסם ל-Cloudflare Pages</h2>
+<div class="step">
+  <h3>פרסום ישיר (Direct Upload)</h3>
+  <pre id="s-deploy">cd easyfinance-v4
+wrangler pages deploy . --project-name=easyfinance-dashboard</pre>
+  <button class="copy-btn" onclick="copy('s-deploy')">העתק</button>
+  <p style="color:#94a3b8;font-size:0.85rem;margin-top:10px;">
+    לאחר הפרסום תקבל URL בפורמט: <code>https://[hash].easyfinance-dashboard.pages.dev</code>
   </p>
 </div>
 
+<div class="step" style="border-color:#1a56db;">
+  <h3 style="color:#3b7ef5;">🔗 אימות הדומיין המותאם</h3>
+  <p style="color:#94a3b8;font-size:0.85rem;">
+    לאחר הפרסום, ודא שהדומיין <code>dashboard.easyfinance.co.il</code> מצביע לפרויקט.<br>
+    Cloudflare Pages → Custom Domains → הוסף <code>dashboard.easyfinance.co.il</code>
+  </p>
+</div>
+
+<h2>✅ אימות לאחר פרסום</h2>
 <div class="step">
-  <h3>שלב 5 — פרסם ל-Cloudflare Pages</h3>
-  <pre id="s5">wrangler pages deploy easyfinance-deploy --project-name=easyfinance-dashboard</pre>
-  <button class="copy-btn" onclick="copy('s5')">העתק</button>
-  <p style="color:#10b981;font-size:0.8rem;margin-top:8px;">✅ זה מפרסם את הקבצים ישירות ללא D1 ולא נכשל!</p>
+  <pre id="s-verify">curl https://dashboard.easyfinance.co.il/
+curl https://dashboard.easyfinance.co.il/tables/clients
+curl https://dashboard.easyfinance.co.il/admin/</pre>
+  <button class="copy-btn" onclick="copy('s-verify')">העתק</button>
 </div>
 
 <hr style="border-color:#334155;margin:32px 0;">
 
-<h2 style="color:#f59e0b;">🔑 API_BASE בכל הקבצים</h2>
-<p style="color:#94a3b8;font-size:0.85rem;">כל הקבצים שהורדת כבר מכילים:</p>
-<pre>const API_BASE='https://usekmdat.gensparkspace.com';</pre>
-<p style="color:#10b981;font-size:0.85rem;">✅ הנתונים יגיעו תמיד מ-Genspark — ללא תלות ב-Cloudflare D1</p>
+<h2>🆕 מה חדש בגרסה 4.0</h2>
+<div class="step">
+  <ul style="color:#94a3b8;font-size:0.85rem;line-height:2;">
+    <li>✅ Tooltips להסברת מונחים (YTD, תשואה מנורמלת, מדד יעילות)</li>
+    <li>✅ תצוגת מובייל: כרטיסי מוצרים במקום טבלאות</li>
+    <li>✅ כפתור WhatsApp צף (מוגדר לכל לקוח בנפרד)</li>
+    <li>✅ שיתוף ביצועים: גרף אחוזים, גרף תיק, סטורי</li>
+    <li>✅ יעדים ומטרות (Goals) עם סרגל התקדמות</li>
+    <li>✅ סימולציית "מה אם?" עם גרף צמיחה</li>
+    <li>✅ תובנות אישיות (Personal Insights) מהיועץ</li>
+    <li>✅ התראות עדכונים (פעמון) ללקוח</li>
+    <li>✅ פילוח סיכון: עוגה + בארים + טבלת דירוג</li>
+    <li>✅ ייצוא PDF + Excel/CSV</li>
+    <li>✅ פאנל הגדרות לקוח ביועץ (כל הפיצ'רים toggle)</li>
+  </ul>
+</div>
 
 <script>
 function copy(id){
-  const text = document.getElementById(id).textContent;
+  const text = document.getElementById(id)?.textContent || '';
   navigator.clipboard.writeText(text).then(()=>{
-    const btn = document.querySelector(`[onclick="copy('${id}')"]`);
-    btn.textContent = '✅ הועתק!';
-    setTimeout(()=>btn.textContent='העתק', 2000);
+    const btns = document.querySelectorAll(`[onclick="copy('${id}')"]`);
+    btns.forEach(btn => {
+      btn.textContent = '✅ הועתק!';
+      setTimeout(()=>btn.textContent='העתק', 2000);
+    });
   });
 }
 </script>
