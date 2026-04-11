@@ -26,6 +26,39 @@
   .new-client-card i { font-size: 2rem; color: var(--primary); }
   .new-client-card p { color: var(--text-muted); font-size: 0.88rem; }
   .clients-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px; }
+
+  /* ── Toggle Switch ── */
+  .toggle-switch { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0; }
+  .toggle-switch input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: var(--border); border-radius: 24px; transition: 0.3s; }
+  .toggle-slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.3s; }
+  .toggle-switch input:checked + .toggle-slider { background: var(--primary); }
+  .toggle-switch input:checked + .toggle-slider:before { transform: translateX(20px); }
+
+  /* ── Settings Section Header ── */
+  .settings-row { display: flex; align-items: center; justify-content: space-between; }
+  .settings-icon-label { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 0.95rem; }
+  .settings-icon-label i { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 0.9rem; }
+  .settings-toggle-label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .settings-toggle-label span { font-size: 0.8rem; color: var(--text-muted); }
+
+  /* ── Risk Product Card ── */
+  .risk-product-card { background: var(--bg-card2); border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 12px; }
+  .risk-product-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .risk-color-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .risk-product-name { font-weight: 600; font-size: 0.88rem; }
+  .risk-product-inst { font-size: 0.72rem; color: var(--text-dim); }
+  .risk-inputs-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .risk-input-group label { font-size: 0.7rem; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 4px; text-align: center; }
+  .risk-sum-bar { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+  .risk-sum-track { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .risk-sum-fill { height: 100%; border-radius: 3px; transition: width 0.3s, background 0.3s; }
+  .risk-sum-text { font-size: 0.72rem; font-weight: 700; min-width: 40px; text-align: left; }
+
+  /* ── Settings Card Collapsible ── */
+  .settings-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px; margin-bottom: 14px; }
+  .settings-card.enabled { border-color: rgba(26,86,219,0.35); background: rgba(26,86,219,0.04); }
+  .settings-expand { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
 </style>
 </head>
 <body>
@@ -161,9 +194,9 @@ const DEMO_CLIENTS = [
   { id:'demo-client-2',  name:'לקוח לדוגמה ב\'', report_title:'דוח מצב – 2025', report_period:'2025', active:1 },
 ];
 const DEMO_PRODUCTS = [
-  { id:'prod-1', client_id:'menachem-gilor', name:'מנורה מבטחים – אלסטאר', name_short:'מנורה ALLSTARS', institution:'מנורה', product_type:'קרן פנסיה', status:'active', color:'#1a56db', ytd_start_value:300000, sort_order:1 },
-  { id:'prod-2', client_id:'menachem-gilor', name:'הכשרה ביטוח – מסלול כללי', name_short:'הכשרה', institution:'הכשרה', product_type:'ביטוח מנהלים', status:'active', color:'#10b981', ytd_start_value:1050000, sort_order:2 },
-  { id:'prod-3', client_id:'demo-client-2',  name:'מגדל – פנסיה', name_short:'מגדל', institution:'מגדל', product_type:'קרן פנסיה', status:'active', color:'#8b5cf6', ytd_start_value:500000, sort_order:1 },
+  { id:'prod-1', client_id:'menachem-gilor', name:'מנורה מבטחים – אלסטאר', name_short:'מנורה ALLSTARS', institution:'מנורה', product_type:'קרן פנסיה', status:'active', color:'#1a56db', ytd_start_value:300000, sort_order:1, risk_equities:70, risk_bonds:20, risk_alternatives:10 },
+  { id:'prod-2', client_id:'menachem-gilor', name:'הכשרה ביטוח – מסלול כללי', name_short:'הכשרה', institution:'הכשרה', product_type:'ביטוח מנהלים', status:'active', color:'#10b981', ytd_start_value:1050000, sort_order:2, risk_equities:50, risk_bonds:40, risk_alternatives:10 },
+  { id:'prod-3', client_id:'demo-client-2',  name:'מגדל – פנסיה', name_short:'מגדל', institution:'מגדל', product_type:'קרן פנסיה', status:'active', color:'#8b5cf6', ytd_start_value:500000, sort_order:1, risk_equities:60, risk_bonds:30, risk_alternatives:10 },
 ];
 const DEMO_MV = [
   { id:'mv-1', client_id:'menachem-gilor', product_id:'prod-1', month:'01/25', value:305000 },
@@ -422,99 +455,152 @@ loadClients();
 
 <!-- Client Settings Modal -->
 <div class="modal-overlay" id="clientSettingsModal" onclick="if(event.target.id==='clientSettingsModal')closeSettings()">
-  <div class="modal" style="max-width:700px;">
+  <div class="modal" style="max-width:680px;">
     <div class="modal-header">
-      <h3><i class="fa fa-cog" style="margin-left:8px;color:var(--primary);"></i>הגדרות לקוח: <span id="settingsClientName"></span></h3>
+      <div>
+        <h3 style="margin:0;font-size:1.1rem;"><i class="fa fa-cog" style="margin-left:8px;color:var(--primary);"></i>הגדרות לקוח</h3>
+        <div style="font-size:0.82rem;color:var(--text-muted);margin-top:3px;" id="settingsClientName"></div>
+      </div>
       <button class="modal-close" onclick="closeSettings()"><i class="fa fa-times"></i></button>
     </div>
     <input type="hidden" id="settingsClientId">
 
     <!-- WhatsApp -->
-    <div class="card" style="margin-bottom:16px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-        <div style="font-weight:700;"><i class="fa fa-whatsapp" style="color:#25d366;margin-left:8px;"></i>כפתור WhatsApp</div>
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-          <span style="font-size:0.82rem;color:var(--text-muted);">הצג ללקוח</span>
-          <input type="checkbox" id="settingsWaEnable" onchange="toggleWaField()">
+    <div class="settings-card" id="waCard">
+      <div class="settings-row">
+        <div class="settings-icon-label">
+          <i class="fa fa-whatsapp" style="background:rgba(37,211,102,0.15);color:#25d366;"></i>
+          <div>
+            <div>כפתור WhatsApp</div>
+            <div style="font-size:0.75rem;font-weight:400;color:var(--text-muted);">כפתור יצירת קשר ישיר מהדשבורד</div>
+          </div>
+        </div>
+        <label class="settings-toggle-label">
+          <span>הצג ללקוח</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="settingsWaEnable" onchange="toggleWaField()">
+            <span class="toggle-slider"></span>
+          </label>
         </label>
       </div>
-      <div id="waFieldWrap">
-        <label class="form-label">מספר טלפון (בפורמט +972...)</label>
+      <div id="waFieldWrap" class="settings-expand">
+        <label class="form-label">מספר טלפון <span style="color:var(--text-dim);font-weight:400;">(פורמט: +972...)</span></label>
         <input type="tel" id="settingsWaPhone" class="form-control" dir="ltr" placeholder="+972501234567"
                pattern="^\+972[0-9]{8,9}$" title="פורמט: +972 ואחריו 8-9 ספרות">
-        <p class="form-hint">ישראל בלבד. דוגמה: +972501234567</p>
+        <p class="form-hint"><i class="fa fa-info-circle" style="margin-left:4px;"></i>ישראל בלבד. דוגמה: +972501234567</p>
       </div>
     </div>
 
     <!-- Notifications -->
-    <div class="card" style="margin-bottom:16px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;">
-        <div style="font-weight:700;"><i class="fa fa-bell" style="color:var(--danger);margin-left:8px;"></i>התראות על עדכונים</div>
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-          <span style="font-size:0.82rem;color:var(--text-muted);">הצג ללקוח</span>
-          <input type="checkbox" id="settingsNotifications">
+    <div class="settings-card" id="notifCard">
+      <div class="settings-row">
+        <div class="settings-icon-label">
+          <i class="fa fa-bell" style="background:rgba(239,68,68,0.15);color:var(--danger);"></i>
+          <div>
+            <div>התראות על עדכונים</div>
+            <div style="font-size:0.75rem;font-weight:400;color:var(--text-muted);">הלקוח יראה פעמון התראות בדשבורד</div>
+          </div>
+        </div>
+        <label class="settings-toggle-label">
+          <span>הצג ללקוח</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="settingsNotifications" onchange="updateCardStyle('notifCard','settingsNotifications')">
+            <span class="toggle-slider"></span>
+          </label>
         </label>
       </div>
     </div>
 
     <!-- Goals -->
-    <div class="card" style="margin-bottom:16px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-        <div style="font-weight:700;"><i class="fa fa-bullseye" style="color:var(--primary);margin-left:8px;"></i>יעדים ומטרות</div>
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-          <span style="font-size:0.82rem;color:var(--text-muted);">הצג ללקוח</span>
-          <input type="checkbox" id="settingsGoals" onchange="toggleGoalsField()">
+    <div class="settings-card" id="goalsCard">
+      <div class="settings-row">
+        <div class="settings-icon-label">
+          <i class="fa fa-bullseye" style="background:rgba(26,86,219,0.15);color:var(--primary);"></i>
+          <div>
+            <div>יעדים ומטרות</div>
+            <div style="font-size:0.75rem;font-weight:400;color:var(--text-muted);">הצג ללקוח כרטיסי יעד עם התקדמות</div>
+          </div>
+        </div>
+        <label class="settings-toggle-label">
+          <span>הצג ללקוח</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="settingsGoals" onchange="toggleGoalsField()">
+            <span class="toggle-slider"></span>
+          </label>
         </label>
       </div>
-      <div id="goalsJsonWrap">
-        <label class="form-label">יעדים (JSON)</label>
+      <div id="goalsJsonWrap" class="settings-expand">
+        <label class="form-label">הגדרת יעדים <span style="color:var(--text-dim);font-weight:400;">(JSON)</span></label>
         <textarea id="settingsGoalsJson" class="form-control" rows="5" dir="ltr" style="font-family:monospace;font-size:0.78rem;"
           placeholder='[{"name":"פרישה","target_amount":2000000,"icon":"fa-umbrella-beach","description":"גיל 65","linked_to_portfolio":true}]'></textarea>
-        <p class="form-hint">שדות: name, target_amount, icon (FontAwesome), description, linked_to_portfolio (true/false), current_amount</p>
+        <p class="form-hint"><i class="fa fa-info-circle" style="margin-left:4px;"></i>שדות: name, target_amount, icon (FontAwesome class), description, linked_to_portfolio, current_amount</p>
       </div>
     </div>
 
     <!-- What-If -->
-    <div class="card" style="margin-bottom:16px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;">
-        <div style="font-weight:700;"><i class="fa fa-magic" style="color:#8b5cf6;margin-left:8px;"></i>סימולציית "מה אם?"</div>
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-          <span style="font-size:0.82rem;color:var(--text-muted);">הצג ללקוח</span>
-          <input type="checkbox" id="settingsWhatif">
+    <div class="settings-card" id="whatifCard">
+      <div class="settings-row">
+        <div class="settings-icon-label">
+          <i class="fa fa-magic" style="background:rgba(139,92,246,0.15);color:#8b5cf6;"></i>
+          <div>
+            <div>סימולטור "מה אם?"</div>
+            <div style="font-size:0.75rem;font-weight:400;color:var(--text-muted);">חישוב צמיחה עתידית עם הפקדות חודשיות</div>
+          </div>
+        </div>
+        <label class="settings-toggle-label">
+          <span>הצג ללקוח</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="settingsWhatif" onchange="updateCardStyle('whatifCard','settingsWhatif')">
+            <span class="toggle-slider"></span>
+          </label>
         </label>
       </div>
     </div>
 
     <!-- Insights -->
-    <div class="card" style="margin-bottom:16px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-        <div style="font-weight:700;"><i class="fa fa-lightbulb" style="color:var(--warning);margin-left:8px;"></i>תובנות אישיות</div>
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-          <span style="font-size:0.82rem;color:var(--text-muted);">הצג ללקוח</span>
-          <input type="checkbox" id="settingsInsights" onchange="toggleInsightsField()">
+    <div class="settings-card" id="insightsCard">
+      <div class="settings-row">
+        <div class="settings-icon-label">
+          <i class="fa fa-lightbulb" style="background:rgba(245,158,11,0.15);color:var(--warning);"></i>
+          <div>
+            <div>תובנות אישיות</div>
+            <div style="font-size:0.75rem;font-weight:400;color:var(--text-muted);">הודעות מהיועץ ישירות לדשבורד הלקוח</div>
+          </div>
+        </div>
+        <label class="settings-toggle-label">
+          <span>הצג ללקוח</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="settingsInsights" onchange="toggleInsightsField()">
+            <span class="toggle-slider"></span>
+          </label>
         </label>
       </div>
-      <div id="insightsJsonWrap">
-        <label class="form-label">תובנות (JSON)</label>
+      <div id="insightsJsonWrap" class="settings-expand">
+        <label class="form-label">תובנות אישיות <span style="color:var(--text-dim);font-weight:400;">(JSON)</span></label>
         <textarea id="settingsInsightsJson" class="form-control" rows="4" dir="ltr" style="font-family:monospace;font-size:0.78rem;"
           placeholder='[{"text":"מנחם, שים לב שהחשיפה למדד S&P500 עלתה...","date":"אפריל 2026"}]'></textarea>
-        <p class="form-hint">שדות: text (חובה), date (אופציונלי)</p>
+        <p class="form-hint"><i class="fa fa-info-circle" style="margin-left:4px;"></i>שדות: text (חובה), date (אופציונלי – שנה/חודש)</p>
       </div>
     </div>
 
     <!-- Risk per product -->
-    <div class="card" style="margin-bottom:16px;">
-      <div style="font-weight:700;margin-bottom:12px;"><i class="fa fa-shield-alt" style="color:var(--success);margin-left:8px;"></i>פילוח סיכון לפי מוצר</div>
-      <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:14px;">הגדר אחוז חשיפה לכל מוצר. סכום = 100% (מניות + אג"ח + נכסים לא סחירים)</p>
-      <div id="riskProductsWrap"></div>
+    <div class="settings-card" id="riskCard">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+        <i class="fa fa-shield-alt" style="background:rgba(16,185,129,0.15);color:var(--success);width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:8px;font-size:0.9rem;"></i>
+        <div>
+          <div style="font-weight:700;font-size:0.95rem;">פילוח סיכון לפי מוצר</div>
+          <div style="font-size:0.75rem;color:var(--text-muted);">הגדר חשיפה לכל סוג נכס. סכום חייב להיות 100%</div>
+        </div>
+      </div>
+      <div id="riskProductsWrap" style="margin-top:14px;"></div>
     </div>
 
-    <div id="settingsSaveMsg" class="alert alert-success" style="display:none;margin-bottom:12px;"><i class="fa fa-check"></i> ההגדרות נשמרו בהצלחה!</div>
-    <div id="settingsSaveErr" class="alert alert-danger" style="display:none;"></div>
+    <div id="settingsSaveMsg" class="alert alert-success" style="display:none;margin-bottom:12px;gap:8px;"></div>
+    <div id="settingsSaveErr" class="alert alert-danger" style="display:none;margin-bottom:12px;"></div>
 
     <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
       <button class="btn btn-secondary" onclick="closeSettings()">ביטול</button>
-      <button class="btn btn-primary" onclick="saveSettings()"><i class="fa fa-save"></i> שמור הגדרות</button>
+      <button class="btn btn-primary" onclick="saveSettings()"><i class="fa fa-save" style="margin-left:6px;"></i> שמור הגדרות</button>
     </div>
   </div>
 </div>
@@ -537,22 +623,36 @@ async function openClientSettings(clientId) {
   document.getElementById('settingsWaEnable').checked = waEnabled;
   document.getElementById('settingsWaPhone').value = SETTINGS_CLIENT.whatsapp_phone || '';
   document.getElementById('waFieldWrap').style.display = waEnabled ? '' : 'none';
+  if (waEnabled) document.getElementById('waCard').classList.add('enabled');
+  else document.getElementById('waCard').classList.remove('enabled');
 
   // Notifications
-  document.getElementById('settingsNotifications').checked = !!SETTINGS_CLIENT.enable_notifications;
+  const notifEnabled = !!SETTINGS_CLIENT.enable_notifications;
+  document.getElementById('settingsNotifications').checked = notifEnabled;
+  if (notifEnabled) document.getElementById('notifCard').classList.add('enabled');
+  else document.getElementById('notifCard').classList.remove('enabled');
 
   // Goals
-  document.getElementById('settingsGoals').checked = !!SETTINGS_CLIENT.enable_goals;
+  const goalsEnabled = !!SETTINGS_CLIENT.enable_goals;
+  document.getElementById('settingsGoals').checked = goalsEnabled;
   document.getElementById('settingsGoalsJson').value = SETTINGS_CLIENT.goals_json || '';
-  document.getElementById('goalsJsonWrap').style.display = SETTINGS_CLIENT.enable_goals ? '' : 'none';
+  document.getElementById('goalsJsonWrap').style.display = goalsEnabled ? '' : 'none';
+  if (goalsEnabled) document.getElementById('goalsCard').classList.add('enabled');
+  else document.getElementById('goalsCard').classList.remove('enabled');
 
   // What-If
-  document.getElementById('settingsWhatif').checked = !!SETTINGS_CLIENT.enable_whatif;
+  const whatifEnabled = !!SETTINGS_CLIENT.enable_whatif;
+  document.getElementById('settingsWhatif').checked = whatifEnabled;
+  if (whatifEnabled) document.getElementById('whatifCard').classList.add('enabled');
+  else document.getElementById('whatifCard').classList.remove('enabled');
 
   // Insights
-  document.getElementById('settingsInsights').checked = !!SETTINGS_CLIENT.enable_insights;
+  const insightsEnabled = !!SETTINGS_CLIENT.enable_insights;
+  document.getElementById('settingsInsights').checked = insightsEnabled;
   document.getElementById('settingsInsightsJson').value = SETTINGS_CLIENT.insights_json || '';
-  document.getElementById('insightsJsonWrap').style.display = SETTINGS_CLIENT.enable_insights ? '' : 'none';
+  document.getElementById('insightsJsonWrap').style.display = insightsEnabled ? '' : 'none';
+  if (insightsEnabled) document.getElementById('insightsCard').classList.add('enabled');
+  else document.getElementById('insightsCard').classList.remove('enabled');
 
   // Risk
   renderRiskProductFields();
@@ -566,51 +666,76 @@ function closeSettings() {
   document.getElementById('clientSettingsModal').classList.remove('open');
 }
 
+function updateCardStyle(cardId, checkboxId) {
+  const card = document.getElementById(cardId);
+  const checked = document.getElementById(checkboxId).checked;
+  if (checked) card.classList.add('enabled');
+  else card.classList.remove('enabled');
+}
+
 function toggleWaField() {
-  document.getElementById('waFieldWrap').style.display = document.getElementById('settingsWaEnable').checked ? '' : 'none';
+  const checked = document.getElementById('settingsWaEnable').checked;
+  document.getElementById('waFieldWrap').style.display = checked ? '' : 'none';
+  updateCardStyle('waCard', 'settingsWaEnable');
 }
 function toggleGoalsField() {
-  document.getElementById('goalsJsonWrap').style.display = document.getElementById('settingsGoals').checked ? '' : 'none';
+  const checked = document.getElementById('settingsGoals').checked;
+  document.getElementById('goalsJsonWrap').style.display = checked ? '' : 'none';
+  updateCardStyle('goalsCard', 'settingsGoals');
 }
 function toggleInsightsField() {
-  document.getElementById('insightsJsonWrap').style.display = document.getElementById('settingsInsights').checked ? '' : 'none';
+  const checked = document.getElementById('settingsInsights').checked;
+  document.getElementById('insightsJsonWrap').style.display = checked ? '' : 'none';
+  updateCardStyle('insightsCard', 'settingsInsights');
 }
 
 function renderRiskProductFields() {
   const wrap = document.getElementById('riskProductsWrap');
   if (!SETTINGS_PRODUCTS.length) {
-    wrap.innerHTML = '<p style="color:var(--text-dim);font-size:0.82rem;">אין מוצרים פעילים ללקוח זה.</p>';
+    wrap.innerHTML = '<p style="color:var(--text-dim);font-size:0.82rem;text-align:center;padding:12px 0;"><i class="fa fa-info-circle" style="margin-left:6px;"></i>אין מוצרים פעילים ללקוח זה.</p>';
     return;
   }
-  wrap.innerHTML = SETTINGS_PRODUCTS.map(p => `
-    <div style="margin-bottom:14px;padding:12px;background:var(--bg-card2);border-radius:8px;border:1px solid var(--border);">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-        <div style="width:8px;height:8px;border-radius:50%;background:${p.color};"></div>
-        <div style="font-weight:600;font-size:0.84rem;">${p.name_short}</div>
-        <div style="font-size:0.72rem;color:var(--text-dim);">(${p.institution})</div>
+  wrap.innerHTML = SETTINGS_PRODUCTS.map(p => {
+    const eq = p.risk_equities || 0;
+    const bo = p.risk_bonds || 0;
+    const al = p.risk_alternatives || 0;
+    const sum = eq + bo + al;
+    const sumColor = Math.abs(sum-100)<1 ? 'var(--success)' : sum>100 ? 'var(--danger)' : 'var(--warning)';
+    const fillPct = Math.min(sum, 100);
+    return `
+    <div class="risk-product-card">
+      <div class="risk-product-header">
+        <div class="risk-color-dot" style="background:${p.color};"></div>
+        <div class="risk-product-name">${p.name_short || p.name}</div>
+        <div class="risk-product-inst">${p.institution ? '· '+p.institution : ''}</div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
-        <div>
-          <label style="font-size:0.72rem;color:var(--text-muted);">מניות %</label>
+      <div class="risk-inputs-grid">
+        <div class="risk-input-group">
+          <label><i class="fa fa-chart-line" style="color:#ef4444;margin-left:3px;"></i>מניות %</label>
           <input type="number" class="form-control risk-input" data-pid="${p.id}" data-type="equities"
-            value="${p.risk_equities || 0}" min="0" max="100" step="1"
-            style="font-size:0.88rem;text-align:center;" oninput="validateRiskRow('${p.id}')">
+            value="${eq}" min="0" max="100" step="1"
+            style="font-size:1rem;text-align:center;font-weight:700;padding:8px 4px;" oninput="validateRiskRow('${p.id}')">
         </div>
-        <div>
-          <label style="font-size:0.72rem;color:var(--text-muted);">אג"ח %</label>
+        <div class="risk-input-group">
+          <label><i class="fa fa-university" style="color:#3b82f6;margin-left:3px;"></i>אג"ח %</label>
           <input type="number" class="form-control risk-input" data-pid="${p.id}" data-type="bonds"
-            value="${p.risk_bonds || 0}" min="0" max="100" step="1"
-            style="font-size:0.88rem;text-align:center;" oninput="validateRiskRow('${p.id}')">
+            value="${bo}" min="0" max="100" step="1"
+            style="font-size:1rem;text-align:center;font-weight:700;padding:8px 4px;" oninput="validateRiskRow('${p.id}')">
         </div>
-        <div>
-          <label style="font-size:0.72rem;color:var(--text-muted);">נכסים לא סחירים %</label>
+        <div class="risk-input-group">
+          <label><i class="fa fa-building" style="color:#10b981;margin-left:3px;"></i>לא סחיר %</label>
           <input type="number" class="form-control risk-input" data-pid="${p.id}" data-type="alternatives"
-            value="${p.risk_alternatives || 0}" min="0" max="100" step="1"
-            style="font-size:0.88rem;text-align:center;" oninput="validateRiskRow('${p.id}')">
+            value="${al}" min="0" max="100" step="1"
+            style="font-size:1rem;text-align:center;font-weight:700;padding:8px 4px;" oninput="validateRiskRow('${p.id}')">
         </div>
       </div>
-      <div id="riskSum-${p.id}" style="font-size:0.72rem;margin-top:6px;"></div>
-    </div>`).join('');
+      <div class="risk-sum-bar">
+        <div class="risk-sum-track">
+          <div class="risk-sum-fill" id="riskFill-${p.id}" style="width:${fillPct}%;background:${sumColor};"></div>
+        </div>
+        <div class="risk-sum-text" id="riskSum-${p.id}" style="color:${sumColor};">${sum}%</div>
+      </div>
+    </div>`}).join('');
 }
 
 function validateRiskRow(pid) {
@@ -618,10 +743,16 @@ function validateRiskRow(pid) {
   const bo = parseFloat(document.querySelector(`.risk-input[data-pid="${pid}"][data-type="bonds"]`)?.value || 0);
   const al = parseFloat(document.querySelector(`.risk-input[data-pid="${pid}"][data-type="alternatives"]`)?.value || 0);
   const sum = eq + bo + al;
+  const color = Math.abs(sum - 100) < 1 ? 'var(--success)' : sum > 100 ? 'var(--danger)' : 'var(--warning)';
   const el = document.getElementById(`riskSum-${pid}`);
+  const fill = document.getElementById(`riskFill-${pid}`);
   if (el) {
-    el.textContent = `סכום: ${sum}%`;
-    el.style.color = Math.abs(sum - 100) < 1 ? 'var(--success)' : sum > 100 ? 'var(--danger)' : 'var(--warning)';
+    el.textContent = `${sum}%`;
+    el.style.color = color;
+  }
+  if (fill) {
+    fill.style.width = `${Math.min(sum, 100)}%`;
+    fill.style.background = color;
   }
 }
 
@@ -638,6 +769,35 @@ async function saveSettings() {
   if (waEnabled && waPhone && !/^\+972[0-9]{8,9}$/.test(waPhone)) {
     saveErr.innerHTML = '<i class="fa fa-exclamation-triangle"></i> מספר טלפון לא תקין. פורמט: +972501234567';
     saveErr.style.display = 'flex';
+    return;
+  }
+
+  // Demo Mode: simulate save without API call
+  if (IS_DEMO_MODE) {
+    const clientPatch = {
+      whatsapp_phone: waEnabled ? waPhone : '',
+      enable_notifications: document.getElementById('settingsNotifications').checked ? 1 : 0,
+      enable_goals: document.getElementById('settingsGoals').checked ? 1 : 0,
+      goals_json: document.getElementById('settingsGoalsJson').value.trim(),
+      enable_whatif: document.getElementById('settingsWhatif').checked ? 1 : 0,
+      enable_insights: document.getElementById('settingsInsights').checked ? 1 : 0,
+      insights_json: document.getElementById('settingsInsightsJson').value.trim(),
+    };
+    // Update demo data locally
+    const ci = CLIENTS.findIndex(c => c.id === clientId);
+    if (ci >= 0) Object.assign(CLIENTS[ci], clientPatch);
+    // Update risk in demo products
+    const riskInputs = document.querySelectorAll('.risk-input');
+    riskInputs.forEach(inp => {
+      const pid = inp.dataset.pid;
+      const type = inp.dataset.type;
+      const p = PRODUCTS_ALL.find(p2 => p2.id === pid);
+      if (p) p[`risk_${type}`] = parseFloat(inp.value) || 0;
+    });
+    saveMsg.innerHTML = '<i class="fa fa-flask" style="margin-left:6px;"></i> Demo Mode – ההגדרות נשמרו מקומית (לא נשמרות בDB)';
+    saveMsg.style.display = 'flex';
+    setTimeout(() => saveMsg.style.display = 'none', 4000);
+    renderClientsGrid();
     return;
   }
 
