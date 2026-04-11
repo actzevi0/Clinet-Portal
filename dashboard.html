@@ -879,6 +879,8 @@ const DEMO_DATA = {
     { id:'ev-1', client_id:'menachem-gilor', product_id:'prod-menora-allstars', event_date:'2025-02-01', event_type:'deposit', title:'הפקדה ראשונה – מנורה', description:'פתיחת קרן פנסיה', amount:300000 },
     { id:'ev-2', client_id:'menachem-gilor', product_id:'prod-hachshara', event_date:'2025-02-01', event_type:'deposit', title:'הפקדה ראשונה – הכשרה', description:'פתיחת ביטוח מנהלים', amount:1050000 },
     { id:'ev-3', client_id:'menachem-gilor', product_id:'prod-ayalon', event_date:'2025-11-15', event_type:'deposit', title:'ניוד לאיילון גמל', description:'ניוד מקרן קודמת', amount:295000 },
+    { id:'ev-4', client_id:'menachem-gilor', product_id:'prod-menora-allstars', event_date:'2025-04-01', event_type:'track_change', title:'שינוי מסלול – מנורה ALLSTARS', description:'מסלול שונה מ-"מסלול כללי" ל-"מסלול מניות"', amount:null },
+    { id:'ev-5', client_id:'menachem-gilor', product_id:'prod-hachshara', event_date:'2025-04-01', event_type:'track_change', title:'שינוי מסלול – הכשרה', description:'מסלול שונה מ-"מסלול כללי מניות" ל-"מסלול מניות ועוד"', amount:null },
   ]
 };
 
@@ -1307,6 +1309,7 @@ function renderCompChart(){
   const depositMap={};    // month → [{prodId,name,amount,color}]
   const withdrawalMap={}; // month → [{prodId,name,amount,color}]
   const transferMap={};   // month → [{prodId,name,amount,color}]
+  const trackChangeMap={}; // month → [{prodId,name,desc,color}]
   
   // פונקציה לאיתור מוצר לפי product_id — עם fallback להתאמה חלקית
   function findProd(productId){
@@ -1352,6 +1355,11 @@ function renderCompChart(){
       if(dup) dup.amount+=ev.amount;
       else transferMap[m].push({prodId:prod.id,name:prod.name_short,amount:ev.amount,color:prod.color});
     }
+    else if(ev.event_type==='track_change'){
+      if(!trackChangeMap[m]) trackChangeMap[m]=[];
+      const dup=trackChangeMap[m].find(x=>x.prodId===prod.id);
+      if(!dup) trackChangeMap[m].push({prodId:prod.id,name:prod.name_short,desc:ev.description||'שינוי מסלול',color:prod.color});
+    }
   }
 
   // ── ALLSTARS 02/25: הוסף ידנית כ-deposit 300K (ה-event נרשם תחת menora-index בלבד) ──
@@ -1388,12 +1396,20 @@ function renderCompChart(){
       transferMonthsPerProd[t.prodId].add(month);
     });
   });
+  const trackChangeMonthsPerProd={};
+  Object.entries(trackChangeMap).forEach(([month,tks])=>{
+    tks.forEach(tk=>{
+      if(!trackChangeMonthsPerProd[tk.prodId]) trackChangeMonthsPerProd[tk.prodId]=new Set();
+      trackChangeMonthsPerProd[tk.prodId].add(month);
+    });
+  });
 
   const datasets=PRODUCTS.filter(p=>COMP_ON.includes(p.id)).map(p=>{
     const hasDeposit=m=>depositMonthsPerProd[p.id]?.has(m);
     const hasWithdrawal=m=>withdrawalMonthsPerProd[p.id]?.has(m);
     const hasTransfer=m=>transferMonthsPerProd[p.id]?.has(m);
-    const hasEvent=m=>hasDeposit(m)||hasWithdrawal(m)||hasTransfer(m);
+    const hasTrackChange=m=>trackChangeMonthsPerProd[p.id]?.has(m);
+    const hasEvent=m=>hasDeposit(m)||hasWithdrawal(m)||hasTransfer(m)||hasTrackChange(m);
     return{
       label:p.name_short,
       data:MONTHS.map(m=>getVal(p.id,m)),
@@ -1402,7 +1418,7 @@ function renderCompChart(){
       backgroundColor:'transparent',
       tension:.4,
       pointRadius:MONTHS.map(m=>hasEvent(m)?8:3),
-      pointStyle:MONTHS.map(m=>hasWithdrawal(m)?'triangle':hasDeposit(m)||hasTransfer(m)?'rectRot':'circle'),
+      pointStyle:MONTHS.map(m=>hasWithdrawal(m)?'triangle':hasTrackChange(m)&&!hasDeposit(m)&&!hasTransfer(m)?'crossRot':hasDeposit(m)||hasTransfer(m)?'rectRot':'circle'),
       pointBackgroundColor:MONTHS.map(m=>hasEvent(m)?p.color:'transparent'),
       pointBorderWidth:2,
       borderWidth:p.status!=='active'?1.5:2,
@@ -1426,6 +1442,8 @@ function renderCompChart(){
         .forEach(w=>lines.push(`  📤 ${w.name}: פדיון ${ILS(w.amount)}`));
       (transferMap[m]||[])
         .forEach(t=>lines.push(`  🔄 ${t.name}: ניוד ${ILS(t.amount)}`));
+      (trackChangeMap[m]||[])
+        .forEach(t=>lines.push(`  🛤️ ${t.name}: ${t.desc}`));
       return lines.length?['── אירועי חודש ──',...lines]:[];
     }
   };
@@ -1440,7 +1458,8 @@ function renderCompChart(){
       const allEventMonths=new Set([
         ...Object.keys(depositMap),
         ...Object.keys(withdrawalMap),
-        ...Object.keys(transferMap)
+        ...Object.keys(transferMap),
+        ...Object.keys(trackChangeMap)
       ]);
       allEventMonths.forEach(month=>{
         const idx=MONTHS.indexOf(month);
@@ -1449,13 +1468,15 @@ function renderCompChart(){
         const deps=depositMap[month]||[];
         const wds=withdrawalMap[month]||[];
         const trs=transferMap[month]||[];
+        const trks=trackChangeMap[month]||[];
         // קבע את סוג/צבע הקו לפי סוג האירוע הדומיננטי
-        const hasWd=wds.length>0, hasDep=deps.length>0, hasTr=trs.length>0;
+        const hasWd=wds.length>0, hasDep=deps.length>0, hasTr=trs.length>0, hasTrk=trks.length>0;
         c.save();
         c.setLineDash([4,4]);
-        // אדום=פדיון, כחול=הפקדה, סגול=ניוד, ירוק=הפקדה+ניוד
-        c.strokeStyle=hasWd&&!hasDep&&!hasTr?'#ef4444':
-                      hasTr&&!hasDep&&!hasWd?'#8b5cf6':d.grid;
+        // אדום=פדיון, כחול=הפקדה, סגול=ניוד, כתום=שינוי מסלול, אפור=ברירת מחדל
+        c.strokeStyle=hasWd&&!hasDep&&!hasTr&&!hasTrk?'#ef4444':
+                      hasTr&&!hasDep&&!hasWd&&!hasTrk?'#8b5cf6':
+                      hasTrk&&!hasDep&&!hasWd&&!hasTr?'#f59e0b':d.grid;
         c.lineWidth=1.5;
         c.beginPath();c.moveTo(xPx,top);c.lineTo(xPx,bottom);c.stroke();
         // ── תוויות: אחת או שתיים מעל הקו ──────────────────────────────
@@ -1467,6 +1488,7 @@ function renderCompChart(){
         if(hasDep)  badges.push({text:'הפקדה',  bg:deps.length===1?deps[0].color:'#1a56db'});
         if(hasTr)   badges.push({text:'ניוד',    bg:'#8b5cf6'});
         if(hasWd)   badges.push({text:'פדיון',   bg:'#ef4444'});
+        if(hasTrk)  badges.push({text:'שינוי מסלול', bg:'#f59e0b'});
         // ציור התוויות זו לצד זו
         const GAP=4, H=16;
         const totalW=badges.reduce((s,b)=>s+c.measureText(b.text).width+12+GAP,0)-GAP;
@@ -2154,21 +2176,23 @@ function setRiskMode(mode){
 
 function _populateRiskMonthSel() {
   const sel = document.getElementById('riskMonthSel');
-  // Collect all months with risk data across all products
+  // Collect ALL months that have ANY data across all products (not only those with risk)
   const monthsSet = new Set();
   for (const p of PRODUCTS) {
     for (const r of (MV[p.id] || [])) {
-      if (r.month && (r.risk_equities != null || r.risk_bonds != null || r.risk_alternatives != null)) {
-        monthsSet.add(r.month);
-      }
+      if (r.month) monthsSet.add(r.month);
     }
   }
-  // Sort desc
-  const months = [...monthsSet].sort((a,b)=>b.localeCompare(a));
+  // Sort desc using numeric key so cross-year order is correct (e.g. 01/26 > 12/25)
+  const months = [...monthsSet].sort((a,b)=>monthToNum(b)-monthToNum(a));
   const curVal = sel.value;
-  sel.innerHTML = months.length
-    ? months.map(m => `<option value="${m}" ${m===curVal?'selected':''}>${_mmyyToHeb(m)}</option>`).join('')
-    : '<option value="">אין נתוני סיכון</option>';
+  if (!months.length) {
+    sel.innerHTML = '<option value="">אין נתונים</option>';
+    return;
+  }
+  sel.innerHTML = months.map(m => `<option value="${m}" ${m===curVal?'selected':''}>${_mmyyToHeb(m)}</option>`).join('');
+  // If nothing was selected yet – default to latest month
+  if (!curVal || !months.includes(curVal)) sel.value = months[0];
 }
 
 function _mmyyToHeb(mmyy) {

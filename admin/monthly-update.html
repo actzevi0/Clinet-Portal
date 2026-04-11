@@ -81,6 +81,28 @@
 .expand-btn:hover{color:var(--primary);}
 .track-change-badge{font-size:.68rem;padding:2px 7px;border-radius:8px;background:rgba(139,92,246,.15);color:#8b5cf6;font-weight:600;margin-right:4px;}
 
+/* ═══ Change Route Button ═══ */
+.btn-route{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;font-size:.75rem;font-weight:600;border:1.5px solid #8b5cf6;border-radius:6px;background:rgba(139,92,246,.08);color:#8b5cf6;cursor:pointer;transition:.15s;font-family:Heebo,sans-serif;}
+.btn-route:hover{background:rgba(139,92,246,.18);border-color:#7c3aed;}
+.btn-route.has-change{background:rgba(139,92,246,.2);border-color:#7c3aed;animation:none;}
+.track-display{font-size:.76rem;color:var(--primary-light);font-weight:500;padding:3px 7px;background:rgba(26,86,219,.1);border-radius:5px;display:inline-block;}
+.track-display.changed{background:rgba(139,92,246,.15);color:#8b5cf6;}
+
+/* ═══ Route Change Modal ═══ */
+.route-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:none;align-items:center;justify-content:center;}
+.route-modal-overlay.open{display:flex;}
+.route-modal{background:var(--bg-card);border-radius:var(--radius);padding:28px;width:min(480px,95vw);box-shadow:0 20px 60px rgba(0,0,0,.4);}
+.route-modal h3{margin:0 0 6px;font-size:1.05rem;color:var(--text);}
+.route-modal p{font-size:.82rem;color:var(--text-muted);margin:0 0 20px;}
+.route-modal .field-row{display:flex;flex-direction:column;gap:5px;margin-bottom:14px;}
+.route-modal label{font-size:.78rem;font-weight:600;color:var(--text-muted);}
+.route-modal input[type=text]{width:100%;padding:8px 12px;border:1.5px solid var(--border);border-radius:7px;background:var(--bg);color:var(--text);font-size:.9rem;font-family:Heebo,sans-serif;box-sizing:border-box;}
+.route-modal input[type=text]:focus{outline:none;border-color:#8b5cf6;}
+.risk-row-inline{display:flex;gap:10px;align-items:center;}
+.risk-row-inline .risk-field-group{flex:1;}
+.route-confirm-box{background:rgba(139,92,246,.08);border:1px solid rgba(139,92,246,.3);border-radius:7px;padding:10px 14px;font-size:.8rem;color:#8b5cf6;margin:16px 0;}
+.route-confirm-box strong{color:#7c3aed;}
+
 /* ═══ Preview panel ═══ */
 .preview-bar{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:20px;display:flex;gap:24px;align-items:center;flex-wrap:wrap;}
 .preview-item{text-align:center;}
@@ -233,6 +255,66 @@
 
 </main>
 
+<!-- ══ Route Change Modal ══ -->
+<div class="route-modal-overlay" id="routeModal" onclick="closeRouteModal(event)">
+  <div class="route-modal">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
+      <div>
+        <h3><i class="fa fa-route" style="color:#8b5cf6;margin-left:6px;"></i>שינוי מסלול השקעה</h3>
+        <p id="routeModalSubtitle">עדכן מסלול וחשיפות – שינוי ייתעד כאירוע ביומן</p>
+      </div>
+      <button onclick="closeRouteModal(null)" style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--text-muted);padding:4px;">✕</button>
+    </div>
+
+    <!-- Product info strip -->
+    <div id="routeModalProdInfo" style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg);border-radius:8px;margin-bottom:18px;">
+    </div>
+
+    <!-- New track input -->
+    <div class="field-row">
+      <label>מסלול השקעה חדש</label>
+      <input type="text" id="routeTrackInput" placeholder="לדוגמה: מסלול מניות, מסלול כללי..." autocomplete="off">
+    </div>
+
+    <!-- Exposure percentages -->
+    <div style="margin-bottom:14px;">
+      <label style="font-size:.78rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:8px;">חשיפות (% מסך הנכסים)</label>
+      <div class="risk-row-inline">
+        <div class="risk-field-group">
+          <label><i class="fa fa-chart-line" style="color:#ef4444;margin-left:3px;"></i>מניות %</label>
+          <input type="number" class="risk-mini-input" id="routeEqInput" min="0" max="100" step="1" placeholder="0" oninput="updateRouteSum()">
+        </div>
+        <div class="risk-field-group">
+          <label><i class="fa fa-university" style="color:#3b82f6;margin-left:3px;"></i>אג"ח %</label>
+          <input type="number" class="risk-mini-input" id="routeBoInput" min="0" max="100" step="1" placeholder="0" oninput="updateRouteSum()">
+        </div>
+        <div class="risk-field-group">
+          <label><i class="fa fa-building" style="color:#10b981;margin-left:3px;"></i>לא סחיר %</label>
+          <input type="number" class="risk-mini-input" id="routeAlInput" min="0" max="100" step="1" placeholder="0" oninput="updateRouteSum()">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:center;padding-top:16px;">
+          <span id="routeSumPill" class="risk-sum-pill risk-sum-warn">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Preview of change -->
+    <div id="routeConfirmBox" class="route-confirm-box" style="display:none;">
+      <i class="fa fa-exchange-alt" style="margin-left:5px;"></i>
+      <span id="routeConfirmText"></span><br>
+      <small style="opacity:.8;">אירוע שינוי מסלול יתווסף אוטומטית בגרף הביצועים בעת השמירה</small>
+    </div>
+
+    <!-- Buttons -->
+    <div style="display:flex;gap:10px;margin-top:6px;">
+      <button class="btn btn-primary flex-1" onclick="applyRouteChange()" style="justify-content:center;">
+        <i class="fa fa-check"></i> החל שינוי
+      </button>
+      <button class="btn btn-secondary" onclick="closeRouteModal(null)">ביטול</button>
+    </div>
+  </div>
+</div>
+
 <!-- Action Bar (sticky bottom) -->
 <div class="action-bar" id="actionBar" style="display:none;">
   <div class="container">
@@ -356,6 +438,12 @@ async function fetchAll(path){
 }
 async function apiPost(path,body){
   if (IS_DEMO_MODE) {
+    if(path.includes('/tables/timeline_events')){
+      // Demo: simulate creating a timeline event
+      const newId='ev-demo-'+Date.now();
+      addLog(`📋 [Demo] אירוע נוצר: ${body.event_type} – ${body.title||''}`, 'log-info');
+      return { id: newId, ...body };
+    }
     const result = demoSave(body.product_id, body.month, body.value, null);
     return result;
   }
@@ -458,6 +546,15 @@ async function selectClient(cid){
   SEL_YEAR=curYear;
 
   renderMonthGrid();
+
+  if(!PRODUCTS.length){
+    document.getElementById('clientGrid').insertAdjacentHTML('afterend',
+      `<div style="color:#f59e0b;font-size:.85rem;margin-top:8px;padding:10px 14px;background:rgba(245,158,11,.08);border-radius:8px;border:1px solid rgba(245,158,11,.3);">
+        <i class="fa fa-exclamation-triangle" style="margin-left:6px;"></i>
+        ללקוח <strong>${SEL_CLIENT.name}</strong> אין מוצרים פעילים. יש להוסיף מוצרים בפאנל הניהול לפני שניתן לבצע עדכון חודשי.
+      </div>`);
+  }
+
   goStep(2);
 }
 
@@ -522,28 +619,31 @@ function buildEntryTable(){
     const mvRow=getMVRow(p.id,SEL_MONTH);
     const prevMvRow=getMVRow(p.id,prevMonth);
 
-    // Risk & Track from current month (or fallback to product default)
-    const curEq  = mvRow?.risk_equities     ?? p.risk_equities     ?? 0;
-    const curBo  = mvRow?.risk_bonds        ?? p.risk_bonds        ?? 0;
-    const curAl  = mvRow?.risk_alternatives ?? p.risk_alternatives ?? 0;
-    const curTrack = mvRow?.track ?? p.track ?? '';
+    // Risk: current month > prev month > product defaults
+    const curEq  = mvRow?.risk_equities     ?? prevMvRow?.risk_equities     ?? p.risk_equities     ?? 0;
+    const curBo  = mvRow?.risk_bonds        ?? prevMvRow?.risk_bonds        ?? p.risk_bonds        ?? 0;
+    const curAl  = mvRow?.risk_alternatives ?? prevMvRow?.risk_alternatives ?? p.risk_alternatives ?? 0;
 
-    // Prev month track for change detection
+    // Track: auto-copy from previous month if no current month data
+    const curTrack  = mvRow?.track  ?? prevMvRow?.track  ?? p.track ?? '';
     const prevTrack = prevMvRow?.track ?? p.track ?? '';
+
+    // A "route change" exists on this month if track differs from prev track
+    const hasRouteChange = !!(curTrack && prevTrack && curTrack !== prevTrack);
 
     ROW_DATA[p.id]={
       prevVal, curVal, mvId:mvRow?.id||null, origVal:curVal,
       risk_equities:curEq, risk_bonds:curBo, risk_alternatives:curAl,
       origEq:curEq, origBo:curBo, origAl:curAl,
       track:curTrack, origTrack:curTrack,
-      prevTrack
+      prevTrack,
+      hasRouteChange
     };
 
     const riskSum=curEq+curBo+curAl;
     const riskSumCls=Math.abs(riskSum-100)<1?'risk-sum-ok':riskSum>100?'risk-sum-err':'risk-sum-warn';
     const riskSumTxt=riskSum>0?`${riskSum}%`:'—';
     const isInactive=p.status!=='active';
-    const trackChanged=curTrack&&prevTrack&&curTrack!==prevTrack;
 
     return `
     <tr id="tr-${p.id}" class="${isInactive?'inactive-row':''}">
@@ -555,9 +655,12 @@ function buildEntryTable(){
           <span class="prod-dot" style="background:${p.color||'#888'}"></span>
           <div>
             <div style="font-weight:600;font-size:.88rem;">${p.name_short||p.name}</div>
-            <div style="font-size:.72rem;color:var(--text-muted);">${p.institution||''}
-              ${curTrack?`<span style="margin-right:4px;color:var(--primary-light);">${curTrack}</span>`:''}
-              ${trackChanged?`<span class="track-change-badge">שינוי מסלול!</span>`:''}
+            <div style="font-size:.72rem;color:var(--text-muted);display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:2px;">
+              <span>${p.institution||''}</span>
+              <span id="trackDisplay-${p.id}" class="track-display ${hasRouteChange?'changed':''}">${curTrack||'—'}</span>
+              <button class="btn-route ${hasRouteChange?'has-change':''}" id="routeBtn-${p.id}" onclick="openRouteModal('${p.id}')">
+                <i class="fa fa-route"></i>${hasRouteChange?'שינוי מסלול ✓':'שנה מסלול'}
+              </button>
             </div>
           </div>
         </div>
@@ -575,7 +678,7 @@ function buildEntryTable(){
       </td>
       <td id="chg-${p.id}">${renderChg(prevVal,curVal)}</td>
       <td style="text-align:center;">
-        <button class="expand-btn" onclick="toggleRiskRow('${p.id}')" title="הרחב / כווץ">
+        <button class="expand-btn" onclick="toggleRiskRow('${p.id}')" title="הרחב לעריכת חשיפות">
           <span id="riskSumPill-${p.id}" class="risk-sum-pill ${riskSumCls}">${riskSumTxt}</span>
           <i class="fa fa-chevron-down" id="expandIcon-${p.id}" style="font-size:.6rem;margin-right:3px;"></i>
         </button>
@@ -605,26 +708,27 @@ function buildEntryTable(){
               value="${curAl||''}" min="0" max="100" step="1" placeholder="0"
               oninput="onRiskInput('${p.id}')">
           </div>
-          <div class="risk-field-group" style="min-width:150px;">
-            <label><i class="fa fa-route" style="color:#8b5cf6;margin-left:3px;"></i>מסלול השקעה</label>
-            <input type="text" class="track-input ${curTrack?'saved':''}" id="trk-${p.id}"
-              value="${curTrack}" placeholder="כללי / מניות / ..."
-              oninput="onTrackInput('${p.id}',this)">
-          </div>
           <div style="display:flex;flex-direction:column;gap:4px;">
             <label style="font-size:.7rem;color:var(--text-muted);font-weight:600;">סכום חשיפה</label>
             <span id="riskSumFull-${p.id}" class="risk-sum-pill ${riskSumCls}" style="align-self:flex-start;">${riskSumTxt}</span>
           </div>
-          ${prevTrack&&curTrack&&prevTrack!==curTrack?`
-          <div style="background:rgba(139,92,246,.1);border:1px solid rgba(139,92,246,.3);border-radius:6px;padding:6px 10px;font-size:.75rem;color:#8b5cf6;">
-            <i class="fa fa-exchange-alt" style="margin-left:4px;"></i>
-            שינוי מסלול: <strong>${prevTrack}</strong> → <strong>${curTrack}</strong><br>
-            <span style="color:var(--text-muted);font-size:.68rem;">אירוע יוסף אוטומטית בשמירה</span>
-          </div>`:''}
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label style="font-size:.7rem;color:var(--text-muted);font-weight:600;">מסלול</label>
+            <button class="btn-route ${hasRouteChange?'has-change':''}" onclick="openRouteModal('${p.id}')">
+              <i class="fa fa-route"></i> ${hasRouteChange?'שינוי מסלול ✓':'שנה מסלול'}
+            </button>
+          </div>
         </div>
       </td>
     </tr>`;
   }).join('');
+
+  if(!PRODUCTS.length){
+    tbody.innerHTML=`<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted);">
+      <i class="fa fa-info-circle" style="font-size:1.5rem;margin-bottom:8px;display:block;"></i>
+      אין מוצרים פעילים ללקוח זה. יש להוסיף מוצרים בפאנל הניהול.
+    </td></tr>`;
+  }
 
   updatePreview();
   updateSaveSummary();
@@ -678,12 +782,150 @@ function onRiskInput(pid){
 }
 
 function onTrackInput(pid, input){
+  // Kept for compatibility – track changes now go through openRouteModal
   if(ROW_DATA[pid]){
     ROW_DATA[pid].track=input.value.trim();
-    input.classList.remove('saved');
-    input.classList.add('changed');
     DIRTY.add(pid);
     updateSaveSummary();
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// Route Change Modal
+// ══════════════════════════════════════════════════════════
+let ROUTE_MODAL_PID = null;
+
+function openRouteModal(pid){
+  ROUTE_MODAL_PID = pid;
+  const d = ROW_DATA[pid];
+  const p = PRODUCTS.find(x=>x.id===pid);
+  if(!d||!p) return;
+
+  // Product info strip
+  document.getElementById('routeModalProdInfo').innerHTML = `
+    <span style="width:12px;height:12px;border-radius:50%;background:${p.color||'#888'};flex-shrink:0;display:inline-block;"></span>
+    <strong style="font-size:.92rem;">${p.name_short||p.name}</strong>
+    <span style="color:var(--text-muted);font-size:.8rem;">${p.institution||''}</span>
+    <span style="flex:1;"></span>
+    <span style="font-size:.77rem;color:var(--text-muted);">מסלול נוכחי: </span>
+    <span class="track-display">${d.track||'—'}</span>
+  `;
+
+  // Subtitle
+  document.getElementById('routeModalSubtitle').textContent =
+    d.prevTrack ? `מסלול קודם: "${d.prevTrack}" · שינוי ייתעד כאירוע בגרף הביצועים` : 'עדכן מסלול וחשיפות · שינוי ייתעד כאירוע בגרף הביצועים';
+
+  // Populate inputs
+  document.getElementById('routeTrackInput').value = d.track||'';
+  document.getElementById('routeEqInput').value = d.risk_equities||'';
+  document.getElementById('routeBoInput').value = d.risk_bonds||'';
+  document.getElementById('routeAlInput').value = d.risk_alternatives||'';
+
+  updateRouteSum();
+  document.getElementById('routeModal').classList.add('open');
+  setTimeout(()=>document.getElementById('routeTrackInput').focus(),80);
+}
+
+function closeRouteModal(e){
+  if(e && e.target !== document.getElementById('routeModal')) return;
+  document.getElementById('routeModal').classList.remove('open');
+  ROUTE_MODAL_PID = null;
+}
+
+function updateRouteSum(){
+  const eq = parseFloat(document.getElementById('routeEqInput').value)||0;
+  const bo = parseFloat(document.getElementById('routeBoInput').value)||0;
+  const al = parseFloat(document.getElementById('routeAlInput').value)||0;
+  const sum = eq+bo+al;
+  const cls = Math.abs(sum-100)<1?'risk-sum-ok':sum>100?'risk-sum-err':'risk-sum-warn';
+  const pill = document.getElementById('routeSumPill');
+  if(pill){ pill.className=`risk-sum-pill ${cls}`; pill.textContent=sum>0?`${sum}%`:'—'; }
+
+  // Show confirm preview
+  const pid = ROUTE_MODAL_PID;
+  if(!pid) return;
+  const d = ROW_DATA[pid];
+  const newTrack = document.getElementById('routeTrackInput').value.trim();
+  const isTrackChange = newTrack && d && newTrack !== d.prevTrack;
+  const box = document.getElementById('routeConfirmBox');
+  if(box){
+    if(isTrackChange){
+      box.style.display='block';
+      document.getElementById('routeConfirmText').innerHTML = `שינוי: <strong>${d.prevTrack||'(ללא מסלול)'}</strong> → <strong>${newTrack}</strong>`;
+    } else {
+      box.style.display='none';
+    }
+  }
+}
+
+function applyRouteChange(){
+  const pid = ROUTE_MODAL_PID;
+  if(!pid) return;
+  const d = ROW_DATA[pid];
+  if(!d) return;
+
+  const newTrack = document.getElementById('routeTrackInput').value.trim();
+  const newEq    = parseFloat(document.getElementById('routeEqInput').value)||0;
+  const newBo    = parseFloat(document.getElementById('routeBoInput').value)||0;
+  const newAl    = parseFloat(document.getElementById('routeAlInput').value)||0;
+
+  // Apply to ROW_DATA
+  const trackChanged = newTrack !== d.track;
+  const riskChanged  = newEq!==d.risk_equities||newBo!==d.risk_bonds||newAl!==d.risk_alternatives;
+
+  d.track = newTrack;
+  d.risk_equities = newEq;
+  d.risk_bonds = newBo;
+  d.risk_alternatives = newAl;
+  d.hasRouteChange = !!(newTrack && d.prevTrack && newTrack !== d.prevTrack);
+
+  // Mark dirty if anything changed
+  if(trackChanged||riskChanged) DIRTY.add(pid);
+
+  // Update risk inputs in the expand row (if visible)
+  const reqEl = document.getElementById('req-'+pid);
+  const rboEl = document.getElementById('rbo-'+pid);
+  const ralEl = document.getElementById('ral-'+pid);
+  if(reqEl){ reqEl.value=newEq||''; reqEl.classList.add('changed'); }
+  if(rboEl){ rboEl.value=newBo||''; rboEl.classList.add('changed'); }
+  if(ralEl){ ralEl.value=newAl||''; ralEl.classList.add('changed'); }
+
+  // Update risk sum pills
+  const sum=newEq+newBo+newAl;
+  const cls=Math.abs(sum-100)<1?'risk-sum-ok':sum>100?'risk-sum-err':'risk-sum-warn';
+  const txt=sum>0?`${sum}%`:'—';
+  ['riskSumPill-'+pid,'riskSumFull-'+pid].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){el.className=`risk-sum-pill ${cls}`;el.textContent=txt;}
+  });
+
+  // Update track display in product row
+  const trackEl = document.getElementById('trackDisplay-'+pid);
+  if(trackEl){
+    trackEl.textContent = newTrack||'—';
+    trackEl.className = `track-display ${d.hasRouteChange?'changed':''}`;
+  }
+
+  // Update the "Change Route" button
+  const routeBtn = document.getElementById('routeBtn-'+pid);
+  if(routeBtn){
+    routeBtn.className = `btn-route ${d.hasRouteChange?'has-change':''}`;
+    routeBtn.innerHTML = `<i class="fa fa-route"></i>${d.hasRouteChange?'שינוי מסלול ✓':'שנה מסלול'}`;
+  }
+
+  // Also update the expand row button
+  const expandRouteBtn = document.querySelector(`#risk-row-${pid} .btn-route`);
+  if(expandRouteBtn){
+    expandRouteBtn.className = `btn-route ${d.hasRouteChange?'has-change':''}`;
+    expandRouteBtn.innerHTML = `<i class="fa fa-route"></i> ${d.hasRouteChange?'שינוי מסלול ✓':'שנה מסלול'}`;
+  }
+
+  updateSaveSummary();
+  document.getElementById('routeModal').classList.remove('open');
+  ROUTE_MODAL_PID = null;
+
+  if(d.hasRouteChange){
+    showToast(`✅ שינוי מסלול יירשם בשמירה: ${d.prevTrack} → ${newTrack}`, 'success');
   }
 }
 
@@ -859,8 +1101,10 @@ async function saveAll(){
         d.mvId=result.id;
       }
 
-      // אם המסלול השתנה — צור אירוע בלוח אירועים
-      if(hasTrackChange && d.prevTrack && d.track && d.prevTrack!==d.track){
+      // אם המסלול השתנה (דרך כפתור שינוי מסלול) — צור אירוע בלוח אירועים
+      // d.hasRouteChange מסומן ע"י applyRouteChange() בלבד
+      const shouldCreateTrackEvent = d.hasRouteChange && d.prevTrack && d.track && d.prevTrack !== d.track;
+      if(shouldCreateTrackEvent){
         const eventBody={
           client_id: SEL_CLIENT.id,
           product_id: prodId,
@@ -882,6 +1126,7 @@ async function saveAll(){
       // עדכן מצב מקומי
       d.origVal=d.curVal; d.origEq=d.risk_equities; d.origBo=d.risk_bonds; d.origAl=d.risk_alternatives; d.origTrack=d.track;
       d.prevTrack=d.track; // מעדכן prevTrack לחודש הנוכחי
+      d.hasRouteChange=false; // אחרי שמירה — אין עוד שינוי מסלול ממתין
       DIRTY.delete(prodId);
       // עדכן MV
       if(!MV[prodId]) MV[prodId]=[];
