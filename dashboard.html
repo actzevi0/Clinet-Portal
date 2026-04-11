@@ -918,7 +918,21 @@ async function fetchAll(url){
       } catch(e) {}
       return [...DEMO_DATA.clients];
     }
-    if (url.includes('/tables/products'))       return [...DEMO_DATA.products];
+    if (url.includes('/tables/products')) {
+      // מיזוג: קרא מוצרים מ-localStorage (כולל מוצרים שנוספו ב-Admin/monthly-update)
+      let baseProd = [...DEMO_DATA.products];
+      try {
+        const saved = localStorage.getItem('easyfinance_demo_products');
+        if (saved) {
+          const savedArr = JSON.parse(saved);
+          // מיזוג: רשומות localStorage גוברות על ברירת מחדל, אבל הוסף ברירות שאינן ב-storage
+          const savedIds = new Set(savedArr.map(p => p.id));
+          const missing = baseProd.filter(p => !savedIds.has(p.id));
+          return [...savedArr, ...missing];
+        }
+      } catch(e) {}
+      return baseProd;
+    }
     if (url.includes('/tables/monthly_values')){
       // מיזוג: קרא מ-localStorage, אבל הוסף רשומות ברירת מחדל שחסרות (כגון 01/25)
       let base = [...DEMO_DATA.monthly_values];
@@ -972,8 +986,9 @@ async function loadData(){
   try{
     // Load client – תמיד דרך fetchAll (שמנהל demo mode)
     const allClients = await fetchAll(`${API_BASE}/tables/clients?limit=100`);
+    console.log('[loadData] clients loaded:', allClients.map(c=>c.id), '| looking for:', cid);
     CLIENT = allClients.find(c=>c.id===cid);
-    if(!CLIENT) throw new Error('client not found');
+    if(!CLIENT) throw new Error(`client not found: "${cid}" — available: ${allClients.map(c=>c.id).join(', ')}`);
 
     // הצג באנר demo mode
     if (IS_DEMO_MODE) {
@@ -987,6 +1002,7 @@ async function loadData(){
     PRODUCTS=(await fetchAll(`${API_BASE}/tables/products?sort=sort_order`))
       .filter(p=>p.client_id===cid)
       .sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+    console.log('[loadData] products for', cid, ':', PRODUCTS.map(p=>p.id));
 
     // המר exclude_open מ-string ל-boolean (ה-API מחזיר לפעמים string)
     PRODUCTS.forEach(p=>{
@@ -999,6 +1015,7 @@ async function loadData(){
     for(const p of PRODUCTS){
       MV[p.id]=mvAll.filter(r=>r.product_id===p.id&&r.client_id===cid);
     }
+    console.log('[loadData] MV keys:', Object.keys(MV), '| total mv rows:', mvAll.length, '| for client:', mvAll.filter(r=>r.client_id===cid).length);
 
     // Load timeline events
     const evAll=await fetchAll(`${API_BASE}/tables/timeline_events`);

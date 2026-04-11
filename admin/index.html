@@ -262,8 +262,30 @@ async function fetchAll(url){
       } catch(e) {}
       return [...DEMO_CLIENTS];
     }
-    if (url.includes('/tables/products'))      return [...DEMO_PRODUCTS];
-    if (url.includes('/tables/monthly_values')) return [...DEMO_MV];
+    if (url.includes('/tables/products')) {
+      try {
+        const saved = localStorage.getItem('easyfinance_demo_products');
+        if (saved) {
+          const savedArr = JSON.parse(saved);
+          const savedIds = new Set(savedArr.map(p => p.id));
+          const missing = DEMO_PRODUCTS.filter(p => !savedIds.has(p.id));
+          return [...savedArr, ...missing];
+        }
+      } catch(e) {}
+      return [...DEMO_PRODUCTS];
+    }
+    if (url.includes('/tables/monthly_values')) {
+      try {
+        const saved = localStorage.getItem('easyfinance_demo_mv');
+        if (saved) {
+          const savedArr = JSON.parse(saved);
+          const savedKeys = new Set(savedArr.map(r => r.product_id + '|' + r.month));
+          const missing = DEMO_MV.filter(r => !savedKeys.has(r.product_id + '|' + r.month));
+          return [...savedArr, ...missing];
+        }
+      } catch(e) {}
+      return [...DEMO_MV];
+    }
     return [];
   }
 

@@ -1782,7 +1782,7 @@ async function saveNewProduct(){
     showToast(`✅ מוצר נוסף: ${name}`,'success');
     closeAddProductModal();
     // Refresh entry table if step 3 is visible
-    if(SEL_MONTH) renderEntryTable();
+    if(SEL_MONTH) buildEntryTable();
   }catch(e){
     addLog(`❌ שגיאה בהוספת מוצר: ${e.message}`,'log-err');
     showToast(`⚠️ שגיאה: ${e.message}`,'warn');
