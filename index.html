@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>פורטל לקוחות – דוחות השקעות</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+<style>
+:root {
+  --bg:#0f172a; --bg-card:#1e293b; --bg-card2:#263044; --border:#334155;
+  --text:#f1f5f9; --text-muted:#94a3b8; --text-dim:#64748b;
+  --primary:#1a56db; --primary-light:#3b7ef5; --success:#10b981; --danger:#ef4444;
+  --radius:12px; --shadow:0 4px 24px rgba(0,0,0,0.4);
+  --font:'Heebo',sans-serif;
+}
+[data-theme="light"] {
+  --bg:#f0f4f8; --bg-card:#fff; --bg-card2:#f8fafc; --border:#e2e8f0;
+  --text:#0f172a; --text-muted:#475569; --text-dim:#94a3b8;
+  --shadow:0 4px 24px rgba(0,0,0,0.1);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{direction:rtl;}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;}
+.wrap{width:100%;max-width:440px;padding:20px;}
+.logo{text-align:center;margin-bottom:36px;}
+.logo-icon{width:72px;height:72px;background:linear-gradient(135deg,#1a56db,#0ea5e9);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:2rem;margin:0 auto 16px;box-shadow:0 8px 32px rgba(26,86,219,0.35);}
+.logo h1{font-size:1.7rem;font-weight:800;}
+.logo p{color:var(--text-muted);font-size:0.9rem;margin-top:6px;}
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:36px;box-shadow:var(--shadow);}
+.card h2{font-size:1.1rem;font-weight:700;margin-bottom:6px;}
+.card p.subtitle{color:var(--text-muted);font-size:0.85rem;margin-bottom:28px;}
+.form-group{margin-bottom:18px;}
+.form-label{display:block;font-size:0.82rem;font-weight:600;color:var(--text-muted);margin-bottom:6px;}
+.input-wrap{position:relative;}
+.form-control{width:100%;padding:12px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:var(--font);font-size:0.95rem;outline:none;transition:border-color .2s;}
+.form-control:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(26,86,219,0.15);}
+.toggle-pw{position:absolute;left:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:0.9rem;padding:4px;}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:13px;border-radius:8px;border:none;font-family:var(--font);font-size:0.95rem;font-weight:700;cursor:pointer;transition:all .2s;margin-top:4px;}
+.btn-primary{background:var(--primary);color:#fff;}
+.btn-primary:hover{background:var(--primary-light);transform:translateY(-1px);}
+.btn:disabled{opacity:.6;cursor:not-allowed;transform:none;}
+.error{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#ef4444;padding:12px 16px;border-radius:8px;font-size:0.85rem;margin-bottom:16px;display:none;align-items:center;gap:10px;}
+.footer{text-align:center;margin-top:20px;font-size:0.78rem;color:var(--text-dim);}
+.footer a{color:var(--text-dim);text-decoration:none;}
+.theme-btn{position:fixed;top:20px;left:20px;width:38px;height:38px;border-radius:50%;border:1px solid var(--border);background:var(--bg-card);cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;}
+.spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.lock-icon{font-size:0.8rem;margin-left:4px;color:var(--text-dim);}
+</style>
+</head>
+<body>
+<button class="theme-btn" id="themeBtn" onclick="toggleTheme()">🌙</button>
+<div class="wrap">
+  <div class="logo">
+    <div class="logo-icon">📈</div>
+    <h1>פורטל לקוחות</h1>
+    <p>דוחות ביצועים אישיים</p>
+  </div>
+  <div class="card">
+    <h2>כניסה לדשבורד האישי</h2>
+    <p class="subtitle">הזן את שם המשתמש והסיסמה שקיבלת מהיועץ</p>
+    <div class="error" id="errBox"><i class="fa fa-exclamation-triangle"></i><span id="errMsg"></span></div>
+    <form onsubmit="doLogin(event)">
+      <div class="form-group">
+        <label class="form-label"><i class="fa fa-user lock-icon"></i>שם משתמש</label>
+        <input id="userInput" class="form-control" type="text" dir="ltr"
+               placeholder="שם המשתמש שלך" autocomplete="username" autocapitalize="none" />
+      </div>
+      <div class="form-group">
+        <label class="form-label"><i class="fa fa-lock lock-icon"></i>סיסמה</label>
+        <div class="input-wrap">
+          <input id="passInput" class="form-control" type="password" dir="ltr"
+                 placeholder="••••••••" autocomplete="current-password" style="padding-left:42px;"/>
+          <button type="button" class="toggle-pw" onclick="togglePw()" id="togglePwBtn" title="הצג/הסתר סיסמה">
+            <i class="fa fa-eye" id="pwEyeIcon"></i>
+          </button>
+        </div>
+      </div>
+      <button class="btn btn-primary" type="submit" id="loginBtn">
+        <i class="fa fa-sign-in-alt"></i> כניסה לדשבורד
+      </button>
+    </form>
+  </div>
+  <div class="footer">
+    <p>מידע זה הינו אישי וסודי</p>
+    <p style="margin-top:8px;"><a href="admin/index.html"><i class="fa fa-lock" style="margin-left:4px;"></i>כניסת יועץ</a></p>
+  </div>
+</div>
+<script>
+const T=localStorage.getItem('theme')||'dark';
+document.documentElement.setAttribute('data-theme',T);
+document.getElementById('themeBtn').textContent=T==='dark'?'🌙':'☀️';
+function toggleTheme(){
+  const c=document.documentElement.getAttribute('data-theme');
+  const n=c==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme',n);
+  localStorage.setItem('theme',n);
+  document.getElementById('themeBtn').textContent=n==='dark'?'🌙':'☀️';
+}
+function togglePw(){
+  const inp=document.getElementById('passInput');
+  const icon=document.getElementById('pwEyeIcon');
+  if(inp.type==='password'){inp.type='text';icon.className='fa fa-eye-slash';}
+  else{inp.type='password';icon.className='fa fa-eye';}
+}
+function showErr(msg){
+  const eb=document.getElementById('errBox');
+  document.getElementById('errMsg').textContent=msg;
+  eb.style.display='flex';
+  setTimeout(()=>eb.style.display='none',4000);
+}
+
+// SHA-256 hash (built-in Web Crypto API)
+async function sha256(str){
+  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+const API_BASE='';
+async function doLogin(e){
+  e.preventDefault();
+  const username=document.getElementById('userInput').value.trim();
+  const password=document.getElementById('passInput').value;
+  if(!username){showErr('נא להזין שם משתמש');return;}
+  if(!password){showErr('נא להזין סיסמה');return;}
+
+  const btn=document.getElementById('loginBtn');
+  btn.disabled=true;
+  btn.innerHTML='<div class="spinner"></div> מאמת...';
+
+  try{
+    // שלב 1 — מצא לקוח לפי username
+    const r=await fetch(`${API_BASE}/tables/clients?limit=100`);
+    const d=await r.json();
+    const clients=d.data||[];
+
+    // חפש לפי username (אם מוגדר) — אחרת חזרה ל-id
+    const client=clients.find(c=>
+      (c.username && c.username.toLowerCase()===username.toLowerCase()) ||
+      (!c.username && c.id.toLowerCase()===username.toLowerCase())
+    );
+
+    if(!client){
+      showErr('שם המשתמש או הסיסמה שגויים');
+      btn.disabled=false; btn.innerHTML='<i class="fa fa-sign-in-alt"></i> כניסה לדשבורד';
+      return;
+    }
+
+    if(!client.active){
+      showErr('החשבון אינו פעיל. פנה ליועץ שלך.');
+      btn.disabled=false; btn.innerHTML='<i class="fa fa-sign-in-alt"></i> כניסה לדשבורד';
+      return;
+    }
+
+    // שלב 2 — בדוק סיסמה
+    if(client.password_hash){
+      // יש סיסמה מוגדרת — בדוק hash
+      const hash=await sha256(password);
+      if(hash!==client.password_hash){
+        showErr('שם המשתמש או הסיסמה שגויים');
+        btn.disabled=false; btn.innerHTML='<i class="fa fa-sign-in-alt"></i> כניסה לדשבורד';
+        return;
+      }
+    }
+    // אם אין password_hash — כניסה חופשית (מצב ברירת מחדל לפני הגדרת סיסמה)
+
+    // שלב 3 — כניסה מוצלחת
+    window.location.href=`dashboard.html?client=${client.id}`;
+  }catch(err){
+    console.error(err);
+    showErr('שגיאת תקשורת. נסה שוב.');
+    btn.disabled=false; btn.innerHTML='<i class="fa fa-sign-in-alt"></i> כניסה לדשבורד';
+  }
+}
+</script>
+</body>
+</html>

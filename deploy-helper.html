@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>Deploy Helper – EasyFinance</title>
+<style>
+body{font-family:monospace;background:#0f172a;color:#f1f5f9;padding:40px;max-width:800px;margin:0 auto;}
+h1{color:#3b7ef5;margin-bottom:8px;}
+.subtitle{color:#64748b;margin-bottom:32px;font-size:0.9rem;}
+pre{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:20px;overflow-x:auto;font-size:0.85rem;line-height:1.6;}
+.step{background:#1e293b;border:1px solid #334155;border-radius:8px;padding:20px;margin-bottom:16px;}
+.step h3{color:#10b981;margin-bottom:12px;}
+.copy-btn{background:#1a56db;color:#fff;border:none;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:0.8rem;float:left;}
+.copy-btn:hover{background:#3b7ef5;}
+.note{background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);color:#f59e0b;padding:12px 16px;border-radius:8px;margin-bottom:24px;font-size:0.85rem;}
+code{background:#0f172a;padding:2px 6px;border-radius:4px;color:#38bdf8;}
+</style>
+</head>
+<body>
+<h1>🚀 EasyFinance – Deploy to Cloudflare Pages</h1>
+<p class="subtitle">פרסום ידני ישירות ל-Cloudflare Pages בלי Genspark</p>
+
+<div class="note">
+  ⚠️ <strong>הוראות:</strong> הרץ את הפקודות האלה בסדר מהמחשב שלך (Windows CMD / Mac Terminal)
+</div>
+
+<div class="step">
+  <h3>שלב 1 — התקן Wrangler (פעם אחת בלבד)</h3>
+  <pre id="s1">npm install -g wrangler</pre>
+  <button class="copy-btn" onclick="copy('s1')">העתק</button>
+</div>
+
+<div class="step">
+  <h3>שלב 2 — התחבר ל-Cloudflare</h3>
+  <pre id="s2">wrangler login</pre>
+  <button class="copy-btn" onclick="copy('s2')">העתק</button>
+  <p style="color:#64748b;font-size:0.8rem;margin-top:8px;">יפתח דפדפן → אשר → חזור ל-terminal</p>
+</div>
+
+<div class="step">
+  <h3>שלב 3 — צור תיקייה ריקה</h3>
+  <pre id="s3">mkdir easyfinance-deploy
+cd easyfinance-deploy
+mkdir admin css js</pre>
+  <button class="copy-btn" onclick="copy('s3')">העתק</button>
+</div>
+
+<div class="step">
+  <h3>שלב 4 — הורד את כל הקבצים</h3>
+  <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:10px;">הרץ את הפקודה הזו (PowerShell ב-Windows):</p>
+  <pre id="s4">$base = "https://usekmdat.gensparkspace.com"
+$files = @(
+  "index.html",
+  "dashboard.html",
+  "admin/index.html",
+  "admin/credentials.html",
+  "admin/monthly-update.html",
+  "admin/fix-data.html",
+  "admin/check-data.html",
+  "css/style.css"
+)
+
+# התחבר ל-Genspark קודם
+$loginBody = @{username="admin";password="your-password"} | ConvertTo-Json
+# הורד כל קובץ
+foreach ($f in $files) {
+  $url = "$base/$f"
+  $out = $f -replace "/","\"
+  $dir = Split-Path $out
+  if ($dir) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
+  Invoke-WebRequest -Uri $url -OutFile $out
+  Write-Host "✅ $f"
+}</pre>
+  <button class="copy-btn" onclick="copy('s4')">העתק</button>
+  <p style="color:#ef4444;font-size:0.8rem;margin-top:8px;">⚠️ זה לא יעבוד כי האתר דורש התחברות. ראה שלב חלופי למטה ↓</p>
+</div>
+
+<div class="step" style="border-color:#10b981;">
+  <h3 style="color:#3b7ef5;">✅ שלב 4 חלופי — השתמש בקבצים שנוצרו כאן</h3>
+  <p style="color:#94a3b8;font-size:0.85rem;margin-bottom:10px;">
+    כל הקבצים כבר נמצאים ב-Genspark ותקינים. <br>
+    פשוט <strong>לחץ "Download" על כל קובץ</strong> בממשק Genspark (לשונית Files בצד שמאל) ושמור אותו.
+  </p>
+  <p style="color:#f59e0b;font-size:0.85rem;">
+    📁 צור מבנה תיקיות:<br>
+    <code>easyfinance-deploy/</code><br>
+    <code>easyfinance-deploy/admin/</code><br>
+    <code>easyfinance-deploy/css/</code>
+  </p>
+</div>
+
+<div class="step">
+  <h3>שלב 5 — פרסם ל-Cloudflare Pages</h3>
+  <pre id="s5">wrangler pages deploy easyfinance-deploy --project-name=easyfinance-dashboard</pre>
+  <button class="copy-btn" onclick="copy('s5')">העתק</button>
+  <p style="color:#10b981;font-size:0.8rem;margin-top:8px;">✅ זה מפרסם את הקבצים ישירות ללא D1 ולא נכשל!</p>
+</div>
+
+<hr style="border-color:#334155;margin:32px 0;">
+
+<h2 style="color:#f59e0b;">🔑 API_BASE בכל הקבצים</h2>
+<p style="color:#94a3b8;font-size:0.85rem;">כל הקבצים שהורדת כבר מכילים:</p>
+<pre>const API_BASE='https://usekmdat.gensparkspace.com';</pre>
+<p style="color:#10b981;font-size:0.85rem;">✅ הנתונים יגיעו תמיד מ-Genspark — ללא תלות ב-Cloudflare D1</p>
+
+<script>
+function copy(id){
+  const text = document.getElementById(id).textContent;
+  navigator.clipboard.writeText(text).then(()=>{
+    const btn = document.querySelector(`[onclick="copy('${id}')"]`);
+    btn.textContent = '✅ הועתק!';
+    setTimeout(()=>btn.textContent='העתק', 2000);
+  });
+}
+</script>
+</body>
+</html>

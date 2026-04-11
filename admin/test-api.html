@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>בדיקת API</title>
+<style>
+body{font-family:monospace;background:#0f172a;color:#e2e8f0;padding:20px;}
+pre{background:#1e293b;padding:16px;border-radius:8px;font-size:11px;white-space:pre-wrap;max-height:400px;overflow:auto;}
+button{background:#1a56db;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;margin:4px;}
+</style>
+</head>
+<body>
+<h2>🔍 בדיקת Genspark API</h2>
+<button onclick="test('../tables/clients?limit=10')">בדוק clients (נתיב יחסי)</button>
+<button onclick="test('tables/clients?limit=10')">בדוק clients (ללא ../)</button>
+<button onclick="test('../tables/products?limit=5')">בדוק products</button>
+<pre id="out">לחץ כפתור...</pre>
+<script>
+async function test(url){
+  document.getElementById('out').textContent='טוען...';
+  try{
+    const r=await fetch(url);
+    const d=await r.json();
+    document.getElementById('out').textContent=
+      `URL: ${url}\nStatus: ${r.status}\nTotal: ${d.total}\nRecords: ${d.data?.length}\n\nFirst record:\n${JSON.stringify(d.data?.[0],null,2)}`;
+  }catch(e){
+    document.getElementById('out').textContent=`שגיאה: ${e.message}`;
+  }
+}
+</script>
+</body>
+</html>

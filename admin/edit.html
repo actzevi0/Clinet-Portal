@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>עדכון חודשי – ניהול לקוח</title>
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+<script src="../js/returns-engine.js"></script>
+<style>
+  .edit-header { background: linear-gradient(135deg, #1a56db 0%, #0ea5e9 100%); color: #fff; padding: 32px 0 24px; margin-bottom: 28px; }
+  .edit-header h1 { color: #fff; font-size: 1.5rem; margin-bottom: 4px; }
+  .edit-header p { color: rgba(255,255,255,0.8); font-size: 0.88rem; }
+  .month-input-row { display: grid; grid-template-columns: 1fr 180px 160px; gap: 12px; align-items: center; padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 8px; background: var(--bg-card2); transition: border-color 0.2s; }
+  .month-input-row:focus-within { border-color: var(--primary); }
+  .product-name-col { display: flex; align-items: center; gap: 8px; font-size: 0.88rem; font-weight: 600; }
+  .prev-value { font-size: 0.78rem; color: var(--text-dim); }
+  .new-value-input { padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-card); color: var(--text); font-family: var(--font); font-size: 0.9rem; width: 100%; text-align: left; direction: ltr; }
+  .new-value-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(26,86,219,0.2); }
+  .calc-return { font-size: 0.82rem; font-weight: 700; text-align: center; }
+  .event-row { display: grid; grid-template-columns: 1fr 1fr 80px 120px auto; gap: 10px; align-items: center; padding: 10px 14px; background: var(--bg-card2); border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 8px; }
+  .step-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+  .step-number { width: 32px; height: 32px; border-radius: 50%; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.88rem; flex-shrink: 0; }
+  .step-title { font-size: 1.1rem; font-weight: 700; }
+  .export-area { background: var(--bg-card2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px; font-family: monospace; font-size: 0.75rem; white-space: pre-wrap; max-height: 400px; overflow-y: auto; direction: ltr; text-align: left; }
+  .product-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .existing-row { opacity: 0.6; }
+  .total-preview { background: var(--bg-card); border: 2px solid var(--primary); border-radius: var(--radius-sm); padding: 16px; text-align: center; }
+  @media (max-width: 700px) {
+    .month-input-row { grid-template-columns: 1fr 130px; }
+    .calc-return { display: none; }
+    .event-row { grid-template-columns: 1fr 1fr auto; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar">
+  <a class="navbar-brand" href="index.html">
+    <div class="navbar-logo">📈</div>
+    <div class="navbar-name">עדכון חודשי</div>
+  </a>
+  <div class="navbar-actions">
+    <a href="fix-data.html" class="btn btn-secondary btn-sm"><i class="fa fa-wrench"></i> תיקון נתונים</a>
+    <a href="index.html" class="btn btn-secondary btn-sm"><i class="fa fa-arrow-right"></i> חזרה</a>
+    <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
+  </div>
+</nav>
+
+<!-- Edit Header -->
+<div class="edit-header">
+  <div class="container">
+    <h1 id="editHeaderTitle">עדכון נתונים חודשיים</h1>
+    <p id="editHeaderSub">טוען...</p>
+  </div>
+</div>
+
+<div id="loadingState" class="loading"><div class="spinner"></div></div>
+<div id="mainContent" style="display:none;">
+<main class="container" style="padding-bottom: 80px;">
+
+  <!-- STEP 1: Select Month -->
+  <div class="card mb-24">
+    <div class="step-header">
+      <div class="step-number">1</div>
+      <div>
+        <div class="step-title">בחר חודש לעדכון</div>
+        <div style="font-size:0.82rem; color:var(--text-muted);">בחר את החודש שברצונך להזין עבורו נתונים חדשים</div>
+      </div>
+    </div>
+    <div class="flex gap-12" style="flex-wrap:wrap;">
+      <select id="monthSelector" class="form-control" style="width:auto; min-width:200px;" onchange="onMonthSelect()">
+        <option value="">בחר חודש...</option>
+      </select>
+      <button class="btn btn-primary" onclick="onMonthSelect()">
+        <i class="fa fa-check"></i> טען חודש
+      </button>
+    </div>
+  </div>
+
+  <!-- STEP 2: Enter Values -->
+  <div class="card mb-24" id="valuesSection" style="display:none;">
+    <div class="step-header">
+      <div class="step-number">2</div>
+      <div>
+        <div class="step-title">הזנת שווי מוצרים</div>
+        <div style="font-size:0.82rem; color:var(--text-muted);">הזן את שווי כל מוצר בסוף החודש הנבחר. שדות ריקים = ללא שינוי.</div>
+      </div>
+    </div>
+
+    <div style="font-size:0.8rem; color:var(--text-dim); margin-bottom:16px;">
+      <i class="fa fa-info-circle"></i>
+      התשואה המוצגת מחושבת בשיטת Modified Dietz – ניטרול אוטומטי של הפקדות ופדיונות שתזין בשלב 3.
+    </div>
+
+    <!-- Header row -->
+    <div style="display:grid; grid-template-columns: 1fr 180px 160px; gap: 12px; padding: 8px 16px; font-size:0.78rem; color:var(--text-muted); font-weight:600; margin-bottom:4px;">
+      <span>מוצר</span>
+      <span>שווי חדש (₪)</span>
+      <span style="text-align:center;">תשואה מחושבת</span>
+    </div>
+
+    <div id="productInputs"></div>
+
+    <div class="grid grid-3 gap-16 mt-16">
+      <div class="total-preview">
+        <div style="font-size:0.78rem; color:var(--text-muted);">שווי קודם</div>
+        <div class="kpi-value" id="prevTotalDisplay" style="font-size:1.2rem;">—</div>
+      </div>
+      <div class="total-preview">
+        <div style="font-size:0.78rem; color:var(--text-muted);">שווי חדש</div>
+        <div class="kpi-value" id="newTotalDisplay" style="font-size:1.2rem; color:var(--primary-light);">—</div>
+      </div>
+      <div class="total-preview">
+        <div style="font-size:0.78rem; color:var(--text-muted);">שינוי</div>
+        <div class="kpi-value" id="changeTotalDisplay" style="font-size:1.2rem;">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 3: Events -->
+  <div class="card mb-24" id="eventsSection" style="display:none;">
+    <div class="step-header">
+      <div class="step-number">3</div>
+      <div>
+        <div class="step-title">אירועי תזרים (הפקדות / פדיונות / ניודים)</div>
+        <div style="font-size:0.82rem; color:var(--text-muted);">הוסף אירועים שהתרחשו בחודש זה. אלה ינוטרלו מחישוב התשואה (Modified Dietz).</div>
+      </div>
+    </div>
+
+    <div id="existingEventsInfo" class="alert alert-info mb-16" style="display:none;">
+      <i class="fa fa-info-circle"></i>
+      <span id="existingEventsText"></span>
+    </div>
+
+    <!-- Event inputs -->
+    <div style="display:grid; grid-template-columns: 2fr 1fr 60px 120px auto; gap:10px; padding:8px 14px; font-size:0.78rem; color:var(--text-muted); font-weight:600; margin-bottom:4px;">
+      <span>מוצר</span>
+      <span>סוג אירוע</span>
+      <span>יום</span>
+      <span>סכום (₪)</span>
+      <span></span>
+    </div>
+    <div id="eventRows"></div>
+
+    <button class="btn btn-secondary btn-sm mt-8" onclick="addEventRow()">
+      <i class="fa fa-plus"></i> הוסף אירוע
+    </button>
+  </div>
+
+  <!-- STEP 4: Timeline Event -->
+  <div class="card mb-24" id="timelineSection" style="display:none;">
+    <div class="step-header">
+      <div class="step-number">4</div>
+      <div>
+        <div class="step-title">הוסף אירוע לציר הזמן (אופציונלי)</div>
+        <div style="font-size:0.82rem; color:var(--text-muted);">הוסף תיאור מילולי של האירוע שיוצג בלוח הזמנים של הלקוח.</div>
+      </div>
+    </div>
+
+    <div id="timelineEventInputs">
+      <div style="display:flex; gap:8px; align-items:center; margin-bottom:12px;">
+        <input type="checkbox" id="addTimelineEvent" onchange="toggleTimelineInput()">
+        <label for="addTimelineEvent" style="font-size:0.88rem; cursor:pointer;">הוסף אירוע מיוחד לציר הזמן</label>
+      </div>
+      <div id="timelineInputArea" style="display:none;">
+        <div class="grid grid-2 gap-16">
+          <div class="form-group">
+            <label class="form-label">כותרת האירוע</label>
+            <input type="text" id="tlTitle" class="form-control" placeholder="לדוגמה: הפקדה חדשה – פוליסת מנורה" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">סוג אירוע</label>
+            <select id="tlType" class="form-control">
+              <option value="deposit">הפקדה</option>
+              <option value="withdrawal">פדיון</option>
+              <option value="transfer">ניוד</option>
+              <option value="management">שינוי ניהול</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">מוצר קשור</label>
+          <select id="tlProduct" class="form-control"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">תיאור</label>
+          <textarea id="tlDesc" class="form-control" rows="3" placeholder="תיאור מפורט של האירוע..."></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 5: Generate JSON -->
+  <div class="card mb-24" id="exportSection" style="display:none;">
+    <div class="step-header">
+      <div class="step-number">5</div>
+      <div>
+        <div class="step-title">שמירה ועדכון</div>
+        <div style="font-size:0.82rem; color:var(--text-muted);">הורד את קובץ ה-JSON המעודכן ושמור אותו בתיקיית data/clients/</div>
+      </div>
+    </div>
+
+    <div class="alert alert-warning mb-16">
+      <i class="fa fa-exclamation-triangle"></i>
+      <div>
+        <strong>חשוב:</strong> לאחר לחיצה על "שמור JSON", הורד את הקובץ ו<strong>החלף</strong> את הקובץ הישן 
+        בתיקייה <code>data/clients/{id}.json</code>. הדשבורד יתעדכן אוטומטית.
+      </div>
+    </div>
+
+    <div class="flex gap-12 mb-16" style="flex-wrap:wrap;">
+      <button class="btn btn-success btn-lg" onclick="generateAndDownload()">
+        <i class="fa fa-download"></i> שמור JSON מעודכן
+      </button>
+      <button class="btn btn-secondary" onclick="previewJSON()">
+        <i class="fa fa-eye"></i> תצוגה מקדימה
+      </button>
+      <a id="viewDashboardBtn" href="#" target="_blank" class="btn btn-primary">
+        <i class="fa fa-chart-bar"></i> פתח דשבורד לקוח
+      </a>
+    </div>
+
+    <div id="jsonPreview" style="display:none;">
+      <div class="flex-between mb-8">
+        <strong style="font-size:0.88rem;">JSON Preview</strong>
+        <button class="btn btn-secondary btn-sm" onclick="copyJSON()"><i class="fa fa-copy"></i> העתק</button>
+      </div>
+      <div class="export-area" id="exportArea"></div>
+    </div>
+  </div>
+
+</main>
+</div>
+
+<script>
+const savedTheme = localStorage.getItem('theme') || 'dark';
+document.documentElement.setAttribute('data-theme', savedTheme);
+document.getElementById('themeBtn').textContent = savedTheme === 'dark' ? '🌙' : '☀️';
+function toggleTheme() {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+  document.getElementById('themeBtn').textContent = next === 'dark' ? '🌙' : '☀️';
+}
+
+let CLIENT = null;
+let SELECTED_MONTH = null;
+let MODIFIED_CLIENT = null;
+
+// ── Load client ──
+async function loadClient() {
+  const params = new URLSearchParams(window.location.search);
+  const clientId = params.get('client');
+  if (!clientId) { window.location.href = 'index.html'; return; }
+
+  try {
+    const res = await fetch(`../data/clients/${clientId}.json`);
+    if (!res.ok) throw new Error('not found');
+    CLIENT = await res.json();
+    MODIFIED_CLIENT = JSON.parse(JSON.stringify(CLIENT));
+
+    document.getElementById('editHeaderTitle').textContent = `עדכון נתונים – ${CLIENT.name}`;
+    document.getElementById('editHeaderSub').textContent = `${CLIENT.id} | ${CLIENT.report_period}`;
+    document.title = `עדכון – ${CLIENT.name}`;
+
+    document.getElementById('viewDashboardBtn').href = `../dashboard.html?client=${CLIENT.id}`;
+
+    populateMonthSelector();
+    populateTimelineProductSelect();
+
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('mainContent').style.display = 'block';
+  } catch(e) {
+    document.getElementById('loadingState').innerHTML = `
+      <div class="no-data" style="margin-top:60px;">
+        <i class="fa fa-exclamation-triangle" style="font-size:2rem; color:var(--danger);"></i>
+        <p>לא ניתן לטעון את נתוני הלקוח "${clientId}"</p>
+        <a href="index.html" class="btn btn-primary btn-sm mt-8">חזרה לרשימה</a>
+      </div>`;
+  }
+}
+
+function populateMonthSelector() {
+  const sel = document.getElementById('monthSelector');
+  sel.innerHTML = '<option value="">בחר חודש...</option>';
+
+  const months_he = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+
+  // Show all months - mark existing ones
+  for (const m of CLIENT.months) {
+    const hasData = CLIENT.products.some(p => p.monthly_values[m] != null);
+    const [mm, yy] = m.split('/');
+    const label = `${months_he[parseInt(mm)-1]} 20${yy}`;
+    const opt = document.createElement('option');
+    opt.value = m;
+    opt.textContent = `${label} ${hasData ? '✓' : '(ריק)'}`;
+    if (hasData) opt.style.color = 'var(--success)';
+    sel.appendChild(opt);
+  }
+
+  // Add option for next month if not in list
+  const lastMonth = CLIENT.months[CLIENT.months.length - 1];
+  const nextMonth = getNextMonth(lastMonth);
+  const nextOpt = document.createElement('option');
+  nextOpt.value = '__new__';
+  nextOpt.textContent = `+ הוסף חודש חדש: ${nextMonth}`;
+  sel.appendChild(nextOpt);
+}
+
+function getNextMonth(mm_yy) {
+  let [mm, yy] = mm_yy.split('/').map(Number);
+  mm++;
+  if (mm > 12) { mm = 1; yy++; }
+  return `${String(mm).padStart(2,'0')}/${String(yy).padStart(2,'0')}`;
+}
+
+function onMonthSelect() {
+  let month = document.getElementById('monthSelector').value;
+  if (!month) return;
+
+  if (month === '__new__') {
+    month = getNextMonth(CLIENT.months[CLIENT.months.length - 1]);
+    // Add to months array if not there
+    if (!MODIFIED_CLIENT.months.includes(month)) {
+      MODIFIED_CLIENT.months.push(month);
+    }
+  }
+
+  SELECTED_MONTH = month;
+  renderProductInputs(month);
+  renderEventSection(month);
+
+  document.getElementById('valuesSection').style.display = 'block';
+  document.getElementById('eventsSection').style.display = 'block';
+  document.getElementById('timelineSection').style.display = 'block';
+  document.getElementById('exportSection').style.display = 'block';
+}
+
+// ── Render product value inputs ──
+function renderProductInputs(month) {
+  const prevMonth = getPrevMonth(month);
+  const container = document.getElementById('productInputs');
+
+  container.innerHTML = CLIENT.products.map((p, idx) => {
+    const prevVal = prevMonth ? p.monthly_values[prevMonth] : null;
+    const existingVal = p.monthly_values[month];
+    const isExisting = existingVal != null;
+
+    return `
+      <div class="month-input-row ${isExisting ? 'existing-row' : ''}" id="row-${p.id}">
+        <div class="product-name-col">
+          <div class="product-dot" style="background:${p.color};"></div>
+          <div>
+            <div style="font-size:0.88rem; font-weight:600;">${p.name_short}</div>
+            <div class="prev-value">
+              קודם: ${prevVal != null ? formatILS(prevVal) : '—'}
+              ${isExisting ? `<span style="color:var(--primary-light); margin-right:8px;">(קיים: ${formatILS(existingVal)})</span>` : ''}
+            </div>
+          </div>
+        </div>
+        <div>
+          <input type="number" 
+            class="new-value-input" 
+            id="val-${p.id}" 
+            placeholder="${isExisting ? existingVal : (prevVal ? Math.round(prevVal) : '')}"
+            value="${isExisting ? existingVal : ''}"
+            min="0"
+            step="1"
+            onchange="updateReturnCalc('${p.id}', '${month}', '${prevMonth || ''}')"
+            oninput="updateReturnCalc('${p.id}', '${month}', '${prevMonth || ''}'); updateTotals();"
+          />
+        </div>
+        <div class="calc-return" id="ret-${p.id}">
+          <span style="color:var(--text-dim);">—</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  updateTotals();
+}
+
+function getPrevMonth(mm_yy) {
+  const idx = CLIENT.months.indexOf(mm_yy);
+  if (idx <= 0) return null;
+  return CLIENT.months[idx - 1];
+}
+
+function updateReturnCalc(productId, month, prevMonth) {
+  const input = document.getElementById(`val-${productId}`);
+  const retEl = document.getElementById(`ret-${productId}`);
+  if (!input || !retEl) return;
+
+  const newVal = parseFloat(input.value);
+  const p = CLIENT.products.find(x => x.id === productId);
+  if (!p) return;
+
+  const prevVal = prevMonth ? p.monthly_values[prevMonth] : null;
+  if (isNaN(newVal) || prevVal == null) {
+    retEl.innerHTML = '<span style="color:var(--text-dim);">—</span>';
+    return;
+  }
+
+  // Get events for this product this month
+  const events = (MODIFIED_CLIENT.events?.[month] || []).filter(e => e.product_id === productId);
+  const ret = ReturnsEngine.monthlyReturn(month, prevVal, newVal, events);
+
+  if (ret === null) {
+    retEl.innerHTML = '<span style="color:var(--text-dim);">—</span>';
+    return;
+  }
+
+  const pct = (ret * 100).toFixed(2);
+  const color = ret >= 0 ? 'var(--success)' : 'var(--danger)';
+  retEl.innerHTML = `<span style="color:${color};">${ret >= 0 ? '+' : ''}${pct}%</span>`;
+}
+
+function updateTotals() {
+  let prevTotal = 0, newTotal = 0;
+  const prevMonth = getPrevMonth(SELECTED_MONTH);
+
+  for (const p of CLIENT.products) {
+    const prev = prevMonth ? p.monthly_values[prevMonth] : null;
+    if (prev) prevTotal += prev;
+
+    const input = document.getElementById(`val-${p.id}`);
+    if (input) {
+      const v = parseFloat(input.value);
+      if (!isNaN(v)) newTotal += v;
+    }
+  }
+
+  document.getElementById('prevTotalDisplay').textContent = formatILS(prevTotal);
+  document.getElementById('newTotalDisplay').textContent = formatILS(newTotal);
+  const change = newTotal - prevTotal;
+  const changeEl = document.getElementById('changeTotalDisplay');
+  changeEl.textContent = `${change >= 0 ? '+' : ''}${formatILS(change)}`;
+  changeEl.style.color = change >= 0 ? 'var(--success)' : 'var(--danger)';
+}
+
+// ── Events section ──
+function renderEventSection(month) {
+  const existingEvents = CLIENT.events?.[month] || [];
+  const infoEl = document.getElementById('existingEventsInfo');
+  const infoText = document.getElementById('existingEventsText');
+
+  if (existingEvents.length > 0) {
+    infoEl.style.display = 'flex';
+    infoText.textContent = `יש ${existingEvents.length} אירועים קיימים לחודש זה. ניתן לערוך אותם למטה.`;
+  } else {
+    infoEl.style.display = 'none';
+  }
+
+  const container = document.getElementById('eventRows');
+  container.innerHTML = '';
+
+  if (existingEvents.length > 0) {
+    existingEvents.forEach((ev, i) => addEventRow(ev));
+  }
+}
+
+let eventRowCount = 0;
+function addEventRow(existingEvent = null) {
+  const id = `evrow-${eventRowCount++}`;
+  const container = document.getElementById('eventRows');
+  const row = document.createElement('div');
+  row.className = 'event-row';
+  row.id = id;
+
+  const productOptions = CLIENT.products.map(p =>
+    `<option value="${p.id}" ${existingEvent && existingEvent.product_id === p.id ? 'selected' : ''}>${p.name_short}</option>`
+  ).join('');
+
+  const typeOptions = ['deposit', 'transfer_in', 'withdrawal', 'transfer_out'].map(t => {
+    const labels = { deposit: 'הפקדה', transfer_in: 'ניוד נכנס', withdrawal: 'פדיון', transfer_out: 'ניוד יוצא' };
+    return `<option value="${t}" ${existingEvent && existingEvent.type === t ? 'selected' : ''}>${labels[t]}</option>`;
+  }).join('');
+
+  row.innerHTML = `
+    <select class="form-control ev-product" style="font-size:0.82rem; padding:7px 10px;">${productOptions}</select>
+    <select class="form-control ev-type" style="font-size:0.82rem; padding:7px 10px;">${typeOptions}</select>
+    <input type="number" class="form-control ev-day" placeholder="יום" min="1" max="31" style="font-size:0.82rem; padding:7px 10px;" value="${existingEvent ? existingEvent.day : ''}" dir="ltr" />
+    <input type="number" class="form-control ev-amount" placeholder="סכום ₪" min="0" style="font-size:0.82rem; padding:7px 10px;" value="${existingEvent ? existingEvent.amount : ''}" dir="ltr"
+      oninput="recalcAllReturns()" />
+    <button class="btn btn-danger btn-sm" onclick="document.getElementById('${id}').remove(); recalcAllReturns();">
+      <i class="fa fa-trash"></i>
+    </button>
+  `;
+
+  container.appendChild(row);
+  row.querySelector('.ev-amount').addEventListener('change', recalcAllReturns);
+  row.querySelector('.ev-day').addEventListener('change', recalcAllReturns);
+  row.querySelector('.ev-type').addEventListener('change', recalcAllReturns);
+  row.querySelector('.ev-product').addEventListener('change', recalcAllReturns);
+}
+
+function collectEvents() {
+  const events = [];
+  document.querySelectorAll('.event-row').forEach(row => {
+    const product = row.querySelector('.ev-product')?.value;
+    const type = row.querySelector('.ev-type')?.value;
+    const day = parseInt(row.querySelector('.ev-day')?.value);
+    const amount = parseFloat(row.querySelector('.ev-amount')?.value);
+    const labelMap = { deposit: 'הפקדה', transfer_in: 'ניוד נכנס', withdrawal: 'פדיון', transfer_out: 'ניוד יוצא' };
+    if (product && type && !isNaN(day) && !isNaN(amount)) {
+      events.push({ product_id: product, day, amount, type, label: labelMap[type] });
+    }
+  });
+  return events;
+}
+
+function recalcAllReturns() {
+  if (!SELECTED_MONTH) return;
+  // Update modified events
+  const events = collectEvents();
+  if (!MODIFIED_CLIENT.events) MODIFIED_CLIENT.events = {};
+  if (events.length > 0) {
+    MODIFIED_CLIENT.events[SELECTED_MONTH] = events;
+  } else {
+    delete MODIFIED_CLIENT.events[SELECTED_MONTH];
+  }
+  // Recalculate displayed returns
+  const prevMonth = getPrevMonth(SELECTED_MONTH);
+  for (const p of CLIENT.products) {
+    updateReturnCalc(p.id, SELECTED_MONTH, prevMonth || '');
+  }
+}
+
+// ── Timeline ──
+function toggleTimelineInput() {
+  const show = document.getElementById('addTimelineEvent').checked;
+  document.getElementById('timelineInputArea').style.display = show ? 'block' : 'none';
+}
+
+function populateTimelineProductSelect() {
+  const sel = document.getElementById('tlProduct');
+  sel.innerHTML = '<option value="">לא קשור למוצר ספציפי</option>';
+  CLIENT.products.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = p.name_short;
+    sel.appendChild(opt);
+  });
+}
+
+// ── Generate JSON ──
+function buildUpdatedJSON() {
+  const updated = JSON.parse(JSON.stringify(MODIFIED_CLIENT));
+
+  // Ensure selected month is in months array
+  if (!updated.months.includes(SELECTED_MONTH)) {
+    updated.months.push(SELECTED_MONTH);
+    updated.months.sort();
+  }
+
+  // Collect new values
+  for (const p of updated.products) {
+    const input = document.getElementById(`val-${p.id}`);
+    if (input && input.value !== '') {
+      const val = parseFloat(input.value);
+      if (!isNaN(val)) {
+        p.monthly_values[SELECTED_MONTH] = val;
+      }
+    }
+  }
+
+  // Collect events
+  const events = collectEvents();
+  if (!updated.events) updated.events = {};
+  if (events.length > 0) {
+    updated.events[SELECTED_MONTH] = events;
+  }
+
+  // Timeline event
+  if (document.getElementById('addTimelineEvent')?.checked) {
+    const title = document.getElementById('tlTitle')?.value?.trim();
+    const desc = document.getElementById('tlDesc')?.value?.trim();
+    const type = document.getElementById('tlType')?.value;
+    const productId = document.getElementById('tlProduct')?.value;
+    if (title) {
+      if (!updated.timeline_events) updated.timeline_events = [];
+      const yy = SELECTED_MONTH.split('/')[1];
+      const mm = SELECTED_MONTH.split('/')[0];
+      updated.timeline_events.push({
+        date: `20${yy}-${mm}`,
+        title,
+        description: desc || '',
+        type,
+        product_id: productId || null
+      });
+    }
+  }
+
+  return updated;
+}
+
+function previewJSON() {
+  const updated = buildUpdatedJSON();
+  document.getElementById('exportArea').textContent = JSON.stringify(updated, null, 2);
+  document.getElementById('jsonPreview').style.display = 'block';
+}
+
+function generateAndDownload() {
+  const updated = buildUpdatedJSON();
+  const json = JSON.stringify(updated, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${CLIENT.id}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+
+  // Show success message
+  const btn = document.querySelector('[onclick="generateAndDownload()"]');
+  const orig = btn.innerHTML;
+  btn.innerHTML = '<i class="fa fa-check"></i> הורד בהצלחה!';
+  btn.style.background = 'var(--success)';
+  setTimeout(() => { btn.innerHTML = orig; btn.style.background = ''; }, 3000);
+}
+
+function copyJSON() {
+  const text = document.getElementById('exportArea').textContent;
+  navigator.clipboard.writeText(text).then(() => alert('JSON הועתק!'));
+}
+
+function formatILS(v) {
+  if (v == null || isNaN(v)) return '—';
+  return new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 }).format(v);
+}
+
+loadClient();
+</script>
+</body>
+</html>

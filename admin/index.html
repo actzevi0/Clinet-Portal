@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>פאנל יועץ – ניהול לקוחות</title>
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+<style>
+  .admin-header { background: linear-gradient(135deg, #1a56db 0%, #0ea5e9 100%); color: #fff; padding: 40px 0 28px; margin-bottom: 32px; }
+  .admin-header h1 { color: #fff; margin-bottom: 8px; }
+  .admin-header p { color: rgba(255,255,255,0.8); font-size: 0.9rem; }
+  .admin-badge { background: rgba(255,255,255,0.2); color: #fff; padding: 4px 12px; border-radius: 20px; font-size: 0.82rem; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; margin-bottom: 12px; }
+  .client-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; transition: all 0.2s; }
+  .client-card:hover { border-color: var(--primary); box-shadow: var(--shadow); }
+  .client-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .client-name { font-size: 1.1rem; font-weight: 700; }
+  .client-id { font-size: 0.78rem; color: var(--text-dim); font-family: monospace; margin-top: 3px; }
+  .client-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+  .client-stat-item { text-align: center; }
+  .client-stat-val { font-size: 1.1rem; font-weight: 700; }
+  .client-stat-label { font-size: 0.72rem; color: var(--text-muted); }
+  .client-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .new-client-card { border: 2px dashed var(--border); background: transparent; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; cursor: pointer; border-radius: var(--radius); transition: all 0.2s; text-align: center; gap: 12px; min-height: 200px; }
+  .new-client-card:hover { border-color: var(--primary); background: rgba(26,86,219,0.05); }
+  .new-client-card i { font-size: 2rem; color: var(--primary); }
+  .new-client-card p { color: var(--text-muted); font-size: 0.88rem; }
+  .clients-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px; }
+</style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar">
+  <a class="navbar-brand" href="../index.html">
+    <div class="navbar-logo">📈</div>
+    <div class="navbar-name">פאנל יועץ</div>
+  </a>
+  <div class="navbar-actions">
+    <span class="navbar-client-name" style="background: rgba(26,86,219,0.15); color: var(--primary-light);">
+      <i class="fa fa-shield-alt" style="margin-left:6px;"></i>אזור מוגן
+    </span>
+    <a href="../index.html" class="btn btn-secondary btn-sm"><i class="fa fa-globe"></i> פורטל לקוחות</a>
+    <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
+  </div>
+</nav>
+
+<!-- Admin Header -->
+<div class="admin-header">
+  <div class="container">
+    <div class="admin-badge"><i class="fa fa-lock"></i> ממשק ניהול פנימי – סוכן בלבד</div>
+    <h1><i class="fa fa-users" style="margin-left:12px;"></i>ניהול לקוחות</h1>
+    <p>מנהל את תיקי ההשקעות של כלל הלקוחות. לחץ "עדכון חודשי" כדי להזין נתונים חדשים.</p>
+  </div>
+</div>
+
+<main class="container">
+
+  <!-- Stats Bar -->
+  <div class="grid grid-3 gap-20 mb-24" id="adminStats">
+    <div class="kpi-card neutral">
+      <div class="kpi-label">סה״כ לקוחות פעילים</div>
+      <div class="kpi-value" id="statTotalClients">—</div>
+    </div>
+    <div class="kpi-card positive">
+      <div class="kpi-label">סה״כ נכסים מנוהלים</div>
+      <div class="kpi-value" id="statTotalAUM">—</div>
+    </div>
+    <div class="kpi-card neutral">
+      <div class="kpi-label">עדכון אחרון</div>
+      <div class="kpi-value" id="statLastUpdate" style="font-size:1.2rem;">—</div>
+    </div>
+  </div>
+
+  <!-- Alert -->
+  <div class="alert alert-info mb-24">
+    <i class="fa fa-info-circle" style="flex-shrink:0; margin-top:2px;"></i>
+    <div>
+      <strong>אזור מוגן – יועצים בלבד</strong><br>
+      <span style="font-size:0.85rem;">הלקוחות מגיעים מהפורטל הציבורי (<code>index.html</code>) ואין להם גישה לדפים אלה. 
+      כל לקוח רואה אך ורק את הדשבורד האישי שלו.
+      </span>
+    </div>
+  </div>
+
+  <!-- Tools -->
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;">
+    <a href="monthly-update.html" class="btn btn-primary" style="text-decoration:none;"><i class="fa fa-calendar-plus"></i> עדכון חודשי</a>
+    <a href="credentials.html" class="btn btn-secondary btn-sm" style="text-decoration:none;background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.3);"><i class="fa fa-key"></i> ניהול סיסמאות</a>
+    <a href="fix-data.html" class="btn btn-secondary btn-sm" style="text-decoration:none;"><i class="fa fa-wrench"></i> תיקון נתוני מוצרים</a>
+  </div>
+
+  <!-- Clients Grid -->
+  <div class="clients-grid" id="clientsGrid">
+    <div class="loading"><div class="spinner"></div></div>
+  </div>
+
+</main>
+
+<!-- New Client Modal -->
+<div class="modal-overlay" id="newClientModal" onclick="closeNewClientModal(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>לקוח חדש</h3>
+      <button class="modal-close" onclick="document.getElementById('newClientModal').classList.remove('open')"><i class="fa fa-times"></i></button>
+    </div>
+
+    <div class="alert alert-info mb-24">
+      <i class="fa fa-info-circle"></i>
+      <span>מלא את הפרטים הבסיסיים. לאחר יצירת הלקוח, תועבר למסך עריכת פרטים והוספת מוצרים.</span>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">שם מלא *</label>
+      <input type="text" id="newClientName" class="form-control" placeholder="ישראל ישראלי" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">מזהה (ID) *</label>
+      <input type="text" id="newClientId" class="form-control" dir="ltr" placeholder="israel-israeli" />
+      <p class="form-hint">מזהה ייחודי – אותיות קטנות אנגלית ומקפים בלבד. ישמש גם כקוד כניסה ללקוח.</p>
+    </div>
+    <div class="form-group">
+      <label class="form-label">שנת הדוח</label>
+      <input type="text" id="newClientYear" class="form-control" dir="ltr" placeholder="2025" value="2025" />
+    </div>
+
+    <div id="newClientError" class="alert alert-danger mb-16" style="display:none;"></div>
+
+    <div class="flex gap-12">
+      <button class="btn btn-primary flex-1" onclick="createNewClient()" style="justify-content:center;">
+        <i class="fa fa-plus"></i> צור לקוח
+      </button>
+      <button class="btn btn-secondary" onclick="document.getElementById('newClientModal').classList.remove('open')">
+        ביטול
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_BASE='';
+const savedTheme = localStorage.getItem('theme') || 'dark';
+document.documentElement.setAttribute('data-theme', savedTheme);
+document.getElementById('themeBtn').textContent = savedTheme === 'dark' ? '🌙' : '☀️';
+function toggleTheme() {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+  document.getElementById('themeBtn').textContent = next === 'dark' ? '🌙' : '☀️';
+}
+
+let CLIENTS=[];
+let PRODUCTS_ALL=[];
+let MV_ALL={};
+
+async function fetchAll(url){
+  const all=[];let page=1,total=Infinity;
+  const base = url.startsWith('http') ? '' : API_BASE;
+  while(all.length<total){
+    const full = `${base}${url}${url.includes('?')?'&':'?'}page=${page}&limit=100`;
+    const r=await fetch(full);
+    const d=await r.json();
+    all.push(...(d.data||[]));
+    total=d.total||0;
+    if((d.data||[]).length<100)break;
+    page++;
+  }
+  return all;
+}
+
+async function loadClients() {
+  try {
+    CLIENTS = await fetchAll('/tables/clients?limit=100');
+    CLIENTS = CLIENTS.sort((a,b)=>a.name.localeCompare(b.name,'he'));
+
+    // Load all products
+    PRODUCTS_ALL = await fetchAll('/tables/products?sort=sort_order');
+
+    // Load all monthly values
+    const mvAll = await fetchAll('/tables/monthly_values');
+    for(const mv of mvAll){
+      if(!MV_ALL[mv.client_id]) MV_ALL[mv.client_id]=[];
+      MV_ALL[mv.client_id].push(mv);
+    }
+
+    const activeCount = CLIENTS.filter(c=>c.active).length;
+    document.getElementById('statTotalClients').textContent = activeCount;
+
+    // Compute total AUM
+    let totalAUM=0;
+    for(const c of CLIENTS){
+      const prods=PRODUCTS_ALL.filter(p=>p.client_id===c.id&&p.status==='active');
+      const mvs=MV_ALL[c.id]||[];
+      for(const p of prods){
+        const pMvs=mvs.filter(m=>m.product_id===p.id).map(m=>m.value).filter(v=>v!=null);
+        if(pMvs.length) totalAUM+=pMvs[pMvs.length-1];
+      }
+    }
+    document.getElementById('statTotalAUM').textContent = formatILS(totalAUM);
+    document.getElementById('statLastUpdate').textContent = new Date().toLocaleDateString('he-IL');
+
+    renderClientsGrid();
+  } catch(e) {
+    document.getElementById('clientsGrid').innerHTML = `
+      <div class="alert alert-danger">
+        <i class="fa fa-exclamation-triangle"></i>
+        שגיאה בטעינת לקוחות: ${e.message}
+      </div>`;
+  }
+}
+
+function formatILS(v) {
+  if (!v) return '₪0';
+  if (v >= 1000000) return `₪${(v/1000000).toFixed(2)}מ׳`;
+  if (v >= 1000) return `₪${(v/1000).toFixed(0)}א׳`;
+  return `₪${v.toLocaleString('he-IL')}`;
+}
+
+function renderClientsGrid() {
+  const grid = document.getElementById('clientsGrid');
+
+  let html = CLIENTS.map(c => {
+    const prods=PRODUCTS_ALL.filter(p=>p.client_id===c.id&&p.status==='active');
+    const mvs=MV_ALL[c.id]||[];
+    let totalVal=0;
+    const institutions=new Set();
+    for(const p of prods){
+      institutions.add(p.institution||'');
+      const pMvs=mvs.filter(m=>m.product_id===p.id).map(m=>m.value).filter(v=>v!=null);
+      if(pMvs.length) totalVal+=pMvs[pMvs.length-1];
+    }
+    const instArr=[...institutions].filter(Boolean);
+    return `
+      <div class="client-card">
+        <div class="client-card-header">
+          <div>
+            <div class="client-name">${c.name}</div>
+            <div class="client-id">ID: ${c.id}</div>
+          </div>
+          ${c.active ? '<span class="badge badge-success">פעיל</span>' : '<span class="badge badge-neutral">לא פעיל</span>'}
+        </div>
+        <div class="client-stats">
+          <div class="client-stat-item">
+            <div class="client-stat-val">${formatILS(totalVal)}</div>
+            <div class="client-stat-label">צבירה כוללת</div>
+          </div>
+          <div class="client-stat-item">
+            <div class="client-stat-val">${prods.length}</div>
+            <div class="client-stat-label">מוצרים פעילים</div>
+          </div>
+          <div class="client-stat-item">
+            <div class="client-stat-val">${(MV_ALL[c.id]||[]).length}</div>
+            <div class="client-stat-label">רשומות נתונים</div>
+          </div>
+        </div>
+        <div style="font-size:0.78rem; color:var(--text-muted); margin-bottom:14px;">
+          ${instArr.map(i => `<span class="badge badge-primary" style="margin-left:4px; font-size:0.72rem;">${i}</span>`).join('')}
+        </div>
+        <div class="client-actions">
+          <a href="monthly-update.html?client=${c.id}" class="btn btn-primary btn-sm">
+            <i class="fa fa-plus-circle"></i> עדכון חודשי
+          </a>
+          <a href="../dashboard.html?client=${c.id}" target="_blank" class="btn btn-secondary btn-sm">
+            <i class="fa fa-eye"></i> תצוגת לקוח
+          </a>
+          <button class="btn btn-secondary btn-sm" onclick="copyClientLink('${c.id}')">
+            <i class="fa fa-copy"></i> העתק קישור
+          </button>
+        </div>
+      </div>`;
+  }).join('');
+
+  html += `
+    <div class="new-client-card" onclick="openNewClientModal()">
+      <i class="fa fa-user-plus"></i>
+      <strong>לקוח חדש</strong>
+      <p>לחץ להוספת לקוח חדש למערכת</p>
+    </div>`;
+
+  grid.innerHTML = html;
+}
+
+function copyClientLink(clientId) {
+  const url = `${window.location.origin}${window.location.pathname.replace('admin/index.html', '')}dashboard.html?client=${clientId}`;
+  navigator.clipboard.writeText(url).then(() => {
+    alert(`קישור ללקוח הועתק:\n${url}`);
+  });
+}
+
+function openNewClientModal() {
+  document.getElementById('newClientModal').classList.add('open');
+}
+
+function closeNewClientModal(e) {
+  if (e.target.id === 'newClientModal') document.getElementById('newClientModal').classList.remove('open');
+}
+
+// Auto-generate ID from name
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('newClientName').addEventListener('input', function() {
+    const id = this.value.trim()
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '')
+      .replace(/-+/g, '-');
+    document.getElementById('newClientId').value = id;
+  });
+});
+
+async function createNewClient() {
+  const name = document.getElementById('newClientName').value.trim();
+  const id = document.getElementById('newClientId').value.trim();
+  const year = document.getElementById('newClientYear').value.trim() || '2025';
+  const errEl = document.getElementById('newClientError');
+
+  if (!name || !id) {
+    errEl.textContent = 'יש למלא שם ומזהה.';
+    errEl.style.display = 'flex';
+    return;
+  }
+  if (!/^[a-z0-9-]+$/.test(id)) {
+    errEl.textContent = 'המזהה יכול להכיל רק אותיות אנגלית קטנות, מספרים ומקפים.';
+    errEl.style.display = 'flex';
+    return;
+  }
+  errEl.style.display = 'none';
+
+  // Save to API
+  const btn = document.querySelector('#newClientModal .btn-primary');
+  btn.disabled=true; btn.innerHTML='<div class="spinner"></div> יוצר...';
+
+  try{
+    const r=await fetch(`${API_BASE}/tables/clients`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        id: id,
+        name: name,
+        report_title: `דוח מצב – סיכום שנה ${year}`,
+        report_period: year,
+        active: true
+      })
+    });
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    alert(`✅ לקוח ${name} נוצר בהצלחה!\n\nעכשיו כנס לעדכון חודשי להוספת מוצרים ונתונים.`);
+    document.getElementById('newClientModal').classList.remove('open');
+    document.getElementById('newClientName').value='';
+    document.getElementById('newClientId').value='';
+    loadClients();
+  }catch(e){
+    errEl.textContent=`שגיאה ביצירת לקוח: ${e.message}`;
+    errEl.style.display='flex';
+  }finally{
+    btn.disabled=false; btn.innerHTML='<i class="fa fa-plus"></i> צור לקוח';
+  }
+}
+
+loadClients();
+</script>
+</body>
+</html>

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>בדיקת נתונים</title>
+<style>
+body{font-family:monospace;background:#0f172a;color:#e2e8f0;padding:20px;}
+pre{background:#1e293b;padding:16px;border-radius:8px;overflow:auto;font-size:12px;}
+.ok{color:#10b981;} .err{color:#ef4444;} .info{color:#60a5fa;}
+h2{color:#f8fafc;}
+button{background:#1a56db;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;margin:4px;}
+</style>
+</head>
+<body>
+<h2>🔍 בדיקת נתונים — Genspark vs Cloudflare</h2>
+
+<div>
+  <button onclick="checkGenspark()">בדוק Genspark (מקור)</button>
+  <button onclick="checkCloudflare()">בדוק Cloudflare (יעד)</button>
+  <button onclick="migrateAll()">🚀 העתק נתונים Genspark → Cloudflare</button>
+</div>
+
+<h3>תוצאות:</h3>
+<pre id="out">לחץ על כפתור לבדיקה...</pre>
+
+<script>
+const GENSPARK = 'https://usekmdat.gensparkspace.com';
+const CLOUDFLARE = window.location.origin; // הכתובת הנוכחית (Cloudflare)
+
+function log(msg, type=''){
+  const el = document.getElementById('out');
+  el.innerHTML += `<span class="${type}">${msg}</span>\n`;
+}
+function clearLog(){ document.getElementById('out').innerHTML=''; }
+
+async function fetchAll(base, path){
+  const all=[];let page=1;
+  while(true){
+    const r=await fetch(`${base}/${path}${path.includes('?')?'&':'?'}page=${page}&limit=100`);
+    const d=await r.json();
+    all.push(...(d.data||[]));
+    if((d.data||[]).length<100) break;
+    page++;
+  }
+  return all;
+}
+
+async function checkGenspark(){
+  clearLog();
+  log('=== בדיקת Genspark ===\n','info');
+  try{
+    const clients = await fetchAll(GENSPARK, 'tables/clients');
+    log(`✅ לקוחות: ${clients.length} רשומות`,'ok');
+    clients.forEach(c=>log(`   - ${c.id} | ${c.name}`));
+    
+    const products = await fetchAll(GENSPARK, 'tables/products');
+    log(`\n✅ מוצרים: ${products.length} רשומות`,'ok');
+    
+    const mv = await fetchAll(GENSPARK, 'tables/monthly_values');
+    log(`✅ ערכים חודשיים: ${mv.length} רשומות`,'ok');
+    
+    const ev = await fetchAll(GENSPARK, 'tables/timeline_events');
+    log(`✅ אירועים: ${ev.length} רשומות`,'ok');
+  }catch(e){
+    log(`❌ שגיאה: ${e.message}`,'err');
+  }
+}
+
+async function checkCloudflare(){
+  clearLog();
+  log('=== בדיקת Cloudflare ===\n','info');
+  log(`URL: ${CLOUDFLARE}\n`,'info');
+  try{
+    const clients = await fetchAll(CLOUDFLARE, 'tables/clients');
+    log(`לקוחות: ${clients.length} רשומות`,'ok');
+    clients.forEach(c=>log(`   - ${c.id} | ${c.name}`));
+    
+    const products = await fetchAll(CLOUDFLARE, 'tables/products');
+    log(`\nמוצרים: ${products.length} רשומות`,'ok');
+    
+    const mv = await fetchAll(CLOUDFLARE, 'tables/monthly_values');
+    log(`ערכים חודשיים: ${mv.length} רשומות`,'ok');
+  }catch(e){
+    log(`❌ שגיאה: ${e.message}`,'err');
+  }
+}
+
+async function postTo(base, table, data){
+  const {id, gs_project_id, gs_table_name, created_at, updated_at, ...body} = data;
+  body.id = id; // שמור את ה-id המקורי
+  const r = await fetch(`${base}/tables/${table}`, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(body)
+  });
+  return r;
+}
+
+async function migrateAll(){
+  clearLog();
+  log('=== מיגרציה: Genspark → Cloudflare ===\n','info');
+  
+  const tables = ['clients','products','monthly_values','timeline_events'];
+  
+  for(const table of tables){
+    log(`\n📦 מעתיק טבלה: ${table}...`,'info');
+    try{
+      const rows = await fetchAll(GENSPARK, `tables/${table}`);
+      log(`   נמצאו ${rows.length} רשומות ב-Genspark`);
+      
+      let ok=0, fail=0;
+      for(const row of rows){
+        const r = await postTo(CLOUDFLARE, table, row);
+        if(r.ok||r.status===409) ok++; // 409 = כבר קיים
+        else { fail++; log(`   ⚠️ שגיאה ב-${row.id}: HTTP ${r.status}`,'err'); }
+      }
+      log(`   ✅ הועתקו: ${ok} | נכשלו: ${fail}`, ok>0?'ok':'err');
+    }catch(e){
+      log(`   ❌ ${e.message}`,'err');
+    }
+  }
+  
+  log('\n\n🎉 מיגרציה הסתיימה! רענן את הדשבורד.','ok');
+}
+</script>
+</body>
+</html>

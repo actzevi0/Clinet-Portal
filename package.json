@@ -1,0 +1,15 @@
+{
+  "name": "easyfinance-dashboard",
+  "version": "3.0.0",
+  "description": "EasyFinance – Multi-Client Investment Dashboard",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler pages dev . --ip 0.0.0.0 --port 3000",
+    "dev:sandbox": "wrangler pages dev . --ip 0.0.0.0 --port 3000",
+    "deploy": "wrangler pages deploy . --project-name easyfinance-dashboard",
+    "deploy:prod": "wrangler pages deploy . --project-name easyfinance-dashboard"
+  },
+  "devDependencies": {
+    "wrangler": "^3.78.0"
+  }
+}

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מיגרציה – EasyFinance</title>
+<style>
+body{font-family:monospace;background:#0f172a;color:#e2e8f0;padding:24px;max-width:860px;margin:0 auto;}
+h1{color:#3b7ef5;margin-bottom:4px;font-size:1.4rem;}
+.sub{color:#64748b;margin-bottom:24px;font-size:0.85rem;}
+.card{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:20px;margin-bottom:16px;}
+.card h3{margin:0 0 12px;font-size:1rem;}
+button{background:#1a56db;color:#fff;border:none;padding:10px 20px;border-radius:7px;cursor:pointer;font-size:0.9rem;font-weight:700;margin-left:8px;}
+button:hover{background:#3b7ef5;}
+button.green{background:#059669;}
+button.green:hover{background:#10b981;}
+button:disabled{opacity:.5;cursor:not-allowed;}
+pre{background:#0f172a;border:1px solid #1e293b;border-radius:7px;padding:16px;overflow:auto;font-size:0.78rem;line-height:1.7;max-height:400px;margin-top:12px;}
+.ok{color:#10b981;} .err{color:#ef4444;} .info{color:#60a5fa;} .warn{color:#f59e0b;}
+.status-row{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;}
+.stat{background:#0f172a;border:1px solid #334155;border-radius:8px;padding:12px 18px;text-align:center;min-width:100px;}
+.stat-val{font-size:1.5rem;font-weight:800;color:#3b7ef5;}
+.stat-label{font-size:0.72rem;color:#64748b;margin-top:2px;}
+</style>
+</head>
+<body>
+<h1>🔄 מיגרציה: Genspark → Cloudflare D1</h1>
+<p class="sub">כלי להעתקת כל הנתונים מ-Genspark ל-Cloudflare D1 בלחיצה אחת</p>
+
+<div class="card">
+  <h3>שלב 1 — בדוק מצב נוכחי</h3>
+  <button onclick="checkBoth()">🔍 בדוק שני המקורות</button>
+  <div class="status-row" id="statusRow" style="margin-top:16px;display:none;">
+    <div class="stat"><div class="stat-val" id="gs-clients">?</div><div class="stat-label">לקוחות Genspark</div></div>
+    <div class="stat"><div class="stat-val" id="gs-products">?</div><div class="stat-label">מוצרים Genspark</div></div>
+    <div class="stat"><div class="stat-val" id="gs-mv">?</div><div class="stat-label">ערכים Genspark</div></div>
+    <div class="stat"><div class="stat-val" id="gs-ev">?</div><div class="stat-label">אירועים Genspark</div></div>
+    <div style="width:2px;background:#334155;"></div>
+    <div class="stat"><div class="stat-val" id="cf-clients">?</div><div class="stat-label">לקוחות Cloudflare</div></div>
+    <div class="stat"><div class="stat-val" id="cf-products">?</div><div class="stat-label">מוצרים Cloudflare</div></div>
+    <div class="stat"><div class="stat-val" id="cf-mv">?</div><div class="stat-label">ערכים Cloudflare</div></div>
+  </div>
+</div>
+
+<div class="card">
+  <h3>שלב 2 — העתק נתונים ל-Cloudflare D1</h3>
+  <p style="color:#94a3b8;font-size:0.83rem;margin-bottom:12px;">
+    ⚠️ פעולה זו מעתיקה את כל הנתונים מ-Genspark לכאן (Cloudflare D1).<br>
+    רשומות קיימות לא יימחקו — רק יתווספו חדשות.
+  </p>
+  <button class="green" onclick="migrateAll()" id="migBtn">🚀 העתק הכל עכשיו</button>
+  <pre id="log">לחץ "בדוק שני המקורות" קודם...</pre>
+</div>
+
+<script>
+const GENSPARK = 'https://usekmdat.gensparkspace.com';
+const CF = window.location.origin; // Cloudflare Pages
+
+function addLog(msg, type=''){
+  const el=document.getElementById('log');
+  el.innerHTML += `<span class="${type}">${msg}</span>\n`;
+  el.scrollTop = el.scrollHeight;
+}
+function clearLog(){ document.getElementById('log').innerHTML=''; }
+
+async function fetchAllFrom(base, path){
+  const all=[];let page=1;
+  while(true){
+    const sep = path.includes('?')?'&':'?';
+    const r=await fetch(`${base}/${path}${sep}page=${page}&limit=100`);
+    if(!r.ok) throw new Error(`HTTP ${r.status} from ${base}`);
+    const d=await r.json();
+    all.push(...(d.data||[]));
+    if((d.data||[]).length<100) break;
+    page++;
+  }
+  return all;
+}
+
+async function checkBoth(){
+  clearLog();
+  document.getElementById('statusRow').style.display='flex';
+  addLog('בודק Genspark...','info');
+  
+  try{
+    const [gc,gp,gm,ge] = await Promise.all([
+      fetchAllFrom(GENSPARK,'tables/clients'),
+      fetchAllFrom(GENSPARK,'tables/products'),
+      fetchAllFrom(GENSPARK,'tables/monthly_values'),
+      fetchAllFrom(GENSPARK,'tables/timeline_events'),
+    ]);
+    document.getElementById('gs-clients').textContent=gc.length;
+    document.getElementById('gs-products').textContent=gp.length;
+    document.getElementById('gs-mv').textContent=gm.length;
+    document.getElementById('gs-ev').textContent=ge.length;
+    addLog(`✅ Genspark: ${gc.length} לקוחות, ${gp.length} מוצרים, ${gm.length} ערכים, ${ge.length} אירועים`,'ok');
+  }catch(e){
+    addLog(`❌ Genspark שגיאה: ${e.message}`,'err');
+  }
+
+  addLog('בודק Cloudflare D1...','info');
+  try{
+    const [cc,cp,cm] = await Promise.all([
+      fetchAllFrom(CF,'tables/clients'),
+      fetchAllFrom(CF,'tables/products'),
+      fetchAllFrom(CF,'tables/monthly_values'),
+    ]);
+    document.getElementById('cf-clients').textContent=cc.length;
+    document.getElementById('cf-products').textContent=cp.length;
+    document.getElementById('cf-mv').textContent=cm.length;
+    addLog(`✅ Cloudflare D1: ${cc.length} לקוחות, ${cp.length} מוצרים, ${cm.length} ערכים`,'ok');
+    
+    if(cc.length===0){
+      addLog('\n⚠️  Cloudflare D1 ריק! לחץ "העתק הכל עכשיו" להעברת הנתונים.','warn');
+    } else {
+      addLog('\n✅ יש נתונים ב-Cloudflare D1 — האתר אמור לעבוד!','ok');
+    }
+  }catch(e){
+    document.getElementById('cf-clients').textContent='❌';
+    document.getElementById('cf-products').textContent='❌';
+    document.getElementById('cf-mv').textContent='❌';
+    addLog(`❌ Cloudflare D1 שגיאה: ${e.message}`,'err');
+    addLog('   → ה-Worker לא מחובר או D1 ריק','warn');
+  }
+}
+
+async function postRow(base, table, row){
+  // נקה שדות מערכת של Genspark
+  const {gs_project_id, gs_table_name, ...body} = row;
+  const r = await fetch(`${base}/tables/${table}`, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(body)
+  });
+  return r;
+}
+
+async function migrateAll(){
+  const btn = document.getElementById('migBtn');
+  btn.disabled=true;
+  clearLog();
+  addLog('=== מיגרציה: Genspark → Cloudflare D1 ===\n','info');
+
+  const tables = ['clients','products','monthly_values','timeline_events'];
+
+  for(const table of tables){
+    addLog(`\n📦 טבלה: ${table}`,'info');
+    try{
+      const rows = await fetchAllFrom(GENSPARK, `tables/${table}`);
+      addLog(`   נמצאו ${rows.length} רשומות ב-Genspark`);
+      
+      let ok=0, skip=0, fail=0;
+      for(const row of rows){
+        const r = await postRow(CF, table, row);
+        if(r.ok){ ok++; }
+        else if(r.status===409||r.status===400){ skip++; } // כבר קיים
+        else { 
+          fail++;
+          const txt = await r.text();
+          addLog(`   ⚠️ שגיאה ב-${row.id}: HTTP ${r.status} – ${txt.slice(0,80)}`,'err');
+        }
+      }
+      addLog(`   ✅ נוספו: ${ok} | קיימים: ${skip} | נכשלו: ${fail}`, fail>0?'warn':'ok');
+    }catch(e){
+      addLog(`   ❌ ${e.message}`,'err');
+    }
+  }
+  
+  addLog('\n\n🎉 מיגרציה הסתיימה!','ok');
+  addLog('רענן את האתר ובדוק שהנתונים מופיעים.','ok');
+  btn.disabled=false;
+  
+  // עדכן סטטיסטיקות
+  setTimeout(checkBoth, 1000);
+}
+</script>
+</body>
+</html>

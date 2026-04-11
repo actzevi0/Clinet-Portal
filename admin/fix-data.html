@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>תיקון נתונים</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+body{font-family:'Heebo',sans-serif;background:#0f172a;color:#f1f5f9;padding:20px;direction:rtl;}
+table{width:100%;border-collapse:collapse;font-size:0.85rem;}
+th,td{padding:10px;border:1px solid #334155;text-align:right;}
+th{background:#1e293b;color:#94a3b8;}
+tr:hover{background:#1e293b;}
+.btn{padding:7px 14px;border-radius:6px;border:none;cursor:pointer;font-family:'Heebo',sans-serif;font-size:0.82rem;font-weight:600;}
+.btn-blue{background:#1a56db;color:#fff;}
+.btn-green{background:#10b981;color:#fff;}
+.btn-red{background:#ef4444;color:#fff;}
+.badge-on{background:rgba(16,185,129,0.2);color:#10b981;padding:2px 8px;border-radius:12px;font-size:0.75rem;}
+.badge-off{background:rgba(100,116,139,0.2);color:#64748b;padding:2px 8px;border-radius:12px;font-size:0.75rem;}
+pre{background:#1e293b;padding:12px;border-radius:8px;font-size:0.78rem;overflow-x:auto;color:#94a3b8;}
+.msg{padding:10px 16px;border-radius:8px;margin:8px 0;font-size:0.85rem;}
+.msg-ok{background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.3);}
+.msg-err{background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);}
+h2{font-size:1rem;margin:20px 0 10px;color:#94a3b8;}
+input[type=number]{background:#1e293b;border:1px solid #334155;color:#f1f5f9;padding:5px 8px;border-radius:5px;font-size:0.82rem;width:120px;}
+</style>
+</head>
+<body>
+<h1 style="font-size:1.2rem;margin-bottom:4px;">🛠 תיקון נתוני מוצרים</h1>
+<p style="font-size:0.8rem;color:#64748b;margin-bottom:16px;">עמוד זה מאפשר לעדכן ytd_start_value, inception_value ו-exclude_open לכל מוצר</p>
+<div id="msgs"></div>
+<div id="tableWrap"><p style="color:#64748b;">טוען...</p></div>
+
+<h2>פעולות מיוחדות</h2>
+<div style="display:flex;gap:10px;flex-wrap:wrap;">
+  <button class="btn btn-blue" onclick="applyFixes()">✅ החל תיקונים ידועים (מנורה ALLSTARS + איילון)</button>
+  <button class="btn btn-green" onclick="loadProducts()">🔄 רענן</button>
+</div>
+
+<h2>לוג פעולות</h2>
+<pre id="logEl">—</pre>
+
+<script>
+let PRODUCTS=[];
+const log=[];
+
+function addLog(msg){log.push(msg);document.getElementById('logEl').textContent=log.join('\n');}
+function addMsg(txt,ok){const d=document.createElement('div');d.className='msg '+(ok?'msg-ok':'msg-err');d.textContent=txt;document.getElementById('msgs').prepend(d);setTimeout(()=>d.remove(),6000);}
+
+const API_BASE='';
+
+async function fetchAll(url){
+  const all=[];let page=1,total=Infinity;
+  const base = url.startsWith('http') ? '' : API_BASE;
+  while(all.length<total){
+    const full = `${base}${url}${url.includes('?')?'&':'?'}page=${page}&limit=100`;
+    const r=await fetch(full);
+    const d=await r.json();
+    all.push(...(d.data||[]));
+    total=d.total||0;
+    if((d.data||[]).length<100)break;
+    page++;
+  }
+  return all;
+}
+
+async function loadProducts(){
+  document.getElementById('tableWrap').innerHTML='<p style="color:#64748b;">טוען...</p>';
+  try{
+    PRODUCTS=await fetchAll(`${API_BASE}/tables/products?sort=sort_order`);
+    console.log('נטענו',PRODUCTS.length,'מוצרים');
+    PRODUCTS.forEach(p=>console.log(p.name_short||p.name,'ytd=',p.ytd_start_value,'excl=',p.exclude_open,'status=',p.status));
+    addLog(`נטענו ${PRODUCTS.length} מוצרים`);
+    renderTable();
+  }catch(e){
+    console.error('שגיאה בטעינה:',e);
+    addLog('❌ שגיאה בטעינה: '+e.message);
+    document.getElementById('tableWrap').innerHTML='<p style="color:#ef4444;">שגיאה בטעינת נתונים</p>';
+  }
+}
+
+function renderTable(){
+  const html=`<table>
+    <thead><tr>
+      <th>שם</th><th>מוסד</th><th>סטטוס</th>
+      <th>ytd_start_value</th><th>ytd_start_month</th>
+      <th>inception_value</th><th>inception_date</th>
+      <th>exclude_open</th><th>פעולות</th>
+    </tr></thead>
+    <tbody>${PRODUCTS.map(p=>`<tr id="row-${p.id}">
+      <td>${p.name_short||p.name}</td>
+      <td>${p.institution||''}</td>
+      <td>${p.status==='active'?'<span class="badge-on">פעיל</span>':'<span class="badge-off">נפדה</span>'}</td>
+      <td><input type="number" id="ytd_sv_${p.id}" value="${p.ytd_start_value||''}" step="1"></td>
+      <td>${p.ytd_start_month||'—'}</td>
+      <td><input type="number" id="inc_v_${p.id}" value="${p.inception_value||''}" step="1"></td>
+      <td>${p.inception_date||'—'}</td>
+      <td>
+        <select id="excl_${p.id}" style="background:#1e293b;border:1px solid #334155;color:#f1f5f9;padding:4px 8px;border-radius:5px;font-size:0.8rem;">
+          <option value="false" ${!p.exclude_open?'selected':''}>לא</option>
+          <option value="true" ${p.exclude_open?'selected':''}>כן</option>
+        </select>
+      </td>
+      <td><button class="btn btn-blue" onclick="saveProduct('${p.id}')">שמור</button></td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+  document.getElementById('tableWrap').innerHTML=html;
+}
+
+async function saveProduct(id){
+  const p=PRODUCTS.find(x=>x.id===id);if(!p)return;
+  const ytdV=parseFloat(document.getElementById('ytd_sv_'+id).value)||null;
+  const incV=parseFloat(document.getElementById('inc_v_'+id).value)||null;
+  const excl=document.getElementById('excl_'+id).value==='true';
+  
+  const body={ytd_start_value:ytdV,inception_value:incV,exclude_open:excl};
+  addLog(`שומר ${p.name_short}: ytd=${ytdV}, inc=${incV}, excl=${excl}`);
+  
+  const res=await fetch(`${API_BASE}/tables/products/${id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(res.ok){
+    addMsg(`✅ ${p.name_short} עודכן בהצלחה`,true);
+    addLog(`✅ ${p.name_short} עודכן`);
+    // Update local
+    Object.assign(p,body);
+  } else {
+    addMsg(`❌ שגיאה בעדכון ${p.name_short}`,false);
+    addLog(`❌ שגיאה: ${await res.text()}`);
+  }
+}
+
+// לוגיקת התיקון הנכונה:
+// exclude_open=true = "אל תספור את יתרת הפתיחה שלי ב-sumOpen"
+//
+// הכסף עבר: ALLSTARS (300K) → נפדה → כסף הגיע לאיילון (304.7K)
+// כדי למנוע double-count: רק אחד מהשניים צריך להיכנס ל-sumOpen
+// נכנס: ALLSTARS בסכום 300K (הכסף המקורי)
+// לא נכנס: איילון (כי כספו הוא הפדיון של ALLSTARS)
+//
+// מנורה ALLSTARS (נפדה): exclude_open=FALSE  — נכנס ל-sumOpen (300K)
+// איילון (פעיל):         exclude_open=TRUE   — לא נכנס ל-sumOpen, כן ל-sumClose
+//
+// sumOpen = 133K+201K+132K+115K+300K(ALLSTARS)+1050K+63K+300K+95K = 2,391,931
+// sumClose = כל הפעילים = 2,613,215
+// YTD = (2,613,215 - 2,391,931) / 2,391,931 = 9.25% ✅
+async function applyFixes(){
+  addLog('מתחיל תיקונים ידועים...');
+  
+  const allstars=PRODUCTS.find(p=>p.name&&p.name.toLowerCase().includes('allstars'));
+  const ayalon=PRODUCTS.find(p=>p.institution&&p.institution.includes('איילון'));
+  const mnoraIdx=PRODUCTS.find(p=>p.name&&(p.name.includes('אינדקס')||p.name.toLowerCase().includes('index'))&&p.institution&&p.institution.includes('מנורה'));
+  
+  const fixes=[];
+  
+  if(allstars){
+    // exclude_open=FALSE: נכנס ל-sumOpen (הכסף המקורי לפני העברה לאיילון)
+    fixes.push({id:allstars.id,name:allstars.name_short||allstars.name,body:{ytd_start_value:300000,inception_value:300000,exclude_open:false}});
+  } else addLog('⚠️ לא נמצא מנורה ALLSTARS');
+  
+  if(ayalon){
+    // exclude_open=TRUE: לא נכנס ל-sumOpen (כספו הוא הפדיון של ALLSTARS שכבר נספר)
+    fixes.push({id:ayalon.id,name:ayalon.name_short||ayalon.name,body:{ytd_start_value:304700,inception_value:304700,exclude_open:true}});
+  } else addLog('⚠️ לא נמצא איילון');
+  
+  if(mnoraIdx){
+    fixes.push({id:mnoraIdx.id,name:mnoraIdx.name_short||mnoraIdx.name,body:{ytd_start_value:300000,inception_value:300000,exclude_open:false}});
+  } else addLog('⚠️ לא נמצא מנורה אינדקס');
+  
+  for(const fix of fixes){
+    addLog(`עדכון ${fix.name}...`);
+    const res=await fetch(`${API_BASE}/tables/products/${fix.id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(fix.body)});
+    if(res.ok){
+      addMsg(`✅ ${fix.name} עודכן`,true);
+      addLog(`✅ ${fix.name} עודכן: ${JSON.stringify(fix.body)}`);
+    } else {
+      addMsg(`❌ שגיאה ב-${fix.name}`,false);
+      addLog(`❌ שגיאה: ${await res.text()}`);
+    }
+  }
+  
+  await loadProducts();
+}
+
+loadProducts();
+</script>
+</body>
+</html>

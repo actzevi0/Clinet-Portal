@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>עדכון חודשי – פאנל יועץ</title>
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ═══ Layout ═══ */
+.page-header{background:linear-gradient(135deg,#1a56db 0%,#0ea5e9 100%);color:#fff;padding:32px 0 24px;margin-bottom:28px;}
+.page-header h1{color:#fff;margin-bottom:6px;font-size:1.6rem;}
+.page-header p{color:rgba(255,255,255,.8);font-size:.88rem;}
+.admin-badge{background:rgba(255,255,255,.2);color:#fff;padding:4px 12px;border-radius:20px;font-size:.8rem;font-weight:600;display:inline-flex;align-items:center;gap:6px;margin-bottom:10px;}
+
+/* ═══ Step bar ═══ */
+.steps{display:flex;gap:0;margin-bottom:28px;border-radius:var(--radius);overflow:hidden;border:1px solid var(--border);}
+.step{flex:1;padding:12px 16px;text-align:center;font-size:.82rem;font-weight:600;color:var(--text-muted);background:var(--bg-card);border-left:1px solid var(--border);cursor:pointer;transition:.2s;}
+.step:last-child{border-left:none;}
+.step.active{background:var(--primary);color:#fff;}
+.step.done{background:rgba(5,150,105,.15);color:#059669;}
+.step-num{display:inline-block;width:20px;height:20px;border-radius:50%;background:var(--border);color:var(--text-muted);font-size:.72rem;line-height:20px;text-align:center;margin-left:6px;}
+.step.active .step-num{background:rgba(255,255,255,.3);color:#fff;}
+.step.done .step-num{background:#059669;color:#fff;}
+
+/* ═══ Selector ═══ */
+.selector-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-top:12px;}
+.sel-card{border:2px solid var(--border);border-radius:var(--radius);padding:16px;cursor:pointer;transition:.18s;background:var(--bg-card);text-align:center;}
+.sel-card:hover{border-color:var(--primary);box-shadow:var(--shadow);}
+.sel-card.selected{border-color:var(--primary);background:rgba(26,86,219,.08);}
+.sel-card-name{font-weight:700;font-size:.95rem;margin-bottom:4px;}
+.sel-card-sub{font-size:.75rem;color:var(--text-muted);}
+
+/* ═══ Month picker ═══ */
+.month-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:12px;}
+.month-btn{padding:10px 4px;border:2px solid var(--border);border-radius:8px;background:var(--bg-card);color:var(--text);font-size:.82rem;font-weight:600;cursor:pointer;text-align:center;transition:.18s;}
+.month-btn:hover{border-color:var(--primary);}
+.month-btn.selected{border-color:var(--primary);background:var(--primary);color:#fff;}
+.month-btn.has-data{position:relative;}
+.month-btn.has-data::after{content:'✓';position:absolute;top:2px;left:4px;font-size:.6rem;color:#059669;}
+
+/* ═══ Entry table ═══ */
+.entry-table{width:100%;border-collapse:collapse;margin-top:8px;}
+.entry-table th{padding:10px 14px;text-align:right;font-size:.8rem;color:var(--text-muted);border-bottom:2px solid var(--border);font-weight:600;}
+.entry-table td{padding:8px 14px;border-bottom:1px solid var(--border);vertical-align:middle;}
+.entry-table tr:last-child td{border-bottom:none;}
+.entry-table tr.inactive-row td{opacity:.5;}
+.prod-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-left:8px;flex-shrink:0;}
+.prod-name-cell{display:flex;align-items:center;}
+.val-input{width:130px;padding:7px 10px;border:1.5px solid var(--border);border-radius:6px;background:var(--bg-input,var(--bg-card));color:var(--text);font-family:Heebo,sans-serif;font-size:.9rem;text-align:left;direction:ltr;transition:.15s;}
+.val-input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(26,86,219,.15);}
+.val-input.changed{border-color:#f59e0b;background:rgba(245,158,11,.06);}
+.val-input.saved{border-color:#059669;background:rgba(5,150,105,.06);}
+.val-input.error{border-color:#ef4444;background:rgba(239,68,68,.06);}
+.prev-val{font-size:.78rem;color:var(--text-muted);}
+.chg-badge{font-size:.75rem;padding:2px 7px;border-radius:10px;font-weight:600;}
+.chg-pos{background:rgba(5,150,105,.15);color:#059669;}
+.chg-neg{background:rgba(239,68,68,.15);color:#ef4444;}
+.chg-neu{background:var(--border);color:var(--text-muted);}
+.row-status{width:20px;text-align:center;}
+
+/* ═══ Preview panel ═══ */
+.preview-bar{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;margin-bottom:20px;display:flex;gap:24px;align-items:center;flex-wrap:wrap;}
+.preview-item{text-align:center;}
+.preview-val{font-size:1.2rem;font-weight:700;}
+.preview-label{font-size:.72rem;color:var(--text-muted);}
+
+/* ═══ Action bar ═══ */
+.action-bar{position:sticky;bottom:0;background:var(--bg-card);border-top:1px solid var(--border);padding:14px 0;margin-top:24px;z-index:50;}
+.action-bar .container{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;}
+.save-summary{font-size:.85rem;color:var(--text-muted);}
+.save-summary strong{color:var(--text);}
+
+/* ═══ Status indicators ═══ */
+.status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:5px;}
+.status-dot.saving{background:#f59e0b;animation:pulse 1s infinite;}
+.status-dot.saved{background:#059669;}
+.status-dot.error{background:#ef4444;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+
+/* ═══ Log panel ═══ */
+.log-panel{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;max-height:200px;overflow-y:auto;font-size:.78rem;font-family:monospace;}
+.log-line{padding:2px 0;border-bottom:1px solid rgba(255,255,255,.04);}
+.log-ok{color:#059669;}.log-warn{color:#f59e0b;}.log-err{color:#ef4444;}.log-info{color:var(--text-muted);}
+</style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar">
+  <a class="navbar-brand" href="index.html">
+    <div class="navbar-logo">📈</div>
+    <div class="navbar-name">פאנל יועץ</div>
+  </a>
+  <div class="navbar-actions">
+    <span class="navbar-client-name" style="background:rgba(26,86,219,.15);color:var(--primary-light);">
+      <i class="fa fa-calendar-alt" style="margin-left:6px;"></i><span id="navInfo">עדכון חודשי</span>
+    </span>
+    <a href="index.html" class="btn btn-secondary btn-sm"><i class="fa fa-arrow-right"></i> חזרה לניהול</a>
+    <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
+  </div>
+</nav>
+
+<!-- Page Header -->
+<div class="page-header">
+  <div class="container">
+    <div class="admin-badge"><i class="fa fa-edit"></i> עדכון נתוני חודש</div>
+    <h1><i class="fa fa-table" style="margin-left:10px;"></i>הזנת ערכים חודשיים</h1>
+    <p>בחר לקוח → בחר חודש → הזן ערכי שוק → שמור. ניתן לעדכן מוצרים נבחרים בלבד.</p>
+  </div>
+</div>
+
+<main class="container" style="padding-bottom:120px;">
+
+  <!-- Step bar -->
+  <div class="steps">
+    <div class="step active" id="step1"><span class="step-num">1</span> בחר לקוח</div>
+    <div class="step" id="step2"><span class="step-num">2</span> בחר חודש</div>
+    <div class="step" id="step3"><span class="step-num">3</span> הזן ערכים</div>
+    <div class="step" id="step4"><span class="step-num">4</span> אישור ושמירה</div>
+  </div>
+
+  <!-- ── STEP 1: Client ── -->
+  <div id="panelClient">
+    <div class="card">
+      <div class="card-header"><h3><i class="fa fa-user-tie" style="margin-left:8px;color:var(--primary-light)"></i>בחירת לקוח</h3></div>
+      <div id="clientGrid" class="selector-grid">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── STEP 2: Month ── -->
+  <div id="panelMonth" style="display:none;">
+    <div class="card">
+      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+        <h3><i class="fa fa-calendar" style="margin-left:8px;color:var(--primary-light)"></i>בחירת חודש</h3>
+        <button class="btn btn-secondary btn-sm" onclick="goStep(1)"><i class="fa fa-arrow-right"></i> החלף לקוח</button>
+      </div>
+      <div class="flex gap-12 mb-16" style="align-items:center;">
+        <label class="form-label" style="margin:0;white-space:nowrap;">שנה:</label>
+        <select id="yearSel" class="form-control" style="width:100px;" onchange="renderMonthGrid()"></select>
+      </div>
+      <div id="monthGrid" class="month-grid"></div>
+      <p class="form-hint" style="margin-top:12px;"><span style="color:#059669;">✓</span> = חודש עם נתונים קיימים. ניתן לערוך חודש קיים או להוסיף חדש.</p>
+    </div>
+  </div>
+
+  <!-- ── STEP 3: Entry ── -->
+  <div id="panelEntry" style="display:none;">
+    <div class="card">
+      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+        <h3 id="entryTitle"><i class="fa fa-pencil-alt" style="margin-left:8px;color:var(--primary-light)"></i>הזנת ערכים</h3>
+        <button class="btn btn-secondary btn-sm" onclick="goStep(2)"><i class="fa fa-arrow-right"></i> החלף חודש</button>
+      </div>
+
+      <!-- Preview bar -->
+      <div class="preview-bar" id="previewBar">
+        <div class="preview-item">
+          <div class="preview-val" id="prevTotalPrev">—</div>
+          <div class="preview-label">סה"כ חודש קודם</div>
+        </div>
+        <div style="color:var(--text-muted);font-size:1.2rem;">→</div>
+        <div class="preview-item">
+          <div class="preview-val" id="prevTotalCur">—</div>
+          <div class="preview-label">סה"כ חודש נוכחי</div>
+        </div>
+        <div style="flex:1"></div>
+        <div class="preview-item">
+          <div class="preview-val" id="prevMonthRet">—</div>
+          <div class="preview-label">תשואה חודשית ממוצעת</div>
+        </div>
+        <div class="preview-item">
+          <div class="preview-val" id="prevFilled">0 / 0</div>
+          <div class="preview-label">מוצרים מולאו</div>
+        </div>
+      </div>
+
+      <!-- Entry table -->
+      <table class="entry-table">
+        <thead>
+          <tr>
+            <th style="width:20px;"></th>
+            <th>מוצר</th>
+            <th>ערך חודש קודם</th>
+            <th>ערך חודש נוכחי</th>
+            <th>שינוי %</th>
+            <th style="width:60px;text-align:center;">סטטוס</th>
+          </tr>
+        </thead>
+        <tbody id="entryBody"></tbody>
+      </table>
+
+      <div class="flex gap-12 mt-16" style="justify-content:flex-end;">
+        <button class="btn btn-secondary btn-sm" onclick="fillFromPrev()" title="מלא כל ערך ריק בערך החודש הקודם">
+          <i class="fa fa-copy"></i> העתק מחודש קודם
+        </button>
+        <button class="btn btn-secondary btn-sm" onclick="clearAll()">
+          <i class="fa fa-times"></i> נקה הכל
+        </button>
+      </div>
+    </div>
+
+    <!-- Log -->
+    <div class="card mt-20" style="display:none;" id="logCard">
+      <div class="card-header"><h3><i class="fa fa-terminal" style="margin-left:8px;"></i>יומן פעולות</h3></div>
+      <div class="log-panel" id="logPanel"></div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Action Bar (sticky bottom) -->
+<div class="action-bar" id="actionBar" style="display:none;">
+  <div class="container">
+    <div class="save-summary" id="saveSummary">0 שורות שונו</div>
+    <div class="flex gap-12">
+      <button class="btn btn-secondary" onclick="previewChanges()">
+        <i class="fa fa-eye"></i> תצוגה מקדימה
+      </button>
+      <button class="btn btn-primary" onclick="saveAll()" id="btnSave">
+        <i class="fa fa-save"></i> שמור הכל
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Preview Modal -->
+<div class="modal-overlay" id="previewModal" onclick="closePreviewModal(event)">
+  <div class="modal" style="max-width:600px;max-height:80vh;overflow-y:auto;">
+    <div class="modal-header">
+      <h3>תצוגה מקדימה – שינויים לשמירה</h3>
+      <button class="modal-close" onclick="document.getElementById('previewModal').classList.remove('open')"><i class="fa fa-times"></i></button>
+    </div>
+    <div id="previewContent"></div>
+    <div class="flex gap-12 mt-16">
+      <button class="btn btn-primary flex-1" onclick="saveAll();document.getElementById('previewModal').classList.remove('open')" style="justify-content:center;">
+        <i class="fa fa-save"></i> אשר ושמור
+      </button>
+      <button class="btn btn-secondary" onclick="document.getElementById('previewModal').classList.remove('open')">ביטול</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════
+// Theme
+// ══════════════════════════════════════════════════════════
+const savedTheme = localStorage.getItem('theme') || 'dark';
+document.documentElement.setAttribute('data-theme', savedTheme);
+function toggleTheme(){
+  const t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', t);
+  localStorage.setItem('theme', t);
+  document.getElementById('themeBtn').textContent = t === 'dark' ? '🌙' : '☀️';
+}
+document.getElementById('themeBtn').textContent = savedTheme === 'dark' ? '🌙' : '☀️';
+
+// ══════════════════════════════════════════════════════════
+// State
+// ══════════════════════════════════════════════════════════
+let CLIENTS=[], PRODUCTS=[], MV={};
+let SEL_CLIENT=null, SEL_MONTH=null, SEL_YEAR=new Date().getFullYear();
+let ROW_DATA={}; // prodId → {prevVal, curVal, mvId (if exists)}
+let DIRTY=new Set(); // prodIds with unsaved changes
+
+// ══════════════════════════════════════════════════════════
+// API helpers
+// ══════════════════════════════════════════════════════════
+const API_BASE='';
+async function fetchAll(path){
+  // path can be relative (starts with '/') or absolute
+  const fullPath = path.startsWith('http') ? path : `${API_BASE}${path}`;
+  let all=[],page=1;
+  while(true){
+    const r=await fetch(`${fullPath}${fullPath.includes('?')?'&':'?'}page=${page}&limit=200`);
+    const d=await r.json();
+    const rows=d.data||[];
+    all=[...all,...rows];
+    if(rows.length<200) break;
+    page++;
+  }
+  return all;
+}
+async function apiPost(path,body){
+  console.log('[POST]', path, body);
+  const r=await fetch(`${path}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const d=await r.json();
+  console.log('[POST result]', r.status, d);
+  if(!r.ok) throw new Error(`POST failed: ${r.status} ${JSON.stringify(d)}`);
+  return d;
+}
+async function apiPatch(path,body){
+  console.log('[PATCH]', path, body);
+  const r=await fetch(`${path}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const d=await r.json();
+  console.log('[PATCH result]', r.status, d);
+  if(!r.ok) throw new Error(`PATCH failed: ${r.status} ${JSON.stringify(d)}`);
+  return d;
+}
+
+// ══════════════════════════════════════════════════════════
+// Formatters
+// ══════════════════════════════════════════════════════════
+const ILS = v => v==null?'—': new Intl.NumberFormat('he-IL',{style:'currency',currency:'ILS',maximumFractionDigits:0}).format(v);
+const PCT = v => v==null?'—': (v>=0?'+':'')+v.toFixed(2)+'%';
+const MONTHS_HE = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+
+function mmyyToLabel(m){ // "01/25" → "ינואר 25"
+  if(!m) return '';
+  const [mm,yy]=m.split('/');
+  return `${MONTHS_HE[+mm-1]} 20${yy}`;
+}
+
+// Build MM/YY from year+month index (0-based)
+function buildMMYY(year, monthIdx){
+  return `${String(monthIdx+1).padStart(2,'0')}/${String(year).slice(-2)}`;
+}
+
+// ══════════════════════════════════════════════════════════
+// Step management
+// ══════════════════════════════════════════════════════════
+function goStep(n){
+  ['panelClient','panelMonth','panelEntry'].forEach((id,i)=>{
+    document.getElementById(id).style.display = (i===n-1)?'block':'none';
+  });
+  [1,2,3,4].forEach(i=>{
+    const el=document.getElementById('step'+i);
+    el.classList.remove('active','done');
+    if(i<n) el.classList.add('done');
+    else if(i===n) el.classList.add('active');
+  });
+  document.getElementById('actionBar').style.display = n===3?'block':'none';
+}
+
+// ══════════════════════════════════════════════════════════
+// STEP 1 – Clients
+// ══════════════════════════════════════════════════════════
+async function loadClients(){
+  CLIENTS = await fetchAll(`${API_BASE}/tables/clients`);
+  const grid=document.getElementById('clientGrid');
+  if(!CLIENTS.length){ grid.innerHTML='<p style="color:var(--text-muted);">לא נמצאו לקוחות.</p>'; return; }
+  grid.innerHTML = CLIENTS.map(c=>`
+    <div class="sel-card" onclick="selectClient('${c.id}')" id="cc-${c.id}">
+      <div class="prod-name-cell" style="justify-content:center;margin-bottom:6px;">
+        <span style="font-size:1.4rem;">👤</span>
+      </div>
+      <div class="sel-card-name">${c.name}</div>
+      <div class="sel-card-sub">${c.id}</div>
+    </div>`).join('');
+}
+
+async function selectClient(cid){
+  SEL_CLIENT = CLIENTS.find(c=>c.id===cid);
+  document.querySelectorAll('.sel-card').forEach(el=>el.classList.remove('selected'));
+  document.getElementById('cc-'+cid)?.classList.add('selected');
+
+  // Load products + monthly values for this client
+  PRODUCTS = (await fetchAll(`${API_BASE}/tables/products?sort=sort_order`))
+    .filter(p=>p.client_id===cid)
+    .sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+
+  const mvAll = await fetchAll(`${API_BASE}/tables/monthly_values`);
+  MV={};
+  PRODUCTS.forEach(p=>{
+    MV[p.id] = mvAll.filter(r=>r.product_id===p.id && r.client_id===cid);
+  });
+
+  document.getElementById('navInfo').textContent = SEL_CLIENT.name;
+
+  // Populate year selector
+  const yearSel=document.getElementById('yearSel');
+  const curYear=new Date().getFullYear();
+  yearSel.innerHTML=[curYear+1,curYear,curYear-1,curYear-2]
+    .map(y=>`<option value="${y}" ${y===curYear?'selected':''}>${y}</option>`).join('');
+  SEL_YEAR=curYear;
+
+  renderMonthGrid();
+  goStep(2);
+}
+
+// ══════════════════════════════════════════════════════════
+// STEP 2 – Month
+// ══════════════════════════════════════════════════════════
+function renderMonthGrid(){
+  SEL_YEAR=+document.getElementById('yearSel').value;
+  const grid=document.getElementById('monthGrid');
+
+  // Which months have ANY data for this client?
+  const dataMonths=new Set();
+  Object.values(MV).forEach(rows=>rows.forEach(r=>{
+    if(r.month) dataMonths.add(r.month);
+  }));
+
+  grid.innerHTML=MONTHS_HE.map((name,i)=>{
+    const mmyy=buildMMYY(SEL_YEAR,i);
+    const has=dataMonths.has(mmyy);
+    return `<button class="month-btn ${has?'has-data':''} ${SEL_MONTH===mmyy?'selected':''}"
+      onclick="selectMonth('${mmyy}')">${name}<br>
+      <span style="font-size:.7rem;font-weight:400;">${has?'יש נתונים':'ריק'}</span>
+    </button>`;
+  }).join('');
+}
+
+function selectMonth(mmyy){
+  SEL_MONTH=mmyy;
+  renderMonthGrid(); // re-render to show selection
+  buildEntryTable();
+  goStep(3);
+}
+
+// ══════════════════════════════════════════════════════════
+// STEP 3 – Entry
+// ══════════════════════════════════════════════════════════
+function getPrevMonth(mmyy){
+  const [mm,yy]=mmyy.split('/').map(Number);
+  if(mm===1) return `12/${String(yy-1).padStart(2,'0')}`;
+  return `${String(mm-1).padStart(2,'0')}/${String(yy).padStart(2,'0')}`;
+}
+
+function getMVRow(prodId, month){
+  return (MV[prodId]||[]).find(r=>r.month===month)||null;
+}
+function getMVVal(prodId, month){
+  return getMVRow(prodId,month)?.value??null;
+}
+
+function buildEntryTable(){
+  document.getElementById('entryTitle').innerHTML =
+    `<i class="fa fa-pencil-alt" style="margin-left:8px;color:var(--primary-light)"></i>הזנת ערכים – ${mmyyToLabel(SEL_MONTH)}`;
+
+  const prevMonth=getPrevMonth(SEL_MONTH);
+  ROW_DATA={};
+  DIRTY.clear();
+
+  const tbody=document.getElementById('entryBody');
+  tbody.innerHTML=PRODUCTS.map(p=>{
+    const prevVal=getMVVal(p.id,prevMonth);
+    const curVal=getMVVal(p.id,SEL_MONTH);
+    const mvRow=getMVRow(p.id,SEL_MONTH);
+    ROW_DATA[p.id]={prevVal,curVal,mvId:mvRow?.id||null,origVal:curVal};
+
+    const isInactive=p.status!=='active';
+    return `<tr id="tr-${p.id}" class="${isInactive?'inactive-row':''}">
+      <td class="row-status"><span id="st-${p.id}" title="${isInactive?'מוצר לא פעיל':''}">
+        ${isInactive?'💤':''}
+      </span></td>
+      <td>
+        <div class="prod-name-cell">
+          <span class="prod-dot" style="background:${p.color||'#888'}"></span>
+          <div>
+            <div style="font-weight:600;font-size:.88rem;">${p.name_short||p.name}</div>
+            <div style="font-size:.72rem;color:var(--text-muted);">${p.institution||''}</div>
+          </div>
+        </div>
+      </td>
+      <td><span class="prev-val">${prevVal!=null?ILS(prevVal):'—'}</span>
+          <div style="font-size:.7rem;color:var(--text-muted);">${prevMonth?mmyyToLabel(prevMonth):''}</div>
+      </td>
+      <td>
+        <input type="number" class="val-input ${curVal!=null?'saved':''}" id="inp-${p.id}"
+          value="${curVal!=null?curVal:''}"
+          placeholder="הזן ערך..."
+          onchange="onValChange('${p.id}',this)"
+          oninput="onValInput('${p.id}',this)"
+          dir="ltr" step="1">
+      </td>
+      <td id="chg-${p.id}">${renderChg(prevVal,curVal)}</td>
+      <td style="text-align:center;" id="rowSt-${p.id}">
+        ${curVal!=null?'<span style="color:#059669;font-size:.85rem;">✓</span>':'<span style="color:var(--text-muted);font-size:.85rem;">—</span>'}
+      </td>
+    </tr>`;
+  }).join('');
+
+  updatePreview();
+  updateSaveSummary();
+}
+
+function renderChg(prev,cur){
+  if(prev==null||cur==null||prev===0) return '<span class="chg-badge chg-neu">—</span>';
+  const pct=(cur-prev)/prev*100;
+  const cls=pct>0?'chg-pos':pct<0?'chg-neg':'chg-neu';
+  return `<span class="chg-badge ${cls}">${PCT(pct)}</span>`;
+}
+
+function onValInput(prodId, input){
+  const v=input.value.trim()===''?null:+input.value;
+  // Live update change badge
+  const prev=ROW_DATA[prodId].prevVal;
+  document.getElementById('chg-'+prodId).innerHTML=renderChg(prev,v);
+  input.classList.add('changed');
+  input.classList.remove('saved','error');
+}
+
+function onValChange(prodId, input){
+  const v=input.value.trim()===''?null:+input.value;
+  ROW_DATA[prodId].curVal=v;
+  if(v !== ROW_DATA[prodId].origVal) DIRTY.add(prodId);
+  else DIRTY.delete(prodId);
+  updatePreview();
+  updateSaveSummary();
+}
+
+function updatePreview(){
+  let sumPrev=0, sumCur=0, countPrev=0, countCur=0, filled=0, total=0;
+  const prevMonth=getPrevMonth(SEL_MONTH);
+  PRODUCTS.forEach(p=>{
+    if(p.status!=='active') return;
+    total++;
+    const prev=ROW_DATA[p.id]?.prevVal??getMVVal(p.id,prevMonth);
+    const cur=ROW_DATA[p.id]?.curVal;
+    if(prev!=null){sumPrev+=prev;countPrev++;}
+    if(cur!=null){sumCur+=cur;countCur++;filled++;}
+  });
+  document.getElementById('prevTotalPrev').textContent=countPrev?ILS(sumPrev):'—';
+  document.getElementById('prevTotalCur').textContent=countCur?ILS(sumCur):'—';
+  document.getElementById('prevFilled').textContent=`${filled} / ${total}`;
+
+  let ret='—';
+  if(sumPrev>0&&sumCur>0) ret=PCT((sumCur-sumPrev)/sumPrev*100);
+  document.getElementById('prevMonthRet').textContent=ret;
+}
+
+function updateSaveSummary(){
+  const n=DIRTY.size;
+  const newRows=[...DIRTY].filter(id=>ROW_DATA[id].mvId===null&&ROW_DATA[id].curVal!=null).length;
+  const updateRows=n-newRows;
+  let txt=n===0?'אין שינויים ממתינים':
+    `<strong>${n}</strong> שינויים ממתינים`;
+  if(newRows) txt+=` (${newRows} חדשים)`;
+  if(updateRows) txt+=` (${updateRows} עדכונים)`;
+  document.getElementById('saveSummary').innerHTML=txt;
+  document.getElementById('btnSave').disabled=(n===0);
+}
+
+function fillFromPrev(){
+  PRODUCTS.forEach(p=>{
+    const input=document.getElementById('inp-'+p.id);
+    if(!input||input.value.trim()!=='') return;
+    const prev=ROW_DATA[p.id].prevVal;
+    if(prev==null) return;
+    input.value=prev;
+    onValChange(p.id,input);
+    onValInput(p.id,input);
+  });
+}
+
+function clearAll(){
+  if(!confirm('לנקות את כל הערכים שהוזנו?')) return;
+  PRODUCTS.forEach(p=>{
+    const input=document.getElementById('inp-'+p.id);
+    if(!input) return;
+    input.value='';
+    ROW_DATA[p.id].curVal=null;
+    DIRTY.add(p.id);
+    input.classList.remove('saved','changed','error');
+    document.getElementById('chg-'+p.id).innerHTML=renderChg(ROW_DATA[p.id].prevVal,null);
+  });
+  updatePreview();
+  updateSaveSummary();
+}
+
+// ══════════════════════════════════════════════════════════
+// Preview Modal
+// ══════════════════════════════════════════════════════════
+function previewChanges(){
+  if(!DIRTY.size){ alert('אין שינויים לשמירה.'); return; }
+  const rows=[...DIRTY].map(id=>{
+    const p=PRODUCTS.find(x=>x.id===id);
+    const d=ROW_DATA[id];
+    const isNew=!d.mvId;
+    return `<tr>
+      <td><span class="prod-dot" style="background:${p.color||'#888'};display:inline-block;"></span> ${p.name_short}</td>
+      <td style="direction:ltr;text-align:left;">${d.origVal!=null?ILS(d.origVal):'—'}</td>
+      <td style="direction:ltr;text-align:left;">${d.curVal!=null?ILS(d.curVal):'—'}</td>
+      <td>${renderChg(d.prevVal,d.curVal)}</td>
+      <td><span style="font-size:.75rem;padding:2px 6px;border-radius:8px;background:${isNew?'rgba(26,86,219,.15)':'rgba(245,158,11,.15)'};color:${isNew?'var(--primary-light)':'#f59e0b'}">${isNew?'חדש':'עדכון'}</span></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('previewContent').innerHTML=`
+    <p style="color:var(--text-muted);font-size:.85rem;margin-bottom:12px;">חודש: <strong>${mmyyToLabel(SEL_MONTH)}</strong> | לקוח: <strong>${SEL_CLIENT?.name}</strong></p>
+    <table style="width:100%;border-collapse:collapse;font-size:.85rem;">
+      <thead><tr style="border-bottom:2px solid var(--border);">
+        <th style="padding:8px 6px;text-align:right;">מוצר</th>
+        <th style="padding:8px 6px;text-align:right;">ערך קודם</th>
+        <th style="padding:8px 6px;text-align:right;">ערך חדש</th>
+        <th style="padding:8px 6px;text-align:right;">שינוי</th>
+        <th style="padding:8px 6px;text-align:right;">סוג</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  document.getElementById('previewModal').classList.add('open');
+}
+function closePreviewModal(e){ if(e.target.id==='previewModal') document.getElementById('previewModal').classList.remove('open'); }
+
+// ══════════════════════════════════════════════════════════
+// Save
+// ══════════════════════════════════════════════════════════
+function addLog(msg, cls='log-info'){
+  const logCard=document.getElementById('logCard');
+  const panel=document.getElementById('logPanel');
+  logCard.style.display='block';
+  panel.innerHTML=`<div class="log-line ${cls}">${new Date().toLocaleTimeString('he-IL')} — ${msg}</div>`+panel.innerHTML;
+}
+
+async function saveAll(){
+  if(!DIRTY.size) return;
+  const btn=document.getElementById('btnSave');
+  btn.disabled=true;
+  btn.innerHTML='<span class="status-dot saving"></span> שומר...';
+
+  let ok=0, fail=0;
+  const toSave=[...DIRTY];
+
+  for(const prodId of toSave){
+    const d=ROW_DATA[prodId];
+    const p=PRODUCTS.find(x=>x.id===prodId);
+
+    // אם ניקו את הערך (null) ויש רשומה קיימת — לא מוחקים, רק מדלגים
+    if(d.curVal===null && d.mvId){
+      addLog(`⏭ דולג: ${p.name_short} — ערך ריק (לא נמחק)`, 'log-warn');
+      DIRTY.delete(prodId);
+      continue;
+    }
+    if(d.curVal===null){
+      DIRTY.delete(prodId);
+      continue;
+    }
+
+    try{
+      const body={
+        client_id: SEL_CLIENT.id,
+        product_id: prodId,
+        month: SEL_MONTH,
+        value: d.curVal
+      };
+
+      let result;
+      if(d.mvId){
+        // עדכון ערך קיים — PATCH (רק שדות ששינינו)
+        result=await apiPatch(`${API_BASE}/tables/monthly_values/${d.mvId}`, {value: d.curVal});
+      } else {
+        // יצירת רשומה חדשה — POST
+        result=await apiPost(`${API_BASE}/tables/monthly_values`, body);
+        d.mvId=result.id;
+      }
+
+      // עדכן מצב מקומי
+      d.origVal=d.curVal;
+      DIRTY.delete(prodId);
+      // עדכן MV
+      if(!MV[prodId]) MV[prodId]=[];
+      const idx=MV[prodId].findIndex(r=>r.month===SEL_MONTH);
+      if(idx>=0) MV[prodId][idx]={...MV[prodId][idx],value:d.curVal};
+      else MV[prodId].push({id:d.mvId,product_id:prodId,client_id:SEL_CLIENT.id,month:SEL_MONTH,value:d.curVal});
+
+      // Visual feedback
+      const input=document.getElementById('inp-'+prodId);
+      if(input){ input.classList.remove('changed','error'); input.classList.add('saved'); }
+      document.getElementById('rowSt-'+prodId).innerHTML='<span style="color:#059669;">✓</span>';
+      addLog(`✅ נשמר: ${p.name_short} = ${ILS(d.curVal)}`, 'log-ok');
+      ok++;
+    }catch(e){
+      addLog(`❌ שגיאה: ${p.name_short} — ${e.message}`, 'log-err');
+      const input=document.getElementById('inp-'+prodId);
+      if(input){ input.classList.add('error'); }
+      fail++;
+    }
+  }
+
+  btn.disabled=false;
+  btn.innerHTML='<i class="fa fa-save"></i> שמור הכל';
+  updateSaveSummary();
+  updatePreview();
+
+  // רענן את רשת החודשים כדי לסמן את החודש שנשמר
+  renderMonthGrid();
+
+  if(fail===0){
+    addLog(`🎉 הושלם בהצלחה — ${ok} ערכים נשמרו`, 'log-ok');
+    // הצג toast
+    showToast(`✅ ${ok} ערכים נשמרו בהצלחה!`, 'success');
+  } else {
+    showToast(`⚠️ ${ok} נשמרו, ${fail} נכשלו`, 'warn');
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// Toast
+// ══════════════════════════════════════════════════════════
+function showToast(msg, type='success'){
+  const existing=document.getElementById('toast');
+  if(existing) existing.remove();
+  const t=document.createElement('div');
+  t.id='toast';
+  t.style.cssText=`position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
+    padding:12px 24px;border-radius:8px;font-weight:600;font-size:.9rem;
+    z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,.3);
+    background:${type==='success'?'#059669':'#f59e0b'};color:#fff;`;
+  t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(),3500);
+}
+
+// ══════════════════════════════════════════════════════════
+// Init — בדיקת חיבור ל-API
+// ══════════════════════════════════════════════════════════
+async function checkAPIConnection(){
+  try{
+    const r = await fetch(`${API_BASE}/tables/clients?limit=1`);
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    const d = await r.json();
+    console.log('✅ API connection OK, clients:', d.total);
+    return true;
+  }catch(e){
+    console.error('❌ API connection FAILED:', e.message);
+    // הצג הודעה בולטת
+    const warn = document.createElement('div');
+    warn.style.cssText = 'background:#7f1d1d;color:#fca5a5;padding:14px 20px;text-align:center;font-weight:600;font-size:.9rem;border-bottom:2px solid #ef4444;';
+    warn.innerHTML = `⚠️ לא ניתן להתחבר ל-API (${e.message}). ודא שאתה פותח את הדף <strong>מהשרת המקוון</strong> ולא מקובץ מקומי.`;
+    document.body.insertBefore(warn, document.body.firstChild);
+    return false;
+  }
+}
+
+async function init(){
+  const ok = await checkAPIConnection();
+  if(ok) loadClients();
+}
+init();
+</script>
+</body>
+</html>

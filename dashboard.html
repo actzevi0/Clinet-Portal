@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>דשבורד השקעות</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#0f172a;--bg-card:#1e293b;--bg-card2:#263044;--bg-hover:#334155;
+  --border:#334155;--border-light:#475569;
+  --text:#f1f5f9;--text-muted:#94a3b8;--text-dim:#64748b;
+  --primary:#1a56db;--primary-light:#3b7ef5;
+  --success:#10b981;--danger:#ef4444;--warning:#f59e0b;
+  --radius:12px;--font:'Heebo',sans-serif;
+  --shadow:0 4px 16px rgba(0,0,0,0.4);
+}
+[data-theme="light"]{
+  --bg:#f0f4f8;--bg-card:#fff;--bg-card2:#f8fafc;--bg-hover:#f1f5f9;
+  --border:#e2e8f0;--border-light:#cbd5e1;
+  --text:#0f172a;--text-muted:#475569;--text-dim:#94a3b8;
+  --shadow:0 4px 16px rgba(0,0,0,0.1);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{direction:rtl;font-size:16px;}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;}
+/* Nav */
+.nav{background:var(--bg-card);border-bottom:1px solid var(--border);height:62px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:100;box-shadow:0 1px 4px rgba(0,0,0,0.3);}
+.nav-brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--text);}
+.nav-logo{width:36px;height:36px;background:var(--primary);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:800;color:#fff;}
+.nav-title{font-weight:700;font-size:1rem;}
+.nav-actions{display:flex;align-items:center;gap:10px;}
+.nav-client{font-size:0.82rem;color:var(--text-muted);padding:5px 12px;background:var(--bg-card2);border-radius:20px;}
+.theme-btn{width:34px;height:34px;border-radius:50%;border:1px solid var(--border);background:var(--bg-card2);cursor:pointer;font-size:0.95rem;display:flex;align-items:center;justify-content:center;}
+/* Layout */
+.main{padding:24px 0 60px;}
+.container{max-width:1380px;margin:0 auto;padding:0 20px;}
+/* Cards */
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:22px;box-shadow:0 1px 4px rgba(0,0,0,0.2);}
+.card-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;}
+.card-title{font-size:0.95rem;font-weight:700;}
+.card-sub{font-size:0.75rem;color:var(--text-muted);margin-top:3px;}
+/* KPIs */
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:24px;}
+.kpi{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;position:relative;overflow:hidden;}
+.kpi::before{content:'';position:absolute;top:0;right:0;width:3px;height:100%;}
+.kpi.green::before{background:var(--success);}
+.kpi.blue::before{background:var(--primary);}
+.kpi.orange::before{background:var(--warning);}
+.kpi-label{font-size:0.75rem;color:var(--text-muted);font-weight:500;margin-bottom:6px;}
+.kpi-val{font-size:1.65rem;font-weight:800;line-height:1.1;}
+.kpi-sub{font-size:0.72rem;color:var(--text-muted);margin-top:5px;}
+.kpi-badge{display:inline-flex;align-items:center;gap:3px;font-size:0.75rem;font-weight:700;padding:2px 9px;border-radius:20px;margin-top:5px;}
+.kpi-badge.up{background:rgba(16,185,129,0.15);color:var(--success);}
+.kpi-badge.down{background:rgba(239,68,68,0.15);color:var(--danger);}
+/* Tabs */
+.tabs{display:flex;gap:3px;background:var(--bg-card2);border-radius:var(--radius);padding:4px;margin-bottom:22px;flex-wrap:wrap;}
+.tab{flex:1;padding:9px 14px;border:none;border-radius:9px;background:transparent;color:var(--text-muted);font-family:var(--font);font-size:0.85rem;font-weight:500;cursor:pointer;transition:all .2s;white-space:nowrap;}
+.tab:hover{background:var(--bg-hover);color:var(--text);}
+.tab.active{background:var(--primary);color:#fff;font-weight:700;}
+.tab-pane{display:none;}
+.tab-pane.active{display:block;}
+/* Grid */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+.span2{grid-column:1/-1;}
+.mb16{margin-bottom:16px;}
+.mb22{margin-bottom:22px;}
+/* Chart containers */
+.ch{position:relative;height:300px;}
+.ch-tall{position:relative;height:380px;}
+.ch-sm{position:relative;height:220px;}
+/* Table */
+.tbl-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:0.84rem;}
+thead th{background:var(--bg-card2);padding:11px 14px;text-align:right;font-weight:600;color:var(--text-muted);font-size:0.75rem;text-transform:uppercase;letter-spacing:.03em;border-bottom:2px solid var(--border);white-space:nowrap;}
+tbody td{padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:middle;}
+tbody tr:hover{background:var(--bg-hover);}
+tbody tr:last-child td{border-bottom:none;}
+.num{text-align:left;font-feature-settings:'tnum';}
+/* Badges */
+.badge{display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:20px;font-size:0.75rem;font-weight:600;}
+.badge-green{background:rgba(16,185,129,0.15);color:var(--success);}
+.badge-red{background:rgba(239,68,68,0.15);color:var(--danger);}
+.badge-blue{background:rgba(26,86,219,0.15);color:var(--primary-light);}
+.badge-gray{background:var(--bg-card2);color:var(--text-muted);}
+/* Product cards */
+.prod-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:15px;}
+.prod-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;cursor:pointer;transition:all .2s;border-right-width:3px;}
+.prod-card:hover{transform:translateY(-2px);box-shadow:var(--shadow);}
+.prod-name{font-size:0.88rem;font-weight:700;line-height:1.4;}
+.prod-track{font-size:0.72rem;color:var(--text-muted);margin-top:3px;}
+.prod-val{font-size:1.35rem;font-weight:800;margin:10px 0 6px;}
+.prod-returns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);}
+.ret-item .lbl{font-size:0.68rem;color:var(--text-dim);}
+.ret-item .val{font-size:0.88rem;font-weight:700;}
+/* Heatmap */
+.hm-wrap{overflow-x:auto;}
+.hm-table{border-collapse:collapse;font-size:0.76rem;width:100%;}
+.hm-table th{padding:7px 10px;text-align:center;color:var(--text-muted);font-size:0.72rem;white-space:nowrap;}
+.hm-table td{padding:5px 7px;text-align:center;font-weight:600;border-radius:3px;white-space:nowrap;cursor:default;transition:transform .15s;}
+.hm-table td:hover{transform:scale(1.08);position:relative;z-index:1;}
+.hm-name{text-align:right!important;font-size:0.72rem;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:transparent!important;}
+/* Timeline */
+.tl{position:relative;padding-right:22px;}
+.tl::before{content:'';position:absolute;right:7px;top:0;bottom:0;width:2px;background:var(--border);}
+.tl-item{position:relative;margin-bottom:18px;padding-right:20px;}
+.tl-dot{position:absolute;right:-19px;top:4px;width:12px;height:12px;border-radius:50%;border:2px solid var(--bg-card);}
+.tl-date{font-size:0.72rem;color:var(--text-dim);margin-bottom:3px;}
+.tl-title{font-size:0.88rem;font-weight:600;margin-bottom:2px;}
+.tl-desc{font-size:0.8rem;color:var(--text-muted);}
+/* Modal */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .2s;}
+.overlay.open{opacity:1;pointer-events:all;}
+.modal{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;padding:28px;max-width:660px;width:100%;max-height:88vh;overflow-y:auto;transform:scale(.96);transition:transform .2s;box-shadow:0 8px 40px rgba(0,0,0,0.5);}
+.overlay.open .modal{transform:scale(1);}
+.modal-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+.modal-close{background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--text-muted);padding:4px;}
+/* Comparison toggles */
+.toggles{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px;}
+.tog{padding:5px 12px;border-radius:20px;border:1.5px solid;font-size:0.76rem;font-weight:600;cursor:pointer;background:transparent;transition:all .2s;}
+.tog.on{color:#fff;}
+/* Stat rows */
+.stat-row{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);font-size:0.85rem;}
+.stat-row:last-child{border-bottom:none;}
+.stat-row .lbl{color:var(--text-muted);}
+/* Loading */
+.loading{display:flex;align-items:center;justify-content:center;padding:80px;gap:12px;flex-direction:column;}
+.spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+/* Responsive */
+@media(max-width:1100px){.kpi-grid{grid-template-columns:repeat(3,1fr);}}
+@media(max-width:800px){.kpi-grid{grid-template-columns:repeat(2,1fr);}.g2,.g3{grid-template-columns:1fr;}.span2{grid-column:1;}}
+@media(max-width:500px){.kpi-grid{grid-template-columns:1fr 1fr;}.nav-client{display:none;}}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a class="nav-brand" href="index.html">
+    <div class="nav-logo">📈</div>
+    <div class="nav-title" id="navTitle">דשבורד השקעות</div>
+  </a>
+  <div class="nav-actions">
+    <span class="nav-client" id="navClient"></span>
+    <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">🌙</button>
+  </div>
+</nav>
+
+<div id="loadingEl" class="loading"><div class="spinner"></div><span style="color:var(--text-muted)">טוען נתונים...</span></div>
+
+<div id="appEl" style="display:none;">
+<main class="main"><div class="container">
+
+  <!-- KPIs -->
+  <div class="kpi-grid mb22" id="kpiGrid"></div>
+
+  <!-- Tabs -->
+  <div class="tabs" id="tabsEl">
+    <button class="tab active" onclick="showTab('overview',0)"><i class="fa fa-chart-pie"></i> סקירה</button>
+    <button class="tab" onclick="showTab('performance',1)"><i class="fa fa-chart-line"></i> ביצועים</button>
+    <button class="tab" onclick="showTab('products',2)"><i class="fa fa-folder-open"></i> מוצרים</button>
+    <button class="tab" onclick="showTab('monthly',3)"><i class="fa fa-table"></i> נתונים חודשיים</button>
+    <button class="tab" onclick="showTab('timeline',4)"><i class="fa fa-calendar-alt"></i> אירועים</button>
+  </div>
+
+  <!-- OVERVIEW -->
+  <div class="tab-pane active" id="pane-overview">
+    <div class="g2 mb22">
+      <div class="card span2">
+        <div class="card-hdr">
+          <div><div class="card-title">התפתחות תיק ההשקעות</div><div class="card-sub">שווי כולל לאורך התקופה</div></div>
+          <select id="portMode" onchange="renderPortfolioChart()" style="padding:6px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:var(--font);font-size:0.82rem;">
+            <option value="total">סה״כ תיק</option>
+            <option value="stacked">לפי מוצרים</option>
+          </select>
+        </div>
+        <div class="ch"><canvas id="portChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-hdr"><div class="card-title">פילוח תיק</div></div>
+        <div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;">
+          <div style="position:relative;height:190px;width:190px;flex-shrink:0;"><canvas id="pieChart"></canvas></div>
+          <div id="pieLegend" style="flex:1;min-width:140px;font-size:0.78rem;"></div>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:14px;flex-wrap:wrap;">
+          <button onclick="setPie('institution')" id="pie-i" class="tog on" style="border-color:#1a56db;background:#1a56db;color:#fff;">לפי מוסד</button>
+          <button onclick="setPie('product_type')" id="pie-t" class="tog" style="border-color:var(--border);">לפי סוג</button>
+          <button onclick="setPie('product')" id="pie-p" class="tog" style="border-color:var(--border);">לפי מוצר</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-hdr"><div class="card-title">תשואה לפי מוצר</div><div class="card-sub">YTD</div></div>
+        <div class="ch"><canvas id="ytdBar"></canvas></div>
+      </div>
+    </div>
+    <!-- Summary Table -->
+    <div class="card">
+      <div class="card-hdr">
+        <div class="card-title">סיכום מוצרים</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <select id="fInst" onchange="renderTable()" style="padding:6px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:var(--font);font-size:0.8rem;"><option value="">כל המוסדות</option></select>
+          <select id="fType" onchange="renderTable()" style="padding:6px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:var(--font);font-size:0.8rem;"><option value="">כל הסוגים</option></select>
+          <select id="fStatus" onchange="renderTable()" style="padding:6px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:var(--font);font-size:0.8rem;"><option value="">הכל</option><option value="active">פעיל</option><option value="redeemed">נפדה</option></select>
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table><thead><tr>
+          <th>מוצר</th><th>מוסד</th><th>סוג</th><th>שווי נוכחי</th>
+          <th>תשואה YTD</th><th>תשואה מאז פתיחה</th><th>סטטוס</th>
+        </tr></thead><tbody id="tblBody"></tbody></table>
+      </div>
+      <p style="font-size:0.72rem;color:var(--text-dim);margin-top:10px;">* תשואה = (שווי סגירה − שווי פתיחה) / שווי פתיחה</p>
+    </div>
+  </div>
+
+  <!-- PERFORMANCE -->
+  <div class="tab-pane" id="pane-performance">
+    <div class="card mb22">
+      <div class="card-hdr"><div><div class="card-title">השוואת מוצרים</div></div></div>
+      <div class="toggles" id="compToggles"></div>
+      <div class="ch-tall"><canvas id="compChart"></canvas></div>
+    </div>
+    <div class="card mb22">
+      <div class="card-hdr"><div class="card-title">ביצועים מנורמלים – בסיס 100</div><div class="card-sub" style="font-size:0.72rem;color:var(--text-dim);">כל מוצר מתחיל מ-100 מנקודת הפתיחה שלו</div></div>
+      <div class="ch-tall"><canvas id="normChart"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><div class="card-title">מפת חום – תשואות חודשיות</div><div class="card-sub" style="font-size:0.72rem;color:var(--text-dim);">(שווי_חודש − שווי_קודם) / שווי_קודם</div></div>
+      <div class="hm-wrap" id="hmWrap"></div>
+    </div>
+  </div>
+
+  <!-- PRODUCTS -->
+  <div class="tab-pane" id="pane-products">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;">
+      <select id="pfInst" onchange="renderProdCards()" style="padding:8px 12px;border-radius:7px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:var(--font);font-size:0.84rem;"><option value="">כל המוסדות</option></select>
+      <select id="pfType" onchange="renderProdCards()" style="padding:8px 12px;border-radius:7px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:var(--font);font-size:0.84rem;"><option value="">כל הסוגים</option></select>
+      <select id="pfStatus" onchange="renderProdCards()" style="padding:8px 12px;border-radius:7px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:var(--font);font-size:0.84rem;"><option value="">הכל</option><option value="active">פעיל</option><option value="redeemed">נפדה</option></select>
+    </div>
+    <div class="prod-grid" id="prodGrid"></div>
+  </div>
+
+  <!-- MONTHLY DATA -->
+  <div class="tab-pane" id="pane-monthly">
+    <div class="card mb22">
+      <div class="card-hdr"><div class="card-title">שווי חודשי</div></div>
+      <div class="tbl-wrap"><table id="mvTable"><thead id="mvHead"></thead><tbody id="mvBody"></tbody></table></div>
+    </div>
+    <div class="card">
+      <div class="card-hdr"><div class="card-title">תשואה חודשית</div><div class="card-sub" style="font-size:0.72rem;color:var(--text-dim);">(שווי_חודש − שווי_קודם) / שווי_קודם</div></div>
+      <div class="tbl-wrap"><table id="retTable"><thead id="retHead"></thead><tbody id="retBody"></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- TIMELINE -->
+  <div class="tab-pane" id="pane-timeline">
+    <div class="g2">
+      <div class="card span2">
+        <div class="card-hdr"><div class="card-title">שינוי חודשי בתיק</div></div>
+        <div class="ch"><canvas id="chgChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-hdr"><div class="card-title">אירועים</div></div>
+        <div style="max-height:480px;overflow-y:auto;padding-left:4px;">
+          <div class="tl" id="tlContainer"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-hdr"><div class="card-title">תובנות</div></div>
+        <div id="insightsEl"></div>
+      </div>
+    </div>
+  </div>
+
+</div></main>
+</div>
+
+<!-- Product Modal -->
+<div class="overlay" id="prodOverlay" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-hdr">
+      <h3 id="modalTitle" style="font-size:1rem;"></h3>
+      <button class="modal-close" onclick="closeModalDirect()"><i class="fa fa-times"></i></button>
+    </div>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+let CLIENT=null, PRODUCTS=[], MV={}, MONTHS=[], EVENTS=[];
+let COMP_ON=[], PIE_MODE='institution', CHARTS={};
+let modalChart=null;
+let ACTIVE_YEAR=new Date().getFullYear(); // שנה פעילה לחישוב YTD
+
+// Theme
+const TH=localStorage.getItem('theme')||'dark';
+document.documentElement.setAttribute('data-theme',TH);
+document.getElementById('themeBtn').textContent=TH==='dark'?'🌙':'☀️';
+function toggleTheme(){
+  const c=document.documentElement.getAttribute('data-theme');
+  const n=c==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme',n);
+  localStorage.setItem('theme',n);
+  document.getElementById('themeBtn').textContent=n==='dark'?'🌙':'☀️';
+  rebuildCharts();
+}
+
+// ═══════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════
+const ILS=v=>v==null?'—':new Intl.NumberFormat('he-IL',{style:'currency',currency:'ILS',maximumFractionDigits:0}).format(v);
+const ILSc=v=>{if(v==null)return'—';if(Math.abs(v)>=1e6)return`₪${(v/1e6).toFixed(2)}מ׳`;if(Math.abs(v)>=1000)return`₪${(v/1000).toFixed(0)}א׳`;return ILS(v);};
+const FMT_PCT=(v,d=2)=>{if(v==null||isNaN(v))return'—';return`${v>=0?'+':''}${(v*100).toFixed(d)}%`;};
+const COL_RET=v=>v==null?'var(--text-dim)':v>=0?'var(--success)':'var(--danger)';
+
+function getMonths(){
+  // Collect all distinct months from MV
+  const s=new Set();
+  Object.values(MV).forEach(arr=>arr.forEach(r=>s.add(r.month)));
+  return Array.from(s).sort((a,b)=>monthToNum(a)-monthToNum(b));
+}
+function monthToNum(m){const[mm,yy]=m.split('/');return parseInt(yy)*100+parseInt(mm);}
+function monthLabel(m){
+  const HE=['ינו','פבר','מרץ','אפר','מאי','יונ','יול','אוג','ספט','אוק','נוב','דצמ'];
+  const[mm,yy]=m.split('/');return`${HE[parseInt(mm)-1]} ${yy}`;
+}
+function getVal(prodId,month){return(MV[prodId]||[]).find(r=>r.month===month)?.value??null;}
+function getLastVal(prodId){
+  const arr=(MV[prodId]||[]).sort((a,b)=>monthToNum(b.month)-monthToNum(a.month));
+  return arr.length?arr[0].value:null;
+}
+function getOpeningVal(prod){return prod.ytd_start_value??null;}
+
+// מחזיר תאריך החודש האחרון שיש נתונים (עם שנה מלאה)
+function getLastDataDate(){
+  if(!MONTHS.length)return '';
+  const m=MONTHS[MONTHS.length-1];
+  const [mm,yy]=m.split('/');
+  const MONTHS_HE=['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+  const year=parseInt(yy)<50?`20${yy}`:`19${yy}`;
+  return `${MONTHS_HE[parseInt(mm)-1]} ${year}`;
+}
+
+// ── RETURN CALCULATIONS ──
+// YTD: (closing - opening) / opening
+// opening = ytd_start_value (set by advisor)
+// closing = last month with data
+// ═══ חישוב YTD לפי שנה נבחרת ═══
+//
+// לוגיקה:
+// • שנת ytd_start של המוצר (e.g. 2025 למוצרים שנפתחו ב-2025):
+//     פתיחה = ytd_start_value  (הערך שהוגדר ידנית ע"י היועץ)
+//     סגירה = ערך דצמבר 2025 (או האחרון בשנה)
+//
+// • שנות עוקבות (2026+):
+//     פתיחה = ערך דצמבר של השנה הקודמת  (e.g. דצמבר 2025)
+//     סגירה = ערך דצמבר של השנה הנוכחית (e.g. דצמבר 2026)
+//
+// • שנות קודמות (לפני ytd_start):
+//     מחזיר null — אין נתונים מספיקים
+
+function getYearVal(prodId, year, monthIdx){
+  const mm=String(monthIdx+1).padStart(2,'0');
+  const yy=String(year).slice(-2);
+  return getVal(prodId,`${mm}/${yy}`);
+}
+
+// פתיחת שנה עבור מוצר מסוים
+//
+// הלוגיקה:
+// • שנת 2025 (REPORT_YEAR): פתיחה = ytd_start_value שהוגדר ידנית (תמיד!)
+//   — גם אם המוצר נפתח ב-12/23, ה-ytd_start_value מייצג את הפתיחה לדוח 2025
+// • שנות עוקבות (2026+): פתיחה = דצמבר של השנה הקודמת
+// • שנות קודמות (לפני 2025): null
+const REPORT_YEAR=2025; // השנה שבה ytd_start_value הוגדר ידנית
+
+function getYearOpen(prod, year){
+  if(year === REPORT_YEAR){
+    // שנת הדוח הרשמית — תמיד ytd_start_value
+    return prod.ytd_start_value ?? null;
+  } else if(year > REPORT_YEAR){
+    // שנה עוקבת — פתיחה = דצמבר של שנה קודמת
+    return getYearVal(prod.id, year-1, 11); // דצמבר
+  } else {
+    // לפני שנת הדוח — אין מספיק נתונים
+    return null;
+  }
+}
+
+// סגירת שנה — הערך האחרון הקיים בשנה
+function getYearClose(prod, year){
+  for(let m=11;m>=0;m--){
+    const v=getYearVal(prod.id, year, m);
+    if(v!=null) return v;
+  }
+  return null;
+}
+
+function calcYTD(prod, year=ACTIVE_YEAR){
+  const open=getYearOpen(prod, year);
+  const close=getYearClose(prod, year);
+  if(open==null||close==null||open===0) return null;
+  return(close-open)/open;
+}
+
+// Since inception: (closing - inception_value) / inception_value
+function calcInception(prod){
+  if(!prod.inception_value)return null;
+  const close=getLastVal(prod.id);
+  if(close==null||prod.inception_value===0)return null;
+  return(close-prod.inception_value)/prod.inception_value;
+}
+
+// Monthly return for heatmap & return table
+// חישוב תשואה חודשית:
+// — חודש רגיל: (cur - prev) / prev
+// — חודש ytd_start_month (חודש הפקדה ראשונה): (cur - ytd_start_value) / ytd_start_value
+//   כך איילון 11/25 מציג (316,228-304,700)/304,700 = 3.78% ✅
+//   וההכשרה 02/25 מציג (1,050,000-1,050,000)/1,050,000 = 0% (יתרת פתיחה = יתרת סוף חודש)
+// — אם חודש הפתיחה הוא גם החודש הראשון בנתונים (אין prev בכלל): חשב לפי ytd_start_value
+function calcMonthlyRet(prodId,months){
+  const prod=PRODUCTS.find(p=>p.id===prodId);
+  const startMonth=prod?.ytd_start_month||null;
+  const startVal=prod?.ytd_start_value||null;
+  const rets={};
+  for(let i=1;i<months.length;i++){
+    const m=months[i];
+    const prev=getVal(prodId,months[i-1]);
+    const cur=getVal(prodId,m);
+    if(cur==null){rets[m]=null;continue;}
+    // חודש פתיחה — חשב לפי ytd_start_value (הסכום שהופקד/יתרת פתיחה)
+    if(startMonth && m===startMonth && startVal && startVal>0){
+      rets[m]=(cur-startVal)/startVal;
+      continue;
+    }
+    if(prev!=null&&prev!==0) rets[m]=(cur-prev)/prev;
+    else rets[m]=null;
+  }
+  return rets;
+}
+
+// Portfolio YTD — הנוסחה שמחזירה 9.25%:
+//
+// sumOpen  = Σ ytd_start_value לכל המוצרים,
+//            פרט לאלו שיש להם exclude_open=true
+// sumClose = Σ getLastVal רק למוצרים פעילים (status=active)
+//            כולל כאלו עם exclude_open=true (כגון איילון)
+//
+// דוגמא:
+//   מנורה ALLSTARS (נפדה, exclude_open=true): לא ב-sumOpen, לא ב-sumClose (נפדה)
+//   איילון (פעיל, exclude_open=true):          לא ב-sumOpen, כן ב-sumClose (330,193)
+// => sumOpen = Σ כל שאר המוצרים = 2,391,931
+// => sumClose = Σ פעילים כולל איילון = 2,613,215
+// => תשואה = (2,613,215 - 2,391,931) / 2,391,931 = 9.25% ✅
+function calcPortfolioYTD(year=ACTIVE_YEAR){
+  let sumOpen=0, sumClose=0;
+
+  if(year === REPORT_YEAR){
+    // 2025: פתיחה = ytd_start_value (ידני), סגירה = ערך אחרון 2025
+    // exclude_open = לא בפתיחה (מנורה ALLSTARS / ניודים)
+    for(const p of PRODUCTS){
+      if(!p.exclude_open){
+        const open=getYearOpen(p, year);
+        if(open!=null) sumOpen+=open;
+      }
+      if(p.status==='active'){
+        const close=getYearClose(p, year);
+        if(close!=null) sumClose+=close;
+      }
+    }
+  } else {
+    // 2026+: פתיחה = דצמבר שנה קודמת, סגירה = ערך אחרון שנה נוכחית
+    // ספור רק מוצרים שיש להם גם פתיחה וגם סגירה (מנע עיוות חלקי)
+    for(const p of PRODUCTS){
+      if(p.status!=='active') continue;
+      const open = getYearVal(p.id, year-1, 11); // דצמבר שנה קודמת
+      const close = getYearClose(p, year);
+      if(open!=null && close!=null){
+        sumOpen+=open;
+        sumClose+=close;
+      }
+    }
+  }
+
+  console.log(`[calcPortfolioYTD ${year}] sumOpen=${sumOpen.toLocaleString()} sumClose=${sumClose.toLocaleString()} ret=${sumOpen>0?((sumClose-sumOpen)/sumOpen*100).toFixed(2)+'%':'null'}`);
+  if(sumOpen===0) return null;
+  return(sumClose-sumOpen)/sumOpen;
+}
+
+// ממוצע משוקלל: תשואת כל מוצר × משקלו בתיק
+// מחשב לפי ytd_start_value כמשקל, ומקיז מוצרים שנפדו עם exclude_open (למניעת ספירה כפולה)
+function calcPortfolioWeighted(year=ACTIVE_YEAR){
+  let sumWeighted=0, sumWeights=0;
+  for(const p of PRODUCTS){
+    if(p.exclude_open) continue;
+    const open=getYearOpen(p,year);
+    if(open==null)continue;
+    const ytd=calcYTD(p,year);
+    if(ytd===null)continue;
+    sumWeighted+=ytd*open;
+    sumWeights+=open;
+  }
+  if(sumWeights===0)return null;
+  return sumWeighted/sumWeights;
+}
+
+// Portfolio totals per month (sum of all active products)
+function calcPortfolioTotals(){
+  const totals={};
+  for(const m of MONTHS){
+    totals[m]=PRODUCTS.reduce((s,p)=>{const v=getVal(p.id,m);return s+(v??0);},0);
+  }
+  return totals;
+}
+
+// ═══════════════════════════════════════════
+// LOAD DATA
+// ═══════════════════════════════════════════
+const API_BASE='';
+async function fetchAll(url){
+  const all=[];let page=1,total=Infinity;
+  const base=url.startsWith('http')?'':API_BASE;
+  while(all.length<total){
+    const r=await fetch(`${base}${url}${url.includes('?')?'&':'?'}page=${page}&limit=100`);
+    const d=await r.json();
+    all.push(...(d.data||[]));
+    total=d.total||0;
+    if(d.data.length<100)break;
+    page++;
+  }
+  return all;
+}
+
+async function loadData(){
+  const params=new URLSearchParams(window.location.search);
+  const cid=params.get('client');
+  if(!cid){window.location.href='index.html';return;}
+
+  try{
+    // Load client
+    const cRes=await fetch(`${API_BASE}/tables/clients?limit=100`);
+    const cData=await cRes.json();
+    CLIENT=(cData.data||[]).find(c=>c.id===cid);
+    if(!CLIENT)throw new Error('client not found');
+
+    // Load products
+    PRODUCTS=(await fetchAll(`${API_BASE}/tables/products?sort=sort_order`))
+      .filter(p=>p.client_id===cid)
+      .sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+
+    // המר exclude_open מ-string ל-boolean (ה-API מחזיר לפעמים string)
+    PRODUCTS.forEach(p=>{
+      if(typeof p.exclude_open==='string') p.exclude_open=(p.exclude_open==='true'||p.exclude_open==='1');
+    });
+
+    // Load monthly values grouped by product
+    const mvAll=await fetchAll(`${API_BASE}/tables/monthly_values`);
+    MV={};
+    for(const p of PRODUCTS){
+      MV[p.id]=mvAll.filter(r=>r.product_id===p.id&&r.client_id===cid);
+    }
+
+    // Load timeline events
+    const evAll=await fetchAll(`${API_BASE}/tables/timeline_events`);
+    EVENTS=evAll.filter(e=>e.client_id===cid).sort((a,b)=>b.event_date.localeCompare(a.event_date));
+    // Debug: הצג את כל ה-EVENTS שנטענו
+    console.log(`[loadData] evAll total: ${evAll.length} | client EVENTS: ${EVENTS.length}`);
+    EVENTS.forEach(e=>console.log(`  ev: type=${e.event_type} date=${e.event_date} product_id=${e.product_id} amount=${e.amount} client_id=${e.client_id}`));
+    console.log('[loadData] PRODUCTS ids:', PRODUCTS.map(p=>p.id));
+
+    MONTHS=getMonths();
+    // COMP_ON כולל פעילים בהתחלה; מוצרים נפדים (inactive) מתווספים ידנית ע"י המשתמש
+    COMP_ON=PRODUCTS.filter(p=>p.status==='active').map(p=>p.id);
+    // הוסף מוצרים inactive שיש להם נתונים — כך ALLSTARS שנפדה מוצג אוטומטית
+    PRODUCTS.filter(p=>p.status!=='active').forEach(p=>{
+      const vals=(MV[p.id]||[]);
+      if(vals.length>0) COMP_ON.push(p.id);
+    });
+
+    // קבע ACTIVE_YEAR לפי החודש האחרון בנתונים
+    if(MONTHS.length){
+      const lastM=MONTHS[MONTHS.length-1];
+      ACTIVE_YEAR=parseInt('20'+lastM.split('/')[1]);
+    }
+
+    initUI();
+  }catch(e){
+    console.error(e);
+    document.getElementById('loadingEl').innerHTML=`<div style="text-align:center;color:var(--danger);"><i class="fa fa-exclamation-triangle" style="font-size:2rem;"></i><p style="margin-top:12px;">שגיאה בטעינת הנתונים</p><a href="index.html" style="color:var(--primary-light);text-decoration:none;font-size:0.88rem;margin-top:8px;display:block;">חזרה לדף הבית</a></div>`;
+  }
+}
+
+function initUI(){
+  document.title=`דשבורד – ${CLIENT.name}`;
+  document.getElementById('navTitle').textContent=CLIENT.report_title||'דשבורד השקעות';
+  document.getElementById('navClient').textContent=CLIENT.name;
+
+  // Populate filter dropdowns
+  const insts=[...new Set(PRODUCTS.map(p=>p.institution))];
+  const types=[...new Set(PRODUCTS.map(p=>p.product_type))];
+  ['fInst','pfInst'].forEach(id=>{const el=document.getElementById(id);insts.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;el.appendChild(o);});});
+  ['fType','pfType'].forEach(id=>{const el=document.getElementById(id);types.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;el.appendChild(o);});});
+
+  renderKPIs();
+  renderPortfolioChart();
+  renderPieChart();
+  renderYTDBar();
+  renderTable();
+  renderProdCards();
+  renderCompToggles();
+  renderTimeline();
+  renderInsights();
+
+  document.getElementById('loadingEl').style.display='none';
+  document.getElementById('appEl').style.display='block';
+}
+
+// ═══════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════
+function showTab(name,idx){
+  document.querySelectorAll('.tab-pane').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(el=>el.classList.remove('active'));
+  document.getElementById('pane-'+name).classList.add('active');
+  document.querySelectorAll('.tab')[idx].classList.add('active');
+  if(name==='performance'){setTimeout(()=>{renderCompChart();renderNormChart();renderHeatmap();},80);}
+  if(name==='timeline'){setTimeout(renderChgChart,80);}
+  if(name==='monthly'){renderMonthlyTables();}
+}
+
+// ═══════════════════════════════════════════
+// KPIs
+// ═══════════════════════════════════════════
+// זיהוי שנים שיש בהן נתונים
+function getAvailableYears(){
+  const years=new Set();
+  MONTHS.forEach(m=>{ const yy=m.split('/')[1]; if(yy) years.add(parseInt('20'+yy)); });
+  return [...years].sort((a,b)=>b-a); // יורד
+}
+
+function renderKPIs(){
+  const totalVal=PRODUCTS.filter(p=>p.status==='active').reduce((s,p)=>s+(getLastVal(p.id)??0),0);
+  const portYTD=calcPortfolioYTD(ACTIVE_YEAR);
+
+  const ytds=PRODUCTS.map(p=>({p,r:calcYTD(p,ACTIVE_YEAR)})).filter(x=>x.r!==null);
+  const best=ytds.length?ytds.reduce((a,b)=>b.r>a.r?b:a):null;
+  const insts=new Set(PRODUCTS.filter(p=>p.status==='active').map(p=>p.institution));
+
+  // בנה selector שנים
+  const availYears=getAvailableYears();
+  const yearSelector=availYears.length>1
+    ? `<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+        <span style="font-size:.8rem;color:var(--text-muted);">שנה:</span>
+        ${availYears.map(y=>`
+          <button onclick="setActiveYear(${y})" style="padding:4px 14px;border-radius:20px;border:1.5px solid ${y===ACTIVE_YEAR?'var(--primary)':'var(--border)'};background:${y===ACTIVE_YEAR?'var(--primary)':'transparent'};color:${y===ACTIVE_YEAR?'#fff':'var(--text)'};font-size:.82rem;font-weight:600;cursor:pointer;font-family:Heebo,sans-serif;">${y}</button>`).join('')}
+      </div>`
+    : '';
+
+  // החודש האחרון עם נתונים בשנה הפעילה
+  const lastMonthOfYear = MONTHS.filter(m=>m.split('/')[1]===String(ACTIVE_YEAR).slice(-2)).pop();
+  const isPartialYear = ACTIVE_YEAR > REPORT_YEAR;
+  const ytdSub = isPartialYear
+    ? `נכון ל-${lastMonthOfYear ? monthLabel(lastMonthOfYear) : ACTIVE_YEAR} · (סגירה − דצמ׳ ${ACTIVE_YEAR-1}) / דצמ׳ ${ACTIVE_YEAR-1}`
+    : `(סה״כ סגירה ${ACTIVE_YEAR} − סה״כ פתיחה) / פתיחה`;
+
+  // צבירה לסוף השנה הנבחרת (ערך אחרון קיים בשנה זו לכל מוצר פעיל)
+  const yearValSub = isPartialYear
+    ? `נכון ל-${lastMonthOfYear ? monthLabel(lastMonthOfYear) : ACTIVE_YEAR}`
+    : `סוף ${ACTIVE_YEAR}`;
+  const yearCloseVal = PRODUCTS.filter(p=>p.status==='active')
+    .reduce((s,p)=>s+(getYearClose(p,ACTIVE_YEAR)??0),0);
+
+  document.getElementById('kpiGrid').innerHTML=
+    yearSelector+
+    [
+      {label:'צבירה עדכנית',val:ILS(totalVal),sub:`נכון ל-${getLastDataDate()} | ${PRODUCTS.filter(p=>p.status==='active').length} מוצרים פעילים`,cls:'blue',badge:null},
+      {label:`צבירה לסוף ${ACTIVE_YEAR}${isPartialYear?' (חלקית)':''}`,val:ILS(yearCloseVal),sub:yearValSub,cls:'blue',badge:null},
+      {label:`תשואה ${ACTIVE_YEAR}${isPartialYear?' (חלקית)':''}`,val:FMT_PCT(portYTD),sub:ytdSub,cls:portYTD!=null&&portYTD>=0?'green':'red',badge:portYTD!=null?{dir:portYTD>=0?'up':'down',txt:FMT_PCT(portYTD)}:null},
+      {label:'מוצר מוביל',val:best?best.p.name_short:'—',sub:best?best.p.institution:'',cls:'green',badge:best?{dir:'up',txt:FMT_PCT(best.r)}:null},
+      {label:'מוסדות מנהלים',val:insts.size,sub:[...insts].join(' | '),cls:'blue',badge:null},
+    ].map(k=>`
+      <div class="kpi ${k.cls}">
+        <div class="kpi-label">${k.label}</div>
+        <div class="kpi-val">${k.val}</div>
+        ${k.badge?`<span class="kpi-badge ${k.badge.dir}"><i class="fa fa-arrow-${k.badge.dir}"></i> ${k.badge.txt}</span>`:''}
+        <div class="kpi-sub">${k.sub}</div>
+      </div>`).join('');
+}
+
+function setActiveYear(year){
+  ACTIVE_YEAR=year;
+  renderKPIs();
+  renderTable();       // טבלת מוצרים + תשואות
+  renderProdCards();   // כרטיסי מוצרים
+  renderInsights();    // תובנות
+  renderYTDBar();      // גרף YTD בר
+  // אם כרטיסיית ביצועים פתוחה — ירנדר מחדש
+  const perfPane=document.getElementById('pane-performance');
+  if(perfPane&&perfPane.classList.contains('active')){
+    renderHeatmap();
+    renderCompChart();
+    renderNormChart();
+  }
+}
+
+// ═══════════════════════════════════════════
+// CHART HELPERS
+// ═══════════════════════════════════════════
+function cd(){
+  const dk=document.documentElement.getAttribute('data-theme')!=='light';
+  return{grid:dk?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.07)',text:dk?'#94a3b8':'#475569',tooltipBg:dk?'#1e293b':'#fff',tooltipBorder:dk?'#334155':'#e2e8f0'};
+}
+function destroyChart(k){if(CHARTS[k]){CHARTS[k].destroy();delete CHARTS[k];}}
+function lineOpts(d,yFmt){
+  return{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+    plugins:{legend:{display:true,position:'bottom',labels:{color:d.text,font:{family:'Heebo',size:11},padding:10}},
+      tooltip:{backgroundColor:d.tooltipBg,borderColor:d.tooltipBorder,borderWidth:1,titleColor:d.text,bodyColor:d.text,padding:10,rtl:true,
+        callbacks:{label:ctx=>` ${ctx.dataset.label}: ${ILS(ctx.parsed.y)}`}}},
+    scales:{x:{grid:{color:d.grid},ticks:{color:d.text,font:{family:'Heebo',size:10}}},
+      y:{grid:{color:d.grid},ticks:{color:d.text,font:{family:'Heebo',size:10},callback:v=>ILSc(v)}}}};
+}
+
+// ═══════════════════════════════════════════
+// PORTFOLIO CHART
+// ═══════════════════════════════════════════
+function renderPortfolioChart(){
+  destroyChart('port');
+  const d=cd(), mode=document.getElementById('portMode').value;
+  const labels=MONTHS.map(monthLabel);
+  const ctx=document.getElementById('portChart').getContext('2d');
+  if(mode==='total'){
+    const totals=calcPortfolioTotals();
+    CHARTS.port=new Chart(ctx,{type:'line',data:{labels,datasets:[{label:'שווי תיק',data:MONTHS.map(m=>totals[m]||0),borderColor:'#1a56db',backgroundColor:'rgba(26,86,219,0.1)',fill:true,tension:.4,pointRadius:4,borderWidth:2.5}]},options:lineOpts(d)});
+  }else{
+    const datasets=PRODUCTS.filter(p=>p.status==='active').map(p=>({label:p.name_short,data:MONTHS.map(m=>getVal(p.id,m)),borderColor:p.color,backgroundColor:p.color+'18',fill:false,tension:.4,pointRadius:3,borderWidth:2,spanGaps:true}));
+    CHARTS.port=new Chart(ctx,{type:'line',data:{labels,datasets},options:lineOpts(d)});
+  }
+}
+
+// ═══════════════════════════════════════════
+// PIE CHART
+// ═══════════════════════════════════════════
+const PCOLORS=['#1a56db','#8b5cf6','#06b6d4','#0ea5e9','#f97316','#ef4444','#84cc16','#a855f7','#f59e0b','#10b981'];
+function renderPieChart(){
+  destroyChart('pie');
+  const d=cd();
+  const groups={};
+  for(const p of PRODUCTS.filter(q=>q.status==='active')){
+    const v=getLastVal(p.id)||0;
+    const k=PIE_MODE==='institution'?p.institution:PIE_MODE==='product_type'?p.product_type:p.name_short;
+    groups[k]=(groups[k]||0)+v;
+  }
+  const entries=Object.entries(groups).sort((a,b)=>b[1]-a[1]);
+  const total=entries.reduce((s,[,v])=>s+v,0);
+  CHARTS.pie=new Chart(document.getElementById('pieChart').getContext('2d'),{type:'doughnut',data:{labels:entries.map(([k])=>k),datasets:[{data:entries.map(([,v])=>v),backgroundColor:PCOLORS,borderWidth:2,borderColor:'var(--bg-card)'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:d.tooltipBg,borderColor:d.tooltipBorder,borderWidth:1,titleColor:d.text,bodyColor:d.text,padding:10,callbacks:{label:ctx=>` ${ILS(ctx.parsed)} (${(ctx.parsed/total*100).toFixed(1)}%)`}}}}});
+  document.getElementById('pieLegend').innerHTML=entries.map(([k,v],i)=>`<div style="display:flex;align-items:center;gap:7px;margin-bottom:7px;"><div style="width:9px;height:9px;border-radius:2px;background:${PCOLORS[i]};flex-shrink:0;"></div><div style="flex:1;color:var(--text-muted);font-size:0.76rem;">${k}</div><div style="font-weight:700;font-size:0.76rem;">${(v/total*100).toFixed(1)}%</div></div>`).join('');
+}
+function setPie(mode){
+  PIE_MODE=mode;
+  ['i','t','p'].forEach(x=>{const b=document.getElementById('pie-'+x);b.className='tog';b.style.background='transparent';b.style.color='var(--text)';b.style.borderColor='var(--border)';});
+  const map={institution:'i',product_type:'t',product:'p'};
+  const b=document.getElementById('pie-'+map[mode]);
+  b.className='tog on';b.style.background='#1a56db';b.style.color='#fff';b.style.borderColor='#1a56db';
+  renderPieChart();
+}
+
+// ═══════════════════════════════════════════
+// YTD BAR
+// ═══════════════════════════════════════════
+function renderYTDBar(){
+  destroyChart('ytd');
+  const d=cd();
+  const data=PRODUCTS.map(p=>({name:p.name_short,r:calcYTD(p,ACTIVE_YEAR),color:p.color})).filter(x=>x.r!==null).sort((a,b)=>b.r-a.r);
+  CHARTS.ytd=new Chart(document.getElementById('ytdBar').getContext('2d'),{type:'bar',data:{labels:data.map(x=>x.name),datasets:[{data:data.map(x=>parseFloat((x.r*100).toFixed(2))),backgroundColor:data.map(x=>x.r>=0?x.color:'#ef4444'),borderRadius:5,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{backgroundColor:d.tooltipBg,borderColor:d.tooltipBorder,borderWidth:1,titleColor:d.text,bodyColor:d.text,padding:10,callbacks:{label:ctx=>` תשואה YTD: ${ctx.parsed.x>=0?'+':''}${ctx.parsed.x.toFixed(2)}%`}}},scales:{x:{grid:{color:d.grid},ticks:{color:d.text,callback:v=>`${v}%`}},y:{grid:{display:false},ticks:{color:d.text,font:{family:'Heebo',size:10}}}}}});
+}
+
+// ═══════════════════════════════════════════
+// SUMMARY TABLE
+// ═══════════════════════════════════════════
+function renderTable(){
+  const fi=document.getElementById('fInst').value;
+  const ft=document.getElementById('fType').value;
+  const fs=document.getElementById('fStatus').value;
+  const filtered=PRODUCTS.filter(p=>(!fi||p.institution===fi)&&(!ft||p.product_type===ft)&&(!fs||p.status===fs));
+  document.getElementById('tblBody').innerHTML=filtered.map(p=>{
+    const v=getLastVal(p.id);
+    const ytd=calcYTD(p,ACTIVE_YEAR);
+    const since=calcInception(p);
+    return`<tr style="cursor:pointer;" onclick="openModal('${p.id}')">
+      <td><div style="display:flex;align-items:center;gap:8px;"><div style="width:8px;height:8px;border-radius:50%;background:${p.color};flex-shrink:0;"></div><div><div style="font-weight:600;font-size:0.85rem;">${p.name}</div><div style="font-size:0.72rem;color:var(--text-muted);">${p.track}</div></div></div></td>
+      <td>${p.institution}</td><td>${p.product_type}</td>
+      <td class="num" style="font-weight:700;">${ILS(v)}</td>
+      <td class="num" style="color:${COL_RET(ytd)};font-weight:700;">${FMT_PCT(ytd)}</td>
+      <td class="num" style="color:${COL_RET(since)};font-weight:700;">${since!=null?FMT_PCT(since):'—'}</td>
+      <td>${p.status==='active'?'<span class="badge badge-green">פעיל</span>':'<span class="badge badge-gray">נפדה</span>'}</td>
+    </tr>`;}).join('');
+}
+
+// ═══════════════════════════════════════════
+// PRODUCT CARDS
+// ═══════════════════════════════════════════
+function renderProdCards(){
+  const fi=document.getElementById('pfInst').value;
+  const ft=document.getElementById('pfType').value;
+  const fs=document.getElementById('pfStatus').value;
+  const filtered=PRODUCTS.filter(p=>(!fi||p.institution===fi)&&(!ft||p.product_type===ft)&&(!fs||p.status===fs));
+  document.getElementById('prodGrid').innerHTML=filtered.map(p=>{
+    const v=getLastVal(p.id);
+    const ytd=calcYTD(p,ACTIVE_YEAR);
+    const since=calcInception(p);
+    return`<div class="prod-card" style="border-right-color:${p.color};" onclick="openModal('${p.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div><div class="prod-name">${p.name}</div><div class="prod-track">${p.track}</div></div>
+        ${p.status==='redeemed'?'<span class="badge badge-gray" style="flex-shrink:0;">נפדה</span>':''}
+      </div>
+      <div class="prod-val">${ILS(v)}</div>
+      <canvas id="spark-${p.id}" height="36" style="display:block;margin-bottom:4px;"></canvas>
+      <div class="prod-returns">
+        <div class="ret-item"><div class="lbl">תשואה ${ACTIVE_YEAR}</div><div class="val" style="color:${COL_RET(ytd)};">${FMT_PCT(ytd)}</div></div>
+        <div class="ret-item"><div class="lbl">מאז פתיחה</div><div class="val" style="color:${COL_RET(since)};">${since!=null?FMT_PCT(since):'—'}</div></div>
+        <div class="ret-item"><div class="lbl">מוסד</div><div class="val" style="color:var(--text-muted);font-size:0.78rem;">${p.institution}</div></div>
+      </div>
+    </div>`;}).join('');
+  setTimeout(()=>{filtered.forEach(p=>{const c=document.getElementById('spark-'+p.id);if(c)drawSparkline(c,MONTHS.map(m=>getVal(p.id,m)).filter(v=>v!=null),p.color);});},60);
+}
+
+function drawSparkline(canvas,vals,color){
+  if(vals.length<2)return;
+  const w=canvas.offsetWidth||260,h=36;
+  canvas.width=w;canvas.height=h;
+  const ctx=canvas.getContext('2d');
+  const mn=Math.min(...vals),mx=Math.max(...vals),rng=mx-mn||1,pad=2;
+  const pts=vals.map((v,i)=>[pad+(i/(vals.length-1))*(w-2*pad),h-pad-((v-mn)/rng)*(h-2*pad)]);
+  ctx.beginPath();ctx.moveTo(pts[0][0],pts[0][1]);
+  pts.slice(1).forEach(p=>ctx.lineTo(p[0],p[1]));
+  ctx.strokeStyle=color;ctx.lineWidth=1.5;ctx.stroke();
+  ctx.lineTo(pts[pts.length-1][0],h);ctx.lineTo(pts[0][0],h);ctx.closePath();
+  ctx.fillStyle=color+'22';ctx.fill();
+}
+
+// ═══════════════════════════════════════════
+// PERFORMANCE TAB
+// ═══════════════════════════════════════════
+function renderCompToggles(){
+  const c=document.getElementById('compToggles');
+  // מציג גם מוצרים לא פעילים (כגון ALLSTARS שנפדה) — עם סימון מיוחד
+  c.innerHTML=PRODUCTS.map(p=>{
+    const isOn=COMP_ON.includes(p.id);
+    const isInactive=p.status!=='active';
+    const opacityStyle=isInactive&&!isOn?'opacity:0.5;':'';
+    return `<button class="tog ${isOn?'on':''}" id="tog-${p.id}"
+      style="border-color:${p.color};${isOn?`background:${p.color};color:#fff;`:''}${opacityStyle}${isInactive?'border-style:dashed;':''}"
+      onclick="toggleComp('${p.id}','${p.color}',this)">${isInactive?'⬜ ':''}${p.name_short}</button>`;
+  }).join('');
+}
+function toggleComp(id,color,btn){
+  if(COMP_ON.includes(id)){if(COMP_ON.length===1)return;COMP_ON=COMP_ON.filter(x=>x!==id);btn.classList.remove('on');btn.style.background='transparent';btn.style.color='var(--text)';}
+  else{COMP_ON.push(id);btn.classList.add('on');btn.style.background=color;btn.style.color='#fff';}
+  renderCompChart();renderNormChart();
+}
+
+// פרסר תאריך אירוע → MM/YY
+// YYYY-MM-DD → parts[1]=MM, parts[0]=YYYY → MM/YY
+// YYYY-MM    → parts[0]=YYYY, parts[1]=MM → MM/YY  (שימו לב: parts[1] הוא החודש!)
+function evDateToMMYY(dateStr){
+  if(!dateStr) return null;
+  const parts=dateStr.split(/[-/]/);
+  if(parts.length>=3){
+    // YYYY-MM-DD: parts[0]=year, parts[1]=month, parts[2]=day
+    return `${parts[1].padStart(2,'0')}/${parts[0].slice(-2)}`;
+  }
+  if(parts.length===2){
+    // YYYY-MM: parts[0]=year(4 digits), parts[1]=month
+    // אם parts[0] ארוך יותר (שנה) — זה YYYY-MM
+    if(parts[0].length===4){
+      return `${parts[1].padStart(2,'0')}/${parts[0].slice(-2)}`;
+    }
+    // MM-YY (לא סביר אבל כיסוי)
+    return `${parts[0].padStart(2,'0')}/${parts[1].slice(-2)}`;
+  }
+  return null;
+}
+
+function renderCompChart(){
+  destroyChart('comp');
+  const d=cd(), labels=MONTHS.map(monthLabel);
+  
+  // ── מפות אירועים לפי סוג ──────────────────────────────────────────────
+  const depositMap={};    // month → [{prodId,name,amount,color}]
+  const withdrawalMap={}; // month → [{prodId,name,amount,color}]
+  const transferMap={};   // month → [{prodId,name,amount,color}]
+  
+  // פונקציה לאיתור מוצר לפי product_id — עם fallback להתאמה חלקית
+  function findProd(productId){
+    if(!productId) return null;
+    // 1. התאמה מדויקת
+    let p = PRODUCTS.find(p=>p.id===productId);
+    if(p) return p;
+    // 2. התאמה חלקית: product_id מכיל או נכלל ב-id
+    p = PRODUCTS.find(p=>
+      p.id.includes(productId) || productId.includes(p.id)
+    );
+    if(p){ console.warn(`[events] fuzzy match: "${productId}" → "${p.id}"`); return p; }
+    // 3. לא נמצא — התרעה מפורטת
+    console.warn(`[events] ⛔ product_id לא נמצא: "${productId}" | available:`, PRODUCTS.map(p=>p.id));
+    return null;
+  }
+
+  for(const ev of EVENTS){
+    if(!ev.amount || !ev.event_date) continue;
+    const m=evDateToMMYY(ev.event_date);
+    if(!m){ console.warn('[events] תאריך לא תקין:', ev.event_date); continue; }
+    const prod=findProd(ev.product_id);
+    if(!prod) continue;
+
+    if(ev.event_type==='deposit'){
+      if(!depositMap[m]) depositMap[m]=[];
+      // מנורה אינדקס — 600K בDB אבל ytd_start_value=300K
+      const displayAmt=(prod.ytd_start_value && prod.ytd_start_value < ev.amount)
+        ? prod.ytd_start_value : ev.amount;
+      const dup=depositMap[m].find(x=>x.prodId===prod.id);
+      if(dup) dup.amount+=displayAmt;
+      else depositMap[m].push({prodId:prod.id,name:prod.name_short,amount:displayAmt,color:prod.color});
+    }
+    else if(ev.event_type==='withdrawal'){
+      if(!withdrawalMap[m]) withdrawalMap[m]=[];
+      const dup=withdrawalMap[m].find(x=>x.prodId===prod.id);
+      if(dup) dup.amount+=ev.amount;
+      else withdrawalMap[m].push({prodId:prod.id,name:prod.name_short,amount:ev.amount,color:prod.color});
+    }
+    else if(ev.event_type==='transfer'){
+      if(!transferMap[m]) transferMap[m]=[];
+      const dup=transferMap[m].find(x=>x.prodId===prod.id);
+      if(dup) dup.amount+=ev.amount;
+      else transferMap[m].push({prodId:prod.id,name:prod.name_short,amount:ev.amount,color:prod.color});
+    }
+  }
+
+  // ── ALLSTARS 02/25: הוסף ידנית כ-deposit 300K (ה-event נרשם תחת menora-index בלבד) ──
+  const allstarsProd=PRODUCTS.find(p=>p.id==='menora-allstars');
+  if(allstarsProd && !depositMap['02/25']?.find(x=>x.prodId==='menora-allstars')){
+    if(!depositMap['02/25']) depositMap['02/25']=[];
+    depositMap['02/25'].push({prodId:'menora-allstars',name:allstarsProd.name_short,amount:300000,color:allstarsProd.color});
+  }
+
+  console.log('[compChart] EVENTS:', EVENTS.length,
+    '| depositMap:', depositMap,
+    '| withdrawalMap:', withdrawalMap,
+    '| PRODUCTS ids:', PRODUCTS.map(p=>p.id));
+  
+  // נקודות גדולות בחודשי הפקדה/פדיון
+  const depositMonthsPerProd={};
+  Object.entries(depositMap).forEach(([month,deps])=>{
+    deps.forEach(dep=>{
+      if(!depositMonthsPerProd[dep.prodId]) depositMonthsPerProd[dep.prodId]=new Set();
+      depositMonthsPerProd[dep.prodId].add(month);
+    });
+  });
+  const withdrawalMonthsPerProd={};
+  Object.entries(withdrawalMap).forEach(([month,ws])=>{
+    ws.forEach(w=>{
+      if(!withdrawalMonthsPerProd[w.prodId]) withdrawalMonthsPerProd[w.prodId]=new Set();
+      withdrawalMonthsPerProd[w.prodId].add(month);
+    });
+  });
+  const transferMonthsPerProd={};
+  Object.entries(transferMap).forEach(([month,ts])=>{
+    ts.forEach(t=>{
+      if(!transferMonthsPerProd[t.prodId]) transferMonthsPerProd[t.prodId]=new Set();
+      transferMonthsPerProd[t.prodId].add(month);
+    });
+  });
+
+  const datasets=PRODUCTS.filter(p=>COMP_ON.includes(p.id)).map(p=>{
+    const hasDeposit=m=>depositMonthsPerProd[p.id]?.has(m);
+    const hasWithdrawal=m=>withdrawalMonthsPerProd[p.id]?.has(m);
+    const hasTransfer=m=>transferMonthsPerProd[p.id]?.has(m);
+    const hasEvent=m=>hasDeposit(m)||hasWithdrawal(m)||hasTransfer(m);
+    return{
+      label:p.name_short,
+      data:MONTHS.map(m=>getVal(p.id,m)),
+      borderColor:p.color,
+      borderDash:p.status!=='active'?[5,3]:[],
+      backgroundColor:'transparent',
+      tension:.4,
+      pointRadius:MONTHS.map(m=>hasEvent(m)?8:3),
+      pointStyle:MONTHS.map(m=>hasWithdrawal(m)?'triangle':hasDeposit(m)||hasTransfer(m)?'rectRot':'circle'),
+      pointBackgroundColor:MONTHS.map(m=>hasEvent(m)?p.color:'transparent'),
+      pointBorderWidth:2,
+      borderWidth:p.status!=='active'?1.5:2,
+      spanGaps:true
+    };
+  });
+
+  const ctx=document.getElementById('compChart');if(!ctx)return;
+  const opts={...lineOpts(d)};
+  // עדכן tooltip להציג גם הפקדות
+  opts.plugins.tooltip.callbacks={
+    label:ctx=>` ${ctx.dataset.label}: ${ILS(ctx.parsed.y)}`,
+    afterBody:(items)=>{
+      if(!items.length) return [];
+      const m=MONTHS[items[0].dataIndex];
+      const lines=[];
+      // הצג את כל אירועי החודש — ללא סינון לפי dataset שנבחר
+      (depositMap[m]||[])
+        .forEach(dep=>lines.push(`  💰 ${dep.name}: הפקדה ${ILS(dep.amount)}`));
+      (withdrawalMap[m]||[])
+        .forEach(w=>lines.push(`  📤 ${w.name}: פדיון ${ILS(w.amount)}`));
+      (transferMap[m]||[])
+        .forEach(t=>lines.push(`  🔄 ${t.name}: ניוד ${ILS(t.amount)}`));
+      return lines.length?['── אירועי חודש ──',...lines]:[];
+    }
+  };
+
+  // Plugin לציור קווים אנכיים מקווקוים בחודשי הפקדה ופדיון
+  const depositLinePlugin={
+    id:'depositLines',
+    afterDraw(chart){
+      const{ctx:c,chartArea:{top,bottom},scales:{x}}=chart;
+      // איסוף כל חודשי האירועים
+      // איסוף כל חודשי האירועים
+      const allEventMonths=new Set([
+        ...Object.keys(depositMap),
+        ...Object.keys(withdrawalMap),
+        ...Object.keys(transferMap)
+      ]);
+      allEventMonths.forEach(month=>{
+        const idx=MONTHS.indexOf(month);
+        if(idx<0) return;
+        const xPx=x.getPixelForValue(idx);
+        const deps=depositMap[month]||[];
+        const wds=withdrawalMap[month]||[];
+        const trs=transferMap[month]||[];
+        // קבע את סוג/צבע הקו לפי סוג האירוע הדומיננטי
+        const hasWd=wds.length>0, hasDep=deps.length>0, hasTr=trs.length>0;
+        c.save();
+        c.setLineDash([4,4]);
+        // אדום=פדיון, כחול=הפקדה, סגול=ניוד, ירוק=הפקדה+ניוד
+        c.strokeStyle=hasWd&&!hasDep&&!hasTr?'#ef4444':
+                      hasTr&&!hasDep&&!hasWd?'#8b5cf6':d.grid;
+        c.lineWidth=1.5;
+        c.beginPath();c.moveTo(xPx,top);c.lineTo(xPx,bottom);c.stroke();
+        // ── תוויות: אחת או שתיים מעל הקו ──────────────────────────────
+        c.setLineDash([]);
+        c.font='bold 10px Heebo,sans-serif';
+        c.textAlign='center';
+        // בנה רשימת תוויות לפי סוגי האירועים בחודש הזה
+        const badges=[];
+        if(hasDep)  badges.push({text:'הפקדה',  bg:deps.length===1?deps[0].color:'#1a56db'});
+        if(hasTr)   badges.push({text:'ניוד',    bg:'#8b5cf6'});
+        if(hasWd)   badges.push({text:'פדיון',   bg:'#ef4444'});
+        // ציור התוויות זו לצד זו
+        const GAP=4, H=16;
+        const totalW=badges.reduce((s,b)=>s+c.measureText(b.text).width+12+GAP,0)-GAP;
+        let bx=xPx-totalW/2;
+        badges.forEach(b=>{
+          const bw=c.measureText(b.text).width+12;
+          c.fillStyle=b.bg;
+          c.beginPath();
+          if(c.roundRect) c.roundRect(bx,top+3,bw,H,4);
+          else c.rect(bx,top+3,bw,H);
+          c.fill();
+          c.fillStyle='#fff';
+          c.fillText(b.text,bx+bw/2,top+14);
+          bx+=bw+GAP;
+        });
+        c.restore();
+      });
+    }
+  };
+
+  CHARTS.comp=new Chart(ctx.getContext('2d'),{type:'line',data:{labels,datasets},options:opts,plugins:[depositLinePlugin]});
+}
+
+function renderNormChart(){
+  destroyChart('norm');
+  const d=cd(), labels=MONTHS.map(monthLabel);
+  const datasets=PRODUCTS.filter(p=>COMP_ON.includes(p.id)).map(p=>{
+    let idx=100;
+    const series=[];
+    let started=false;
+    // מתחילים מ-ytd_start_month (אם הוגדר) — לא מהחודש הראשון עם נתונים
+    // כך מוצרים שנפתחו באמצע השנה מציגים תשואה נכונה מנקודת ההפקדה
+    const startMonth=p.ytd_start_month||null;
+
+    for(let i=0;i<MONTHS.length;i++){
+      const m=MONTHS[i];
+      const v=getVal(p.id,m);
+
+      if(!started){
+        if(startMonth){
+          // מחכה לחודש ytd_start_month
+          if(m===startMonth && v!=null){series.push(100);started=true;idx=100;}
+          else series.push(null);
+        } else {
+          // ללא start_month — מתחיל מהחודש הראשון עם נתונים
+          if(v!=null){series.push(100);started=true;idx=100;}
+          else series.push(null);
+        }
+        continue;
+      }
+
+      // לאחר הפתיחה — חישוב צמיחה לפי החודש הקודם
+      const prev=getVal(p.id,MONTHS[i-1]);
+      if(prev!=null&&v!=null&&prev!==0) idx=idx*(v/prev);
+      series.push(v!=null?parseFloat(idx.toFixed(2)):null);
+    }
+    return{label:p.name_short,data:series,borderColor:p.color,backgroundColor:'transparent',tension:.4,pointRadius:3,borderWidth:2,spanGaps:true};
+  });
+  const ctx=document.getElementById('normChart');if(!ctx)return;
+  CHARTS.norm=new Chart(ctx.getContext('2d'),{type:'line',data:{labels,datasets},options:{...lineOpts(d),scales:{x:{grid:{color:d.grid},ticks:{color:d.text,font:{family:'Heebo',size:10}}},y:{grid:{color:d.grid},ticks:{color:d.text,callback:v=>v.toFixed(0)},title:{display:true,text:'אינדקס (בסיס 100)',color:d.text,font:{family:'Heebo',size:10}}}}}});
+}
+
+function renderHeatmap(){
+  const wrap=document.getElementById('hmWrap');if(!wrap)return;
+
+  // סנן רק חודשים של השנה הפעילה
+  const yy=String(ACTIVE_YEAR).slice(-2);
+  const yearMonths=MONTHS.filter(m=>m.split('/')[1]===yy);
+  // dispMonths = חודשים לתצוגה (ללא החודש הראשון אם הוא גם הראשון בכל הנתונים)
+  // נשתמש ב-MONTHS המלא לחישוב תשואות חודשיות (צריך prev), אבל נציג רק yearMonths
+  const dispMonths=yearMonths;
+
+  // מחשב maxAbs לפי p95 — רק על חודשי השנה הנבחרת
+  let maxAbs=0.01;
+  const allRets=[];
+  for(const p of PRODUCTS){
+    const rets=calcMonthlyRet(p.id,MONTHS);
+    dispMonths.forEach(m=>{const r=rets[m];if(r!=null)allRets.push(Math.abs(r));});
+  }
+  if(allRets.length){
+    allRets.sort((a,b)=>a-b);
+    const p95idx=Math.floor(allRets.length*0.95);
+    maxAbs=allRets[Math.min(p95idx,allRets.length-1)]||0.01;
+    maxAbs=Math.max(maxAbs,0.01);
+  }
+
+  const isLight=document.documentElement.getAttribute('data-theme')==='light';
+  function hmColor(r){
+    if(r==null)return{bg:'transparent',txt:'var(--text-dim)',lbl:'—'};
+    const int=Math.min(Math.abs(r)/maxAbs,1);
+    if(r>0.0005){
+      const alpha=isLight?(0.35+int*0.55):(0.25+int*0.65);
+      const txt=isLight?'#064e3b':(int>.5?'#fff':'#d1fae5');
+      return{bg:`rgba(5,150,105,${alpha})`,txt,lbl:`+${(r*100).toFixed(1)}%`};
+    }
+    if(r<-0.0005){
+      const alpha=isLight?(0.35+int*0.55):(0.25+int*0.65);
+      const txt=isLight?'#7f1d1d':(int>.5?'#fff':'#fee2e2');
+      return{bg:`rgba(220,38,38,${alpha})`,txt,lbl:`${(r*100).toFixed(1)}%`};
+    }
+    return{bg:isLight?'rgba(203,213,225,0.5)':'var(--bg-card2)',txt:'var(--text-dim)',lbl:'0.0%'};
+  }
+
+  let html=`<table class="hm-table"><thead><tr><th style="text-align:right;min-width:100px;">מוצר</th>${dispMonths.map(m=>`<th>${monthLabel(m)}</th>`).join('')}<th>YTD ${ACTIVE_YEAR}</th></tr></thead><tbody>`;
+  for(const p of PRODUCTS){
+    const rets=calcMonthlyRet(p.id,MONTHS);
+    const ytd=calcYTD(p,ACTIVE_YEAR);
+    const yc=hmColor(ytd);
+    html+=`<tr><td class="hm-name" title="${p.name}"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${p.color};margin-left:5px;"></span>${p.name_short}</td>`;
+    for(const m of dispMonths){const c=hmColor(rets[m]);html+=`<td style="background:${c.bg};color:${c.txt};" title="${p.name_short} ${monthLabel(m)}: ${c.lbl}">${c.lbl}</td>`;}
+    html+=`<td style="background:${yc.bg};color:${yc.txt};font-weight:800;">${yc.lbl}</td></tr>`;
+  }
+  // שורת תיק כולל
+  const portYTD=calcPortfolioYTD(ACTIVE_YEAR);
+  const pyc=hmColor(portYTD);
+  html+=`<tr style="border-top:2px solid var(--border-light);font-weight:700;"><td class="hm-name">תיק כולל</td>`;
+  for(const m of dispMonths){html+=`<td style="background:transparent;color:var(--text-dim);">—</td>`;}
+  html+=`<td style="background:${pyc.bg};color:${pyc.txt};font-weight:800;">${pyc.lbl}</td></tr>`;
+  html+=`</tbody></table>`;
+
+  const hmYearLabel=document.getElementById('hmYearLabel');
+  if(hmYearLabel) hmYearLabel.textContent=`${ACTIVE_YEAR}`;
+  wrap.innerHTML=html;
+}
+
+// ═══════════════════════════════════════════
+// MONTHLY TABLES
+// ═══════════════════════════════════════════
+function renderMonthlyTables(){
+  // Values
+  document.getElementById('mvHead').innerHTML=`<tr><th>מוצר</th>${MONTHS.map(m=>`<th>${monthLabel(m)}</th>`).join('')}</tr>`;
+  document.getElementById('mvBody').innerHTML=PRODUCTS.map(p=>`<tr><td style="font-size:0.8rem;font-weight:600;white-space:nowrap;"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${p.color};margin-left:6px;"></span>${p.name_short}</td>${MONTHS.map(m=>`<td class="num" style="font-size:0.78rem;">${getVal(p.id,m)!=null?ILS(getVal(p.id,m)):'—'}</td>`).join('')}</tr>`).join('');
+  // Returns
+  const dm=MONTHS.slice(1);
+  document.getElementById('retHead').innerHTML=`<tr><th>מוצר</th>${dm.map(m=>`<th>${monthLabel(m)}</th>`).join('')}<th>YTD</th></tr>`;
+  document.getElementById('retBody').innerHTML=PRODUCTS.map(p=>{
+    const rets=calcMonthlyRet(p.id,MONTHS);
+    const ytd=calcYTD(p,ACTIVE_YEAR);
+    return`<tr><td style="font-size:0.8rem;font-weight:600;white-space:nowrap;"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${p.color};margin-left:6px;"></span>${p.name_short}</td>${dm.map(m=>{const r=rets[m];return`<td class="num" style="font-size:0.78rem;font-weight:600;color:${COL_RET(r)};">${FMT_PCT(r,1)}</td>`;}).join('')}<td class="num" style="font-weight:800;color:${COL_RET(ytd)};">${FMT_PCT(ytd)}</td></tr>`;}).join('');
+}
+
+// ═══════════════════════════════════════════
+// CHANGE CHART
+// ═══════════════════════════════════════════
+function renderChgChart(){
+  destroyChart('chg');
+  const d=cd(), totals=calcPortfolioTotals();
+  const months=MONTHS.slice(1);
+  const changes=months.map(m=>{const i=MONTHS.indexOf(m);return totals[m]-(totals[MONTHS[i-1]]||0);});
+  const ctx=document.getElementById('chgChart');if(!ctx)return;
+  CHARTS.chg=new Chart(ctx.getContext('2d'),{type:'bar',data:{labels:months.map(monthLabel),datasets:[{data:changes,backgroundColor:changes.map(v=>v>=0?'rgba(16,185,129,0.8)':'rgba(239,68,68,0.8)'),borderRadius:4,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:d.tooltipBg,borderColor:d.tooltipBorder,borderWidth:1,titleColor:d.text,bodyColor:d.text,padding:10,callbacks:{label:ctx=>`שינוי: ${ctx.parsed.y>=0?'+':''}${ILS(ctx.parsed.y)}`}}},scales:{x:{grid:{color:d.grid},ticks:{color:d.text}},y:{grid:{color:d.grid},ticks:{color:d.text,callback:v=>ILSc(v)}}}}});
+}
+
+// ═══════════════════════════════════════════
+// TIMELINE
+// ═══════════════════════════════════════════
+function renderTimeline(){
+  const colors={deposit:'#10b981',withdrawal:'#ef4444',transfer:'#1a56db',management:'#f59e0b'};
+  const icons={deposit:'fa-plus-circle',withdrawal:'fa-minus-circle',transfer:'fa-exchange-alt',management:'fa-cog'};
+  const labels={deposit:'הפקדה',withdrawal:'פדיון',transfer:'ניוד',management:'שינוי ניהול'};
+  document.getElementById('tlContainer').innerHTML=EVENTS.map(ev=>{
+    const c=colors[ev.event_type]||'#94a3b8';
+    const d=ev.event_date.replace('-','/');
+    const p=PRODUCTS.find(x=>x.id===ev.product_id);
+    return`<div class="tl-item">
+      <div class="tl-dot" style="background:${c};"></div>
+      <div style="padding:10px 12px;border-radius:8px;background:var(--bg-card2);">
+        <div class="tl-date"><span class="badge" style="background:${c}22;color:${c};font-size:0.7rem;padding:2px 7px;"><i class="fa ${icons[ev.event_type]||'fa-circle'}" style="margin-left:3px;"></i>${labels[ev.event_type]||ev.event_type}</span><span style="margin-right:8px;">${d}</span></div>
+        <div class="tl-title" style="margin-top:5px;">${ev.title}</div>
+        <div class="tl-desc">${ev.description}</div>
+        ${ev.amount?`<div style="font-size:0.78rem;font-weight:700;color:${c};margin-top:4px;">${ILS(ev.amount)}</div>`:''}
+      </div>
+    </div>`;}).join('');
+}
+
+// ═══════════════════════════════════════════
+// INSIGHTS
+// ═══════════════════════════════════════════
+function renderInsights(){
+  const total=PRODUCTS.filter(p=>p.status==='active').reduce((s,p)=>s+(getLastVal(p.id)||0),0);
+  const portYTD=calcPortfolioYTD(ACTIVE_YEAR);
+  const ytds=PRODUCTS.map(p=>({p,r:calcYTD(p,ACTIVE_YEAR)})).filter(x=>x.r!==null);
+  const best=ytds.length?ytds.reduce((a,b)=>b.r>a.r?b:a):null;
+  const worst=ytds.length?ytds.reduce((a,b)=>b.r<a.r?b:a):null;
+  document.getElementById('insightsEl').innerHTML=[
+    {icon:'📊',txt:`צבירה כוללת: ${ILS(total)} ב-${PRODUCTS.filter(p=>p.status==='active').length} מוצרים פעילים`},
+    {icon:'📈',txt:`תשואה ${ACTIVE_YEAR}: ${FMT_PCT(portYTD)} — חישוב: (סגירה − פתיחה) / פתיחה`},
+    best&&{icon:'🏆',txt:`מוצר מוביל: ${best.p.name_short} — ${FMT_PCT(best.r)}`},
+    worst&&best&&best.p.id!==worst.p.id&&{icon:'📉',txt:`ביצועים נמוכים: ${worst.p.name_short} — ${FMT_PCT(worst.r)}`},
+    {icon:'🔄',txt:`${EVENTS.length} אירועים מתועדים: הפקדות, ניודים ופדיונות`},
+  ].filter(Boolean).map(x=>`<div class="stat-row"><span style="font-size:1rem;">${x.icon}</span><span style="font-size:0.85rem;">${x.txt}</span></div>`).join('');
+}
+
+// ═══════════════════════════════════════════
+// PRODUCT MODAL
+// ═══════════════════════════════════════════
+function openModal(pid){
+  const p=PRODUCTS.find(x=>x.id===pid);if(!p)return;
+  document.getElementById('modalTitle').textContent=p.name;
+  const v=getLastVal(p.id), ytd=calcYTD(p,ACTIVE_YEAR), since=calcInception(p);
+  const prodMonths=MONTHS.filter(m=>getVal(p.id,m)!=null);
+  const rets=calcMonthlyRet(p.id,MONTHS);
+  document.getElementById('modalBody').innerHTML=`
+    <div class="g2" style="margin-bottom:16px;">
+      <div>
+        <div class="stat-row"><span class="lbl">שווי נוכחי</span><span style="font-weight:700;">${ILS(v)}</span></div>
+        <div class="stat-row"><span class="lbl">תשואה ${ACTIVE_YEAR}</span><span style="font-weight:700;color:${COL_RET(ytd)};">${FMT_PCT(ytd)}</span></div>
+        <div class="stat-row"><span class="lbl">תשואה מאז פתיחה</span><span style="font-weight:700;color:${COL_RET(since)};">${since!=null?FMT_PCT(since):'—'}</span></div>
+        <div class="stat-row"><span class="lbl">יתרת פתיחה YTD</span><span style="font-weight:700;">${ILS(p.ytd_start_value)}</span></div>
+        ${p.inception_value?`<div class="stat-row"><span class="lbl">יתרת פתיחה (פוליסה)</span><span style="font-weight:700;">${ILS(p.inception_value)} (${p.inception_date||''})</span></div>`:''}
+        <div class="stat-row"><span class="lbl">מוסד</span><span>${p.institution}</span></div>
+        <div class="stat-row"><span class="lbl">סוג</span><span>${p.product_type}</span></div>
+        <div class="stat-row"><span class="lbl">מסלול</span><span style="font-size:0.8rem;">${p.track}</span></div>
+      </div>
+      <div style="position:relative;height:180px;"><canvas id="modalChart"></canvas></div>
+    </div>
+    <div style="overflow-x:auto;">
+      <table style="width:100%;font-size:0.78rem;border-collapse:collapse;">
+        <thead><tr>
+          <th style="padding:7px;text-align:right;background:var(--bg-card2);color:var(--text-muted);">חודש</th>
+          <th style="padding:7px;text-align:left;background:var(--bg-card2);color:var(--text-muted);">שווי</th>
+          <th style="padding:7px;text-align:center;background:var(--bg-card2);color:var(--text-muted);">תשואה חודשית</th>
+        </tr></thead>
+        <tbody>${prodMonths.map(m=>{const r=rets[m];return`<tr><td style="padding:7px;border-bottom:1px solid var(--border);">${monthLabel(m)}</td><td style="padding:7px;border-bottom:1px solid var(--border);text-align:left;">${ILS(getVal(p.id,m))}</td><td style="padding:7px;border-bottom:1px solid var(--border);text-align:center;font-weight:600;color:${COL_RET(r)};">${FMT_PCT(r,2)}</td></tr>`;}).join('')}</tbody>
+      </table>
+    </div>`;
+  document.getElementById('prodOverlay').classList.add('open');
+  setTimeout(()=>{
+    if(modalChart)modalChart.destroy();
+    const d=cd();
+    modalChart=new Chart(document.getElementById('modalChart').getContext('2d'),{type:'line',data:{labels:prodMonths.map(monthLabel),datasets:[{label:p.name_short,data:prodMonths.map(m=>getVal(p.id,m)),borderColor:p.color,backgroundColor:p.color+'20',fill:true,tension:.4,pointRadius:3,borderWidth:2}]},options:lineOpts(d)});
+  },80);
+}
+function closeModal(e){if(e.target.id==='prodOverlay')closeModalDirect();}
+function closeModalDirect(){document.getElementById('prodOverlay').classList.remove('open');}
+
+// ═══════════════════════════════════════════
+// REBUILD CHARTS (theme change)
+// ═══════════════════════════════════════════
+function rebuildCharts(){
+  renderPortfolioChart();renderPieChart();renderYTDBar();
+  const activeTab=document.querySelector('.tab.active');
+  if(activeTab){
+    const tabs=['overview','performance','products','monthly','timeline'];
+    const idx=Array.from(document.querySelectorAll('.tab')).indexOf(activeTab);
+    if(idx===1){renderCompChart();renderNormChart();renderHeatmap();}
+    if(idx===4)renderChgChart();
+  }
+}
+
+loadData();
+</script>
+</body>
+</html>

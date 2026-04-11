@@ -1,0 +1,15 @@
+{
+  "clients": [
+    {
+      "id": "menachem-gilor",
+      "name": "מנחם גילור",
+      "file": "data/clients/menachem-gilor.json",
+      "active": true,
+      "created": "2025-01-01"
+    }
+  ],
+  "advisor": {
+    "name": "סוכן ביטוח",
+    "firm": "חברת ייעוץ פיננסי"
+  }
+}
