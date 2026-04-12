@@ -102,6 +102,7 @@
       <i class="fa fa-shield-alt" style="margin-left:6px;"></i>אזור מוגן
     </span>
     <a href="../index.html" class="btn btn-secondary btn-sm"><i class="fa fa-globe"></i> פורטל לקוחות</a>
+    <a href="settings.html" class="btn btn-secondary btn-sm" style="background:rgba(139,92,246,0.1);color:#8b5cf6;border:1px solid rgba(139,92,246,0.3);"><i class="fa fa-cog"></i> הגדרות</a>
     <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
   </div>
 </nav>
@@ -251,7 +252,7 @@ async function fetchAll(url){
   if (!IS_DEMO_MODE) {
     try {
       const testUrl = `${API_BASE}/tables/clients?page=1&limit=1`;
-      const testR = await fetch(testUrl);
+      const testR = await authFetch(testUrl);
       const testD = await testR.json();
       if (testD.error && testD.error.includes('D1 not bound')) {
         IS_DEMO_MODE = true;
@@ -300,7 +301,12 @@ async function fetchAll(url){
   const base = url.startsWith('http') ? '' : API_BASE;
   while(all.length<total){
     const full = `${base}${url}${url.includes('?')?'&':'?'}page=${page}&limit=100`;
-    const r=await fetch(full);
+    const r=await authFetch(full);
+    if (r.status === 401) {
+      // Session expired - will redirect to login
+      window.location.replace('/admin/login.html?reason=session_expired');
+      return [];
+    }
     const d=await r.json();
     all.push(...(d.data||[]));
     total=d.total||0;
@@ -533,7 +539,7 @@ async function createNewClient() {
   }
 
   try{
-    const r=await fetch(`${API_BASE}/tables/clients`,{
+    const r=await authFetch(`${API_BASE}/tables/clients`,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify(newClient)
@@ -557,6 +563,13 @@ async function createNewClient() {
   const agent = await AGENT_AUTH.init();
   if (!agent) return; // redirected to login
   IS_DEMO_MODE = window.IS_DEMO_MODE;
+
+  // Show agent name in header
+  const badge = document.querySelector('.admin-badge');
+  if (badge && agent.name) {
+    badge.innerHTML = `<i class="fa fa-lock"></i> ממשק ניהול פנימי – ${agent.name}`;
+  }
+
   loadClients();
 })();
 
@@ -1274,7 +1287,7 @@ async function saveSettings() {
       insights_json: document.getElementById('settingsInsightsJson').value.trim(),
     };
 
-    const r = await fetch(`/tables/clients/${clientId}`, {
+    const r = await authFetch(`/tables/clients/${clientId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(clientPatch)
@@ -1292,7 +1305,7 @@ async function saveSettings() {
     });
 
     for (const [pid, patch] of Object.entries(productUpdates)) {
-      await fetch(`/tables/products/${pid}`, {
+      await authFetch(`/tables/products/${pid}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(patch)
