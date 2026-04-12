@@ -969,10 +969,12 @@ async function fetchAll(url){
   const base=url.startsWith('http')?'':API_BASE;
   while(all.length<total){
     const r=await fetch(`${base}${url}${url.includes('?')?'&':'?'}page=${page}&limit=100`);
+    if(!r.ok) { console.error('[fetchAll] HTTP',r.status,'for',url); break; }
     const d=await r.json();
+    if(d.error) { console.error('[fetchAll] API error:',d.error,'for',url); break; }
     all.push(...(d.data||[]));
     total=d.total||0;
-    if(d.data.length<100)break;
+    if(!d.data||d.data.length<100)break;
     page++;
   }
   return all;
@@ -1049,7 +1051,7 @@ async function loadData(){
 
 function initUI(){
   document.title=`דשבורד – ${CLIENT.name}`;
-  document.getElementById('navTitle').textContent=CLIENT.report_title||'דשבורד השקעות';
+  document.getElementById('navTitle').textContent='דשבורד השקעות';
   document.getElementById('navClient').textContent=CLIENT.name;
 
   // Populate filter dropdowns
@@ -2675,9 +2677,12 @@ function renderRisk(){
       prodRisks.push({ p, v, eq, bo, al, risk });
     }
   }
-  const eqPct = totalVal ? totalEquities / totalVal * 100 : 0;
-  const boPct = totalVal ? totalBonds / totalVal * 100 : 0;
-  const alPct = totalVal ? totalAlt / totalVal * 100 : 0;
+  // חישוב אחוזים לפי סכום הנכסים שיש להם נתוני סיכון בלבד
+  // (לא מחלקים ב-totalVal כדי לא לדלל עם מוצרים ללא נתוני סיכון)
+  const riskTotal = totalEquities + totalBonds + totalAlt;
+  const eqPct = riskTotal ? totalEquities / riskTotal * 100 : 0;
+  const boPct = riskTotal ? totalBonds / riskTotal * 100 : 0;
+  const alPct = riskTotal ? totalAlt / riskTotal * 100 : 0;
 
   // Update mode label
   const modeLabel = document.getElementById('riskModeLabel');
