@@ -266,7 +266,8 @@ async function loadClient() {
     document.getElementById('editHeaderSub').textContent = `${CLIENT.id} | ${CLIENT.report_period}`;
     document.title = `עדכון – ${CLIENT.name}`;
 
-    document.getElementById('viewDashboardBtn').href = `../dashboard.html?client=${CLIENT.id}`;
+    const _tok = sessionStorage.getItem('agent_token') || localStorage.getItem('agent_token') || '';
+    document.getElementById('viewDashboardBtn').href = `../dashboard.html?client=${CLIENT.id}${_tok ? '&_st=' + encodeURIComponent(_tok) : ''}`;
 
     populateMonthSelector();
     populateTimelineProductSelect();

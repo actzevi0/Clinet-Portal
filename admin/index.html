@@ -423,7 +423,7 @@ function renderClientsGrid() {
           <a href="monthly-update.html?client=${c.id}" class="btn btn-primary btn-sm">
             <i class="fa fa-plus-circle"></i> עדכון חודשי
           </a>
-          <a href="../dashboard.html?client=${c.id}" target="_blank" class="btn btn-secondary btn-sm">
+          <a href="../dashboard.html?client=${c.id}&_st=${encodeURIComponent(sessionStorage.getItem('agent_token')||localStorage.getItem('agent_token')||'')}" target="_blank" class="btn btn-secondary btn-sm">
             <i class="fa fa-eye"></i> תצוגת לקוח
           </a>
           <button class="btn btn-secondary btn-sm" onclick="openClientSettings('${c.id}')">
@@ -453,6 +453,7 @@ function renderClientsGrid() {
 }
 
 function copyClientLink(clientId) {
+  // קישור ציבורי (ללא token) — לשיתוף עם הלקוח
   const url = `${window.location.origin}${window.location.pathname.replace('admin/index.html', '')}dashboard.html?client=${clientId}`;
   navigator.clipboard.writeText(url).then(() => {
     alert(`קישור ללקוח הועתק:\n${url}`);

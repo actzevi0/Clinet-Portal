@@ -460,7 +460,12 @@ tbody tr:last-child td{border-bottom:none;}
         <div class="ch"><canvas id="chgChart"></canvas></div>
       </div>
       <div class="card">
-        <div class="card-hdr"><div class="card-title">אירועים</div></div>
+        <div class="card-hdr">
+          <div class="card-title">אירועים</div>
+          <button id="addEventBtn" onclick="openEventModal()" style="display:none;align-items:center;gap:6px;padding:6px 14px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:0.8rem;font-weight:600;cursor:pointer;font-family:Heebo,sans-serif;">
+            <i class="fa fa-plus"></i> הוסף אירוע
+          </button>
+        </div>
         <div style="max-height:480px;overflow-y:auto;padding-left:4px;">
           <div class="tl" id="tlContainer"></div>
         </div>
@@ -620,6 +625,22 @@ tbody tr:last-child td{border-bottom:none;}
 </div>
 
 <script>
+// ═══════════════════════════════════════════
+// SESSION TOKEN מה-URL (כשנפתח מהניהול)
+// ═══════════════════════════════════════════
+(function(){
+  const p = new URLSearchParams(window.location.search);
+  const st = p.get('_st');
+  if(st){
+    sessionStorage.setItem('agent_token', st);
+    // נקה מה-URL (ללא reload)
+    p.delete('_st');
+    const newQ = p.toString();
+    const newUrl = window.location.pathname + (newQ ? '?' + newQ : '');
+    history.replaceState({}, '', newUrl);
+  }
+})();
+
 // ═══════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════
@@ -1818,11 +1839,17 @@ function renderTimeline(){
   const colors={deposit:'#10b981',withdrawal:'#ef4444',transfer:'#1a56db',management:'#f59e0b',track_change:'#f97316',agent_appointment:'#8b5cf6',new_product:'#06b6d4'};
   const icons={deposit:'fa-plus-circle',withdrawal:'fa-minus-circle',transfer:'fa-exchange-alt',management:'fa-cog',track_change:'fa-route',agent_appointment:'fa-handshake',new_product:'fa-folder-plus'};
   const labels={deposit:'הפקדה',withdrawal:'פדיון',transfer:'ניוד',management:'שינוי ניהול',track_change:'שינוי מסלול',agent_appointment:'מינוי סוכן',new_product:'פתיחת מוצר'};
+  const canEdit = _hasAgentToken();
   document.getElementById('tlContainer').innerHTML=EVENTS.map(ev=>{
     const c=colors[ev.event_type]||'#94a3b8';
     const d=ev.event_date.replace(/-/g,'/');
     const p=PRODUCTS.find(x=>x.id===ev.product_id);
     const prodBadge=p?`<span style="font-size:0.72rem;color:var(--text-muted);margin-right:6px;">${p.name_short||p.name}</span>`:'';
+    const editBtns=canEdit?`
+      <div style="display:flex;gap:6px;margin-top:8px;">
+        <button onclick="openEventModal('${ev.id}')" style="padding:3px 10px;font-size:0.73rem;border:1.5px solid var(--border);border-radius:6px;background:transparent;color:var(--text-muted);cursor:pointer;font-family:Heebo,sans-serif;display:flex;align-items:center;gap:4px;"><i class="fa fa-pen" style="font-size:0.65rem;"></i>ערוך</button>
+        <button onclick="openDeleteConfirm('${ev.id}')" style="padding:3px 10px;font-size:0.73rem;border:1.5px solid rgba(239,68,68,0.35);border-radius:6px;background:transparent;color:#ef4444;cursor:pointer;font-family:Heebo,sans-serif;display:flex;align-items:center;gap:4px;"><i class="fa fa-trash" style="font-size:0.65rem;"></i>מחק</button>
+      </div>`:'';
     return`<div class="tl-item">
       <div class="tl-dot" style="background:${c};"></div>
       <div style="padding:10px 12px;border-radius:8px;background:var(--bg-card2);">
@@ -1830,8 +1857,11 @@ function renderTimeline(){
         <div class="tl-title" style="margin-top:5px;">${ev.title||''}</div>
         ${ev.description?`<div class="tl-desc">${ev.description}</div>`:''}
         ${ev.amount?`<div style="font-size:0.78rem;font-weight:700;color:${c};margin-top:4px;">${ILS(ev.amount)}</div>`:''}
+        ${editBtns}
       </div>
     </div>`;}).join('');
+  // הצג/הסתר כפתור הוסף
+  _initEventMgmt();
 }
 
 // ═══════════════════════════════════════════
@@ -2950,6 +2980,298 @@ function exportExcel(){
 }
 
 loadData();
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════
+     מודל ניהול אירועים (הוסף / ערוך)
+════════════════════════════════════════════════════════════════ -->
+<div id="eventModalOverlay" onclick="if(event.target===this)closeEventModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1200;align-items:center;justify-content:center;">
+  <div style="background:var(--bg-card);border-radius:16px;padding:28px 30px;width:min(520px,95vw);max-height:90vh;overflow-y:auto;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.35);">
+    <button onclick="closeEventModal()" style="position:absolute;top:14px;left:14px;background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--text-muted);">✕</button>
+    <h3 id="eventModalTitle" style="margin:0 0 20px;font-size:1.05rem;font-weight:700;">הוסף אירוע</h3>
+
+    <div style="display:grid;gap:14px;">
+      <!-- סוג אירוע -->
+      <div>
+        <label style="font-size:0.8rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:5px;">סוג אירוע *</label>
+        <select id="evType" onchange="onEvTypeChange()" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:0.88rem;">
+          <option value="deposit">💰 הפקדה</option>
+          <option value="withdrawal">📤 פדיון/משיכה</option>
+          <option value="transfer">🔄 ניוד</option>
+          <option value="track_change">🛤️ שינוי מסלול</option>
+          <option value="management">⚙️ שינוי ניהול</option>
+          <option value="new_product">📁 פתיחת מוצר</option>
+          <option value="agent_appointment">🤝 מינוי סוכן</option>
+        </select>
+      </div>
+
+      <!-- תאריך -->
+      <div>
+        <label style="font-size:0.8rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:5px;">תאריך *</label>
+        <input id="evDate" type="date" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:0.88rem;box-sizing:border-box;" />
+      </div>
+
+      <!-- מוצר -->
+      <div id="evProductRow">
+        <label style="font-size:0.8rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:5px;">מוצר</label>
+        <select id="evProduct" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:0.88rem;">
+          <option value="">— ללא מוצר ספציפי —</option>
+        </select>
+      </div>
+
+      <!-- כותרת -->
+      <div>
+        <label style="font-size:0.8rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:5px;">כותרת *</label>
+        <input id="evTitle" type="text" placeholder="לדוגמה: הפקדה ראשונה – הכשרה" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:0.88rem;box-sizing:border-box;" />
+      </div>
+
+      <!-- סכום -->
+      <div id="evAmountRow">
+        <label style="font-size:0.8rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:5px;">סכום (₪)</label>
+        <input id="evAmount" type="number" min="0" placeholder="0" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:0.88rem;box-sizing:border-box;" />
+      </div>
+
+      <!-- תיאור -->
+      <div>
+        <label style="font-size:0.8rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:5px;">תיאור (אופציונלי)</label>
+        <textarea id="evDesc" rows="2" placeholder="פרטים נוספים..." style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:0.88rem;resize:vertical;box-sizing:border-box;"></textarea>
+      </div>
+    </div>
+
+    <!-- שגיאה -->
+    <div id="evError" style="display:none;margin-top:12px;padding:8px 12px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);border-radius:8px;color:#ef4444;font-size:0.82rem;"></div>
+
+    <!-- כפתורים -->
+    <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end;">
+      <button onclick="closeEventModal()" style="padding:9px 20px;border:1.5px solid var(--border);border-radius:8px;background:transparent;color:var(--text);font-family:Heebo,sans-serif;font-size:0.88rem;cursor:pointer;">ביטול</button>
+      <button id="evSaveBtn" onclick="saveEvent()" style="padding:9px 22px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-family:Heebo,sans-serif;font-size:0.88rem;font-weight:600;cursor:pointer;min-width:90px;">שמור</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ דיאלוג אישור מחיקה ═══ -->
+<div id="deleteConfirmOverlay" onclick="if(event.target===this)closeDeleteConfirm()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1300;align-items:center;justify-content:center;">
+  <div style="background:var(--bg-card);border-radius:14px;padding:26px 28px;width:min(380px,92vw);text-align:center;box-shadow:0 16px 50px rgba(0,0,0,.3);">
+    <div style="font-size:2rem;margin-bottom:12px;">🗑️</div>
+    <div style="font-weight:700;font-size:1rem;margin-bottom:8px;">מחיקת אירוע</div>
+    <div id="deleteConfirmText" style="font-size:0.85rem;color:var(--text-muted);margin-bottom:20px;">האם למחוק את האירוע?</div>
+    <div style="display:flex;gap:10px;justify-content:center;">
+      <button onclick="closeDeleteConfirm()" style="padding:9px 20px;border:1.5px solid var(--border);border-radius:8px;background:transparent;color:var(--text);font-family:Heebo,sans-serif;font-size:0.88rem;cursor:pointer;">ביטול</button>
+      <button id="deleteConfirmBtn" onclick="confirmDeleteEvent()" style="padding:9px 22px;background:#ef4444;color:#fff;border:none;border-radius:8px;font-family:Heebo,sans-serif;font-size:0.88rem;font-weight:600;cursor:pointer;">מחק</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// ניהול אירועים — הוסף / ערוך / מחק
+// ═══════════════════════════════════════════════════════════
+
+let _evEditId = null; // null = חדש, string = ערוך
+let _evDeleteId = null;
+
+// --- helpers ---
+function _getAgentToken(){
+  return sessionStorage.getItem('agent_token') || localStorage.getItem('agent_token') || null;
+}
+function _hasAgentToken(){ return !!_getAgentToken(); }
+
+function _evAuthHeaders(){
+  const t = _getAgentToken();
+  return t ? { 'Content-Type':'application/json', 'X-Session-Token': t }
+           : { 'Content-Type':'application/json' };
+}
+
+// הצג כפתור "הוסף אירוע" רק אם יש session token
+function _initEventMgmt(){
+  if(_hasAgentToken()){
+    const btn = document.getElementById('addEventBtn');
+    if(btn) btn.style.display = 'flex';
+  }
+}
+
+// סוגי אירועים שיש להם סכום
+const EV_AMOUNT_TYPES = new Set(['deposit','withdrawal','transfer','new_product']);
+
+function onEvTypeChange(){
+  const t = document.getElementById('evType').value;
+  const amountRow = document.getElementById('evAmountRow');
+  if(amountRow) amountRow.style.display = EV_AMOUNT_TYPES.has(t) ? '' : 'none';
+}
+
+// פתח מודל — חדש
+function openEventModal(evId){
+  _evEditId = evId || null;
+  const overlay = document.getElementById('eventModalOverlay');
+  const title   = document.getElementById('eventModalTitle');
+  const err     = document.getElementById('evError');
+
+  // מלא רשימת מוצרים
+  const prodSel = document.getElementById('evProduct');
+  prodSel.innerHTML = '<option value="">— ללא מוצר ספציפי —</option>' +
+    PRODUCTS.map(p => `<option value="${p.id}">${p.name_short || p.name}</option>`).join('');
+
+  err.style.display = 'none';
+
+  if(evId){
+    // מצב ערוך — מלא שדות מהאירוע הקיים
+    const ev = EVENTS.find(e => e.id === evId);
+    if(!ev){ alert('אירוע לא נמצא'); return; }
+    title.textContent = 'עריכת אירוע';
+    document.getElementById('evType').value    = ev.event_type || 'deposit';
+    document.getElementById('evDate').value    = ev.event_date ? ev.event_date.substring(0,10) : '';
+    document.getElementById('evProduct').value = ev.product_id || '';
+    document.getElementById('evTitle').value   = ev.title || '';
+    document.getElementById('evAmount').value  = ev.amount || '';
+    document.getElementById('evDesc').value    = ev.description || '';
+  } else {
+    // מצב חדש — נקה שדות
+    title.textContent = 'הוסף אירוע חדש';
+    document.getElementById('evType').value    = 'deposit';
+    document.getElementById('evDate').value    = new Date().toISOString().substring(0,10);
+    document.getElementById('evProduct').value = '';
+    document.getElementById('evTitle').value   = '';
+    document.getElementById('evAmount').value  = '';
+    document.getElementById('evDesc').value    = '';
+  }
+
+  onEvTypeChange(); // הסתר/הצג שדה סכום
+  overlay.style.display = 'flex';
+  setTimeout(()=>document.getElementById('evTitle').focus(), 80);
+}
+
+function closeEventModal(){
+  document.getElementById('eventModalOverlay').style.display = 'none';
+  _evEditId = null;
+}
+
+async function saveEvent(){
+  const btn  = document.getElementById('evSaveBtn');
+  const err  = document.getElementById('evError');
+  err.style.display = 'none';
+
+  const evType  = document.getElementById('evType').value;
+  const evDate  = document.getElementById('evDate').value;
+  const evProd  = document.getElementById('evProduct').value;
+  const evTitle = document.getElementById('evTitle').value.trim();
+  const evAmt   = document.getElementById('evAmount').value;
+  const evDesc  = document.getElementById('evDesc').value.trim();
+
+  if(!evDate)  { _evShowErr('יש לבחור תאריך'); return; }
+  if(!evTitle) { _evShowErr('יש להזין כותרת'); return; }
+
+  const body = {
+    client_id:   CLIENT.id,
+    product_id:  evProd || null,
+    event_date:  evDate,
+    event_type:  evType,
+    title:       evTitle,
+    description: evDesc || null,
+    amount:      EV_AMOUNT_TYPES.has(evType) && evAmt ? parseFloat(evAmt) : null
+  };
+
+  btn.disabled = true;
+  btn.textContent = 'שומר...';
+
+  try {
+    let resp;
+    if(_evEditId){
+      // PATCH — עדכון
+      resp = await fetch(`${API_BASE}/tables/timeline_events/${_evEditId}`, {
+        method: 'PATCH',
+        headers: _evAuthHeaders(),
+        body: JSON.stringify(body)
+      });
+    } else {
+      // POST — יצירה
+      resp = await fetch(`${API_BASE}/tables/timeline_events`, {
+        method: 'POST',
+        headers: _evAuthHeaders(),
+        body: JSON.stringify(body)
+      });
+    }
+
+    const data = await resp.json().catch(()=>({}));
+    if(!resp.ok){
+      _evShowErr(data.error || `שגיאה: ${resp.status}`);
+      return;
+    }
+
+    // עדכן EVENTS מקומית
+    if(_evEditId){
+      const idx = EVENTS.findIndex(e => e.id === _evEditId);
+      if(idx >= 0) EVENTS[idx] = {...EVENTS[idx], ...data};
+    } else {
+      EVENTS.unshift(data);
+      EVENTS.sort((a,b) => b.event_date.localeCompare(a.event_date));
+    }
+
+    closeEventModal();
+    renderTimeline();
+    // רענן גרפים שמושפעים מאירועים
+    if(document.getElementById('pane-performance')?.classList.contains('active')){
+      renderCompChart(); renderNormChart();
+    }
+
+  } catch(e){
+    _evShowErr('שגיאת תקשורת: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'שמור';
+  }
+}
+
+function _evShowErr(msg){
+  const err = document.getElementById('evError');
+  err.textContent = msg;
+  err.style.display = 'block';
+}
+
+// --- מחיקה ---
+function openDeleteConfirm(evId){
+  _evDeleteId = evId;
+  const ev = EVENTS.find(e => e.id === evId);
+  const txt = document.getElementById('deleteConfirmText');
+  txt.textContent = ev ? `"${ev.title}" (${ev.event_date})` : 'האם למחוק את האירוע?';
+  const overlay = document.getElementById('deleteConfirmOverlay');
+  overlay.style.display = 'flex';
+}
+
+function closeDeleteConfirm(){
+  document.getElementById('deleteConfirmOverlay').style.display = 'none';
+  _evDeleteId = null;
+}
+
+async function confirmDeleteEvent(){
+  if(!_evDeleteId) return;
+  const btn = document.getElementById('deleteConfirmBtn');
+  btn.disabled = true;
+  btn.textContent = 'מוחק...';
+
+  try {
+    const resp = await fetch(`${API_BASE}/tables/timeline_events/${_evDeleteId}`, {
+      method: 'DELETE',
+      headers: _evAuthHeaders()
+    });
+
+    if(resp.ok || resp.status === 204){
+      EVENTS = EVENTS.filter(e => e.id !== _evDeleteId);
+      closeDeleteConfirm();
+      renderTimeline();
+      if(document.getElementById('pane-performance')?.classList.contains('active')){
+        renderCompChart(); renderNormChart();
+      }
+    } else {
+      const d = await resp.json().catch(()=>({}));
+      alert('שגיאה במחיקה: ' + (d.error || resp.status));
+    }
+  } catch(e){
+    alert('שגיאת תקשורת: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'מחק';
+  }
+}
 </script>
 </body>
 </html>
