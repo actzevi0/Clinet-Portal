@@ -96,6 +96,7 @@
   <div class="sa-tab active" onclick="showTab('analytics')"><i class="fas fa-chart-bar" style="margin-left:6px;"></i>אנליטיקה</div>
   <div class="sa-tab" onclick="showTab('agents')"><i class="fas fa-users" style="margin-left:6px;"></i>סוכנים</div>
   <div class="sa-tab" onclick="showTab('audit')"><i class="fas fa-history" style="margin-left:6px;"></i>יומן פעולות</div>
+  <div class="sa-tab" onclick="showTab('clients')"><i class="fas fa-user-friends" style="margin-left:6px;"></i>לקוחות ללא סוכן</div>
   <div class="sa-tab" onclick="showTab('templates')"><i class="fas fa-layer-group" style="margin-left:6px;"></i>תבניות ופיצ'רים</div>
 </div>
 
@@ -161,6 +162,51 @@
     <button class="btn btn-secondary" id="auditMoreBtn" onclick="loadMoreAudit()" style="display:none;">
       <i class="fas fa-chevron-down"></i> טען עוד
     </button>
+  </div>
+</div>
+
+<!-- ── UNASSIGNED CLIENTS ────────────────────────────────────── -->
+<div class="sa-pane" id="pane-clients">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+    <h2 style="margin:0;font-size:1.1rem;"><i class="fas fa-user-slash" style="margin-left:8px;color:#f59e0b;"></i>לקוחות ללא סוכן</h2>
+    <button class="btn btn-secondary" onclick="loadUnassigned()"><i class="fas fa-sync-alt"></i> רענן</button>
+  </div>
+  <div class="search-bar">
+    <input type="text" id="unassignedSearch" placeholder="חיפוש לפי שם לקוח..." oninput="filterUnassigned()">
+  </div>
+  <div id="unassignedInfo" style="font-size:.82rem;color:var(--text-muted);margin-bottom:12px;"></div>
+  <div style="overflow-x:auto;">
+    <table class="agents-table" id="unassignedTable">
+      <thead>
+        <tr>
+          <th>שם לקוח</th><th>מזהה</th><th>תאריך יצירה</th><th>שיוך לסוכן</th>
+        </tr>
+      </thead>
+      <tbody id="unassignedBody">
+        <tr><td colspan="4" style="text-align:center;padding:32px;color:var(--text-muted);">לחץ על טאב כדי לטעון...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── Assign Client Modal ─────────────────────────────────────── -->
+<div class="sa-modal" id="assignModal">
+  <div class="sa-modal-box" style="max-width:420px;">
+    <h3><i class="fas fa-user-tag" style="color:var(--primary);"></i> שיוך לקוח לסוכן</h3>
+    <p id="assignClientName" style="font-size:.9rem;margin-bottom:16px;color:var(--text-muted);"></p>
+    <div class="form-group">
+      <label>בחר סוכן *</label>
+      <select id="assignAgentSelect" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:7px;background:var(--bg);color:var(--text);font-size:.88rem;font-family:Heebo,sans-serif;">
+        <option value="">— בחר סוכן —</option>
+      </select>
+    </div>
+    <div id="assignModalErr" class="error-msg" style="display:none;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeAssignModal()">ביטול</button>
+      <button class="btn" id="assignSaveBtn" onclick="saveAssign()">
+        <i class="fas fa-link"></i> שייך
+      </button>
+    </div>
   </div>
 </div>
 
@@ -671,6 +717,122 @@ function renderAuditLog() {
   }).join('') || '<div style="color:var(--text-muted);padding:20px;text-align:center;">אין רשומות</div>';
 }
 
+// ── Unassigned Clients ───────────────────────────────────────────
+let ALL_UNASSIGNED = [];
+let _assignClientId = null;
+
+async function loadUnassigned() {
+  const tbody = document.getElementById('unassignedBody');
+  tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> טוען...</td></tr>';
+  document.getElementById('unassignedInfo').textContent = '';
+
+  if (IS_DEMO_MODE) {
+    ALL_UNASSIGNED = [{id:'demo-client-1',name:'מנחם גילור',created_at:Date.now()-86400000*10}];
+    renderUnassigned();
+    return;
+  }
+
+  try {
+    const r = await authFetch('/admin/unassigned?limit=200');
+    const d = await r.json();
+    ALL_UNASSIGNED = d.data || [];
+    document.getElementById('unassignedInfo').textContent =
+      ALL_UNASSIGNED.length === 0 ? '✅ אין לקוחות ללא סוכן' :
+      `נמצאו ${d.total} לקוחות ללא סוכן מוקצה`;
+    renderUnassigned();
+  } catch(e) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:24px;color:#ef4444;">שגיאה בטעינה</td></tr>';
+  }
+}
+
+function renderUnassigned(list) {
+  const arr = list || ALL_UNASSIGNED;
+  const tbody = document.getElementById('unassignedBody');
+  if (!arr.length) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:32px;color:var(--text-muted);"><i class="fas fa-check-circle" style="color:#10b981;"></i> אין לקוחות ללא סוכן</td></tr>';
+    return;
+  }
+  tbody.innerHTML = arr.map(c => {
+    const dt = c.created_at ? new Date(c.created_at).toLocaleDateString('he-IL') : '—';
+    return `<tr>
+      <td style="font-weight:600;">${c.name}</td>
+      <td style="font-size:.76rem;color:var(--text-dim);" dir="ltr">${c.id}</td>
+      <td style="font-size:.78rem;color:var(--text-muted);">${dt}</td>
+      <td><button class="btn-xs success" onclick="openAssignModal('${c.id}','${c.name.replace(/'/g,"\\'")}')"><i class="fas fa-user-tag"></i> שייך לסוכן</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function filterUnassigned() {
+  const q = document.getElementById('unassignedSearch').value.toLowerCase();
+  renderUnassigned(ALL_UNASSIGNED.filter(c => c.name.toLowerCase().includes(q) || c.id.toLowerCase().includes(q)));
+}
+
+function openAssignModal(clientId, clientName) {
+  _assignClientId = clientId;
+  document.getElementById('assignClientName').textContent = `לקוח: ${clientName}`;
+  document.getElementById('assignModalErr').style.display = 'none';
+
+  // Populate agents
+  const sel = document.getElementById('assignAgentSelect');
+  sel.innerHTML = '<option value="">— בחר סוכן —</option>';
+  ALL_AGENTS.filter(a => a.role !== 'superadmin' && a.status === 'active').forEach(a => {
+    const opt = document.createElement('option');
+    opt.value = a.id;
+    const quota = a.client_quota ? ` (${a.client_count||0}/${a.client_quota} לקוחות)` : '';
+    opt.textContent = `${a.name}${quota}`;
+    sel.appendChild(opt);
+  });
+
+  document.getElementById('assignModal').classList.add('show');
+}
+
+function closeAssignModal() {
+  document.getElementById('assignModal').classList.remove('show');
+  _assignClientId = null;
+}
+
+async function saveAssign() {
+  const agentId = document.getElementById('assignAgentSelect').value;
+  if (!agentId) {
+    document.getElementById('assignModalErr').textContent = 'יש לבחור סוכן';
+    document.getElementById('assignModalErr').style.display = 'block';
+    return;
+  }
+  const btn = document.getElementById('assignSaveBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+  if (IS_DEMO_MODE) {
+    ALL_UNASSIGNED = ALL_UNASSIGNED.filter(c => c.id !== _assignClientId);
+    renderUnassigned();
+    closeAssignModal();
+    btn.disabled=false; btn.innerHTML='<i class="fas fa-link"></i> שייך';
+    return;
+  }
+
+  try {
+    const r = await authFetch(`/admin/unassigned/${_assignClientId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ agent_id: agentId })
+    });
+    const d = await r.json();
+    if (!r.ok) {
+      document.getElementById('assignModalErr').textContent = d.error || 'שגיאה';
+      document.getElementById('assignModalErr').style.display = 'block';
+      btn.disabled=false; btn.innerHTML='<i class="fas fa-link"></i> שייך';
+      return;
+    }
+    closeAssignModal();
+    await loadUnassigned();
+    await loadAgents(); // refresh quota counts
+  } catch(e) {
+    document.getElementById('assignModalErr').textContent = 'שגיאת רשת';
+    document.getElementById('assignModalErr').style.display = 'block';
+    btn.disabled=false; btn.innerHTML='<i class="fas fa-link"></i> שייך';
+  }
+}
+
 // ── Tabs ──────────────────────────────────────────────────────────
 function showTab(name) {
   document.querySelectorAll('.sa-tab').forEach(t=>t.classList.remove('active'));
@@ -679,6 +841,7 @@ function showTab(name) {
   document.getElementById(`pane-${name}`).classList.add('active');
 
   if (name==='audit' && !IS_DEMO_MODE && !auditData.length) loadAuditLog();
+  if (name==='clients' && !ALL_UNASSIGNED.length) loadUnassigned();
 }
 
 // CSS helper

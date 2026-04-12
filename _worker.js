@@ -382,6 +382,78 @@ async function handleAgents(request, env, sess) {
   return jr({error:'Method not allowed'},405);
 }
 
+// ── Superadmin: Unassigned Clients ────────────────────────────────
+async function handleUnassigned(request, env, sess) {
+  if (request.method === 'OPTIONS') return new Response(null,{status:204,headers:CORS});
+  if (!sess || sess.role !== 'superadmin') return jr({error:'Forbidden'},403);
+
+  const db  = env.DB;
+  const url = new URL(request.url);
+
+  // GET /admin/unassigned – list clients with no agent
+  if (request.method === 'GET') {
+    const page   = Math.max(1, parseInt(url.searchParams.get('page')||'1'));
+    const limit  = Math.min(200, parseInt(url.searchParams.get('limit')||'100'));
+    const search = url.searchParams.get('search')||'';
+    const offset = (page-1)*limit;
+
+    const bp = [];
+    let whereExtra = '';
+    if (search) {
+      whereExtra = ' AND (name LIKE ? OR id LIKE ?)';
+      bp.push(`%${search}%`, `%${search}%`);
+    }
+
+    const total = await db.prepare(
+      `SELECT COUNT(*) n FROM clients WHERE (agent_id IS NULL OR agent_id='') AND deleted=0${whereExtra}`
+    ).bind(...bp).first();
+
+    const rows = await db.prepare(
+      `SELECT id, name, created_at FROM clients WHERE (agent_id IS NULL OR agent_id='') AND deleted=0${whereExtra} ORDER BY name LIMIT ? OFFSET ?`
+    ).bind(...bp, limit, offset).all();
+
+    return jr({ data: rows.results||[], total: total?.n||0, page, limit });
+  }
+
+  // PATCH /admin/unassigned/:clientId – assign to agent
+  const m = url.pathname.match(/^\/admin\/unassigned\/([^/]+)$/);
+  if (request.method === 'PATCH' && m) {
+    const clientId = m[1];
+    const body = await request.json().catch(()=>({}));
+    const agentId = body.agent_id || null;
+
+    if (!agentId) return jr({error:'agent_id נדרש'},400);
+
+    // Verify agent exists
+    const agent = await db.prepare(`SELECT id,name,client_quota FROM agents WHERE id=? AND deleted=0`).bind(agentId).first();
+    if (!agent) return jr({error:'סוכן לא נמצא'},404);
+
+    // Verify client exists and is unassigned
+    const client = await db.prepare(`SELECT id,name,agent_id FROM clients WHERE id=? AND deleted=0`).bind(clientId).first();
+    if (!client) return jr({error:'לקוח לא נמצא'},404);
+
+    // Check quota
+    if (agent.client_quota) {
+      const cc = await db.prepare(`SELECT COUNT(*) n FROM clients WHERE agent_id=? AND deleted=0`).bind(agentId).first();
+      if ((cc?.n||0) >= agent.client_quota) {
+        return jr({error:`הסוכן הגיע למגבלת הלקוחות (${agent.client_quota})`},402);
+      }
+    }
+
+    // Assign
+    await db.prepare(`UPDATE clients SET agent_id=?, updated_at=? WHERE id=?`)
+      .bind(agentId, Date.now(), clientId).run();
+
+    await auditLog(env, sess.agent_id, 'assign_client', 'clients', clientId,
+      { agent_id: agentId, agent_name: agent.name, client_name: client.name });
+
+    const updated = await db.prepare(`SELECT * FROM clients WHERE id=?`).bind(clientId).first();
+    return jr(updated);
+  }
+
+  return jr({error:'Method not allowed'},405);
+}
+
 // ── Superadmin: Analytics ──────────────────────────────────────────
 async function handleAnalytics(request, env, sess) {
   if (!sess || sess.role !== 'superadmin') return jr({error:'Forbidden'},403);
@@ -704,6 +776,9 @@ export default {
 
     // Agent management (superadmin)
     if (path.startsWith('/admin/agents')) return handleAgents(request, env, sess);
+
+    // Unassigned clients management (superadmin)
+    if (path.startsWith('/admin/unassigned')) return handleUnassigned(request, env, sess);
 
     // Analytics (superadmin)
     if (path === '/admin/analytics') return handleAnalytics(request, env, sess);
