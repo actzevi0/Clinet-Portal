@@ -1,5 +1,5 @@
 /**
- * EasyFinance – Cloudflare Pages Worker v6.0
+ * EasyFinance – Cloudflare Pages Worker v6.2
  * Multi-agent platform with auth, data isolation, audit log
  */
 
