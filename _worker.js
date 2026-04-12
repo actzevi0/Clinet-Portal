@@ -227,8 +227,8 @@ async function handleAuth(request, env) {
     const token   = generateToken(48);
     const expires = Date.now() + (2 * 60 * 60 * 1000); // 2 hours only
     await env.DB.prepare(
-      `INSERT INTO agent_sessions (id,agent_id,token,expires_at,user_agent,ip_address,created_at,revoked,impersonated_by)
-       VALUES (?,?,?,?,?,?,?,0,?)`
+      `INSERT INTO agent_sessions (id,agent_id,token,expires_at,user_agent,ip_address,created_at,revoked,impersonator_id,is_impersonation)
+       VALUES (?,?,?,?,?,?,?,0,?,1)`
     ).bind(mkid(), targetId, token, expires, 'impersonation', '', Date.now(), sess.agent_id).run();
 
     await auditLog(env, sess.agent_id, 'impersonate', 'agents', targetId);

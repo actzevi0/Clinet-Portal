@@ -104,10 +104,10 @@
 
     document.body.insertBefore(bar, document.body.firstChild);
 
-    // Add top padding to body
-    const mainContent = document.querySelector('.admin-header, main, .container, body > div:not(#agentAuthBar)');
-    if (mainContent) mainContent.style.marginTop = '44px';
-    else document.body.style.paddingTop = '44px';
+    // Add top padding to body (only if not already set)
+    if (!document.body.style.paddingTop || document.body.style.paddingTop === '0px') {
+      document.body.style.paddingTop = '44px';
+    }
   }
 
   window.stopImpersonating = async function() {
