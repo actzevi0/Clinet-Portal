@@ -266,8 +266,8 @@ async function loadClient() {
     document.getElementById('editHeaderSub').textContent = `${CLIENT.id} | ${CLIENT.report_period}`;
     document.title = `עדכון – ${CLIENT.name}`;
 
-    const _tok = sessionStorage.getItem('agent_token') || localStorage.getItem('agent_token') || '';
-    document.getElementById('viewDashboardBtn').href = `../dashboard.html?client=${CLIENT.id}${_tok ? '&_st=' + encodeURIComponent(_tok) : ''}`;
+    // view-token נוצר בפונקציית openDashboardEditor()
+    document.getElementById('viewDashboardBtn').disabled = false;
 
     populateMonthSelector();
     populateTimelineProductSelect();
@@ -631,6 +631,30 @@ function copyJSON() {
 function formatILS(v) {
   if (v == null || isNaN(v)) return '—';
   return new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 }).format(v);
+}
+
+// פתח דשבורד עם view-token מאובטח (read-write לסוכן בלבד)
+async function openDashboardEditor() {
+  try {
+    const agentToken = sessionStorage.getItem('agent_token') || localStorage.getItem('agent_token') || '';
+    let viewToken = '';
+    if (agentToken) {
+      const resp = await fetch('/auth/view-token', {
+        method: 'POST',
+        headers: { 'X-Session-Token': agentToken }
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        viewToken = data.view_token || '';
+      }
+    }
+    const base = `${window.location.origin}${window.location.pathname.replace(/admin\/edit\.html.*/, '')}dashboard.html`;
+    const url  = `${base}?client=${CLIENT.id}${viewToken ? '&_st=' + encodeURIComponent(viewToken) : ''}`;
+    window.open(url, '_blank');
+  } catch(e) {
+    const base = `${window.location.origin}${window.location.pathname.replace(/admin\/edit\.html.*/, '')}dashboard.html`;
+    window.open(`${base}?client=${CLIENT.id}`, '_blank');
+  }
 }
 
 loadClient();

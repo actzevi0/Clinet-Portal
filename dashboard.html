@@ -1102,7 +1102,8 @@ function initUI(){
   renderTable();
   renderProdCards();
   renderCompToggles();
-  renderTimeline();
+  // בדוק הרשאות יועץ לפני renderTimeline
+  _verifyAdvisorSession().then(() => renderTimeline());
   renderInsights();
   renderGoals();
   renderWhatIf();
@@ -3069,12 +3070,13 @@ loadData();
 
 let _evEditId = null; // null = חדש, string = ערוך
 let _evDeleteId = null;
+let _isAdvisorSession = false; // true רק אחרי אימות server-side
 
 // --- helpers ---
 function _getAgentToken(){
   return sessionStorage.getItem('agent_token') || localStorage.getItem('agent_token') || null;
 }
-function _hasAgentToken(){ return !!_getAgentToken(); }
+function _hasAgentToken(){ return _isAdvisorSession; } // מבוסס על תשובת server
 
 function _evAuthHeaders(){
   const t = _getAgentToken();
@@ -3082,9 +3084,32 @@ function _evAuthHeaders(){
            : { 'Content-Type':'application/json' };
 }
 
-// הצג כפתור "הוסף אירוע" רק אם יש session token
+// בדוק מול השרת אם ה-session קיים ואינו read-only
+async function _verifyAdvisorSession(){
+  const t = _getAgentToken();
+  if (!t) { _isAdvisorSession = false; return; }
+  try {
+    const resp = await fetch('/auth/me', {
+      headers: { 'X-Session-Token': t }
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      // is_readonly נבדק דרך /auth/me — הוסף שדה is_readonly לתגובה
+      _isAdvisorSession = !data.is_readonly;
+    } else {
+      _isAdvisorSession = false;
+      // נקה token פגום
+      sessionStorage.removeItem('agent_token');
+      localStorage.removeItem('agent_token');
+    }
+  } catch(e) {
+    _isAdvisorSession = false;
+  }
+}
+
+// הצג כפתור "הוסף אירוע" רק אחרי אימות server-side
 function _initEventMgmt(){
-  if(_hasAgentToken()){
+  if(_isAdvisorSession){
     const btn = document.getElementById('addEventBtn');
     if(btn) btn.style.display = 'flex';
   }

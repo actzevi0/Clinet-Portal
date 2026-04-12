@@ -423,9 +423,9 @@ function renderClientsGrid() {
           <a href="monthly-update.html?client=${c.id}" class="btn btn-primary btn-sm">
             <i class="fa fa-plus-circle"></i> עדכון חודשי
           </a>
-          <a href="../dashboard.html?client=${c.id}&_st=${encodeURIComponent(sessionStorage.getItem('agent_token')||localStorage.getItem('agent_token')||'')}" target="_blank" class="btn btn-secondary btn-sm">
+          <button class="btn btn-secondary btn-sm" onclick="openDashboard('${c.id}')">
             <i class="fa fa-eye"></i> תצוגת לקוח
-          </a>
+          </button>
           <button class="btn btn-secondary btn-sm" onclick="openClientSettings('${c.id}')">
             <i class="fa fa-cog"></i> הגדרות
           </button>
@@ -450,6 +450,31 @@ function renderClientsGrid() {
     </div>`;
 
   grid.innerHTML = html;
+}
+
+// פתח דשבורד עם view-token (read-write לסוכן בלבד)
+async function openDashboard(clientId) {
+  try {
+    const agentToken = sessionStorage.getItem('agent_token') || localStorage.getItem('agent_token') || '';
+    let viewToken = '';
+    if (agentToken) {
+      const resp = await fetch('/auth/view-token', {
+        method: 'POST',
+        headers: { 'X-Session-Token': agentToken }
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        viewToken = data.view_token || '';
+      }
+    }
+    const base = `${window.location.origin}${window.location.pathname.replace('admin/index.html', '')}dashboard.html`;
+    const url  = `${base}?client=${clientId}${viewToken ? '&_st=' + encodeURIComponent(viewToken) : ''}`;
+    window.open(url, '_blank');
+  } catch(e) {
+    // fallback ללא token
+    const base = `${window.location.origin}${window.location.pathname.replace('admin/index.html', '')}dashboard.html`;
+    window.open(`${base}?client=${clientId}`, '_blank');
+  }
 }
 
 function copyClientLink(clientId) {

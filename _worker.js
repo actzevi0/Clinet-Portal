@@ -59,6 +59,11 @@ async function getSession(request, env) {
   return sess || null;
 }
 
+// בדיקה אם session הוא read-only
+function isReadOnly(sess) {
+  return sess && sess.is_readonly === 1;
+}
+
 // ── Audit Log ──────────────────────────────────────────────────────
 async function auditLog(env, agentId, action, targetTable, targetId, meta={}) {
   if (!env.DB) return;
@@ -129,6 +134,26 @@ async function handleAuth(request, env) {
     });
   }
 
+  // POST /auth/view-token — יוצר token קצר-טווח read-only לדשבורד
+  if (method === 'POST' && path === '/auth/view-token') {
+    const sess = await getSession(request, env);
+    if (!sess) return jr({error:'Not authenticated'},401);
+    if (isReadOnly(sess)) return jr({error:'Cannot create view-token from read-only session'},403);
+
+    const token   = generateToken(48);
+    const expires = Date.now() + (8 * 60 * 60 * 1000); // 8 שעות
+    const sessId  = mkid();
+    const ua = request.headers.get('User-Agent') || '';
+    const ip = request.headers.get('CF-Connecting-IP') || '';
+
+    await env.DB.prepare(
+      `INSERT INTO agent_sessions (id,agent_id,token,expires_at,user_agent,ip_address,created_at,revoked,is_readonly)
+       VALUES (?,?,?,?,?,?,?,0,1)`
+    ).bind(sessId, sess.agent_id, token, expires, ua.slice(0,200), ip, Date.now()).run();
+
+    return jr({ view_token: token, expires });
+  }
+
   // POST /auth/logout
   if (method === 'POST' && path === '/auth/logout') {
     const token = request.headers.get('X-Session-Token');
@@ -145,7 +170,8 @@ async function handleAuth(request, env) {
     return jr({
       id: sess.agent_id, name: sess.agent_name, email: sess.agent_email,
       role: sess.role, plan: sess.plan, logo_url: sess.logo_url,
-      client_quota: sess.client_quota, subscription_end: sess.subscription_end
+      client_quota: sess.client_quota, subscription_end: sess.subscription_end,
+      is_readonly: sess.is_readonly === 1 ? true : false
     });
   }
 
@@ -724,7 +750,12 @@ async function handleTables(request, env, sess) {
       return jr(updated||rec);
     }
 
-    // ── DELETE (soft) ─────────────────────────────────────────────
+    // חסימת כתיבה ל-timeline_events עבור read-only sessions
+    if (['POST','PATCH','PUT','DELETE'].includes(method) && table === 'timeline_events') {
+      if (isReadOnly(sess)) return jr({error:'Read-only session — cannot modify events'},403);
+    }
+
+    // ── DELETE (soft) ───────────────────────────────────────────────────
     if (method === 'DELETE' && id) {
       if (TABLES_WITH_DELETED.includes(table)) {
         await db.prepare(`UPDATE ${table} SET deleted=1,updated_at=? WHERE id=?`).bind(Date.now(),id).run();
