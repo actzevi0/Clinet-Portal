@@ -3074,7 +3074,9 @@ let _isAdvisorSession = false; // true רק אחרי אימות server-side
 
 // --- helpers ---
 function _getAgentToken(){
-  return sessionStorage.getItem('agent_token') || localStorage.getItem('agent_token') || null;
+  // בדשבורד — קרא רק מ-sessionStorage (לא מ-localStorage!)
+  // כך לקוח לא יקבל הרשאות גם אם הסוכן התחבר לניהול באותו דפדפן
+  return sessionStorage.getItem('agent_token') || null;
 }
 function _hasAgentToken(){ return _isAdvisorSession; } // מבוסס על תשובת server
 
@@ -3098,9 +3100,8 @@ async function _verifyAdvisorSession(){
       _isAdvisorSession = !data.is_readonly;
     } else {
       _isAdvisorSession = false;
-      // נקה token פגום
+      // נקה token פגום מה-sessionStorage בלבד
       sessionStorage.removeItem('agent_token');
-      localStorage.removeItem('agent_token');
     }
   } catch(e) {
     _isAdvisorSession = false;
