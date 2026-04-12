@@ -663,7 +663,7 @@ function monthLabel(m){
 }
 function getVal(prodId,month){return(MV[prodId]||[]).find(r=>r.month===month)?.value??null;}
 function getLastVal(prodId){
-  const arr=(MV[prodId]||[]).sort((a,b)=>monthToNum(b.month)-monthToNum(a.month));
+  const arr=(MV[prodId]||[]).filter(r=>r.value!=null&&r.value>0).sort((a,b)=>monthToNum(b.month)-monthToNum(a.month));
   return arr.length?arr[0].value:null;
 }
 function getOpeningVal(prod){return prod.ytd_start_value??null;}
@@ -724,11 +724,11 @@ function getYearOpen(prod, year){
   }
 }
 
-// סגירת שנה — הערך האחרון הקיים בשנה
+// סגירת שנה — הערך האחרון הקיים בשנה (> 0, דולג על חודשי פדיון)
 function getYearClose(prod, year){
   for(let m=11;m>=0;m--){
     const v=getYearVal(prod.id, year, m);
-    if(v!=null) return v;
+    if(v!=null && v>0) return v; // דולג על value=0 (פדיון)
   }
   return null;
 }
@@ -765,6 +765,10 @@ function calcMonthlyRet(prodId,months){
     const prev=getVal(prodId,months[i-1]);
     const cur=getVal(prodId,m);
     if(cur==null){rets[m]=null;continue;}
+    // value=0 = מוצר נפדה — לא מחשבים תשואה, מדלגים
+    if(cur===0){rets[m]=null;continue;}
+    // גם prev=0 — לא מחשבים (חודש שלפני הפדיון)
+    if(prev===0){rets[m]=null;continue;}
     // חודש פתיחה — חשב לפי ytd_start_value (הסכום שהופקד/יתרת פתיחה)
     if(startMonth && m===startMonth && startVal && startVal>0){
       rets[m]=(cur-startVal)/startVal;
@@ -774,6 +778,15 @@ function calcMonthlyRet(prodId,months){
     else rets[m]=null;
   }
   return rets;
+}
+
+// מחזיר null עבור חודשים לאחר הפדיון (value=0)
+// ועבור חודשים שאין בהם נתון
+function getValOrNull(prodId, month){
+  const v = getVal(prodId, month);
+  if(v == null) return null;  // אין נתון
+  if(v === 0) return null;    // נפדה = null (לא 0)
+  return v;
 }
 
 // Portfolio YTD — הנוסחה שמחזירה 9.25%:
@@ -1479,12 +1492,9 @@ function renderCompChart(){
 
     if(ev.event_type==='deposit' && ev.amount){
       if(!depositMap[m]) depositMap[m]=[];
-      // מנורה אינדקס — 600K בDB אבל ytd_start_value=300K
-      const displayAmt=(prod.ytd_start_value && prod.ytd_start_value < ev.amount)
-        ? prod.ytd_start_value : ev.amount;
       const dup=depositMap[m].find(x=>x.prodId===prod.id);
-      if(dup) dup.amount+=displayAmt;
-      else depositMap[m].push({prodId:prod.id,name:prod.name_short,amount:displayAmt,color:prod.color});
+      if(dup) dup.amount+=ev.amount;
+      else depositMap[m].push({prodId:prod.id,name:prod.name_short,amount:ev.amount,color:prod.color});
     }
     else if(ev.event_type==='withdrawal' && ev.amount){
       if(!withdrawalMap[m]) withdrawalMap[m]=[];
@@ -1546,9 +1556,19 @@ function renderCompChart(){
     const hasTransfer=m=>transferMonthsPerProd[p.id]?.has(m);
     const hasTrackChange=m=>trackChangeMonthsPerProd[p.id]?.has(m);
     const hasEvent=m=>hasDeposit(m)||hasWithdrawal(m)||hasTransfer(m)||hasTrackChange(m);
+    // מוצרים נפדים: חותכים את הגרף בחודש האחרון עם ערך > 0
+    // (לא מציגים null/0 אחרי הפדיון)
+    const lastNonZeroIdx = CMonths.reduce((last, m, i) => {
+      const v = getVal(p.id, m);
+      return (v != null && v > 0) ? i : last;
+    }, -1);
+    const chartData = CMonths.map((m, i) => {
+      if(lastNonZeroIdx >= 0 && i > lastNonZeroIdx) return null; // אחרי פדיון — null
+      return getVal(p.id, m);
+    });
     return{
       label:p.name_short,
-      data:CMonths.map(m=>getVal(p.id,m)),
+      data:chartData,
       borderColor:p.color,
       borderDash:p.status!=='active'?[5,3]:[],
       backgroundColor:'transparent',
@@ -1662,17 +1682,24 @@ function renderNormChart(){
     const series=[];
     let started=false;
     const startMonth=p.ytd_start_month||null;
+    // מצא את החודש האחרון עם ערך > 0 (לחיתוך מוצרים נפדים)
+    const lastNonZeroIdx = CMonths.reduce((last, m, i) => {
+      const v = getVal(p.id, m);
+      return (v != null && v > 0) ? i : last;
+    }, -1);
 
     for(let i=0;i<CMonths.length;i++){
       const m=CMonths[i];
+      // אחרי פדיון — הפסק את הגרף
+      if(lastNonZeroIdx >= 0 && i > lastNonZeroIdx){series.push(null);continue;}
       const v=getVal(p.id,m);
 
       if(!started){
         if(startMonth){
-          if(m===startMonth && v!=null){series.push(100);started=true;idx=100;}
+          if(m===startMonth && v!=null&&v>0){series.push(100);started=true;idx=100;}
           else series.push(null);
         } else {
-          if(v!=null){series.push(100);started=true;idx=100;}
+          if(v!=null&&v>0){series.push(100);started=true;idx=100;}
           else series.push(null);
         }
         continue;
@@ -1680,10 +1707,11 @@ function renderNormChart(){
 
       // לאחר הפתיחה — חישוב צמיחה לפי החודש הקודם ב-CMonths
       const prev=getVal(p.id,CMonths[i-1]);
-      if(prev!=null&&v!=null&&prev!==0) idx=idx*(v/prev);
-      series.push(v!=null?parseFloat(idx.toFixed(2)):null);
+      if(v===0||v==null){series.push(null);continue;} // פדיון/אין נתונים
+      if(prev!=null&&prev!==0) idx=idx*(v/prev);
+      series.push(parseFloat(idx.toFixed(2)));
     }
-    return{label:p.name_short,data:series,borderColor:p.color,backgroundColor:'transparent',tension:.4,pointRadius:3,borderWidth:2,spanGaps:true};
+    return{label:p.name_short,data:series,borderColor:p.color,backgroundColor:'transparent',tension:.4,pointRadius:3,borderWidth:2,spanGaps:false};
   });
   const ctx=document.getElementById('normChart');if(!ctx)return;
   CHARTS.norm=new Chart(ctx.getContext('2d'),{type:'line',data:{labels,datasets},options:{...lineOpts(d),scales:{x:{grid:{color:d.grid},ticks:{color:d.text,font:{family:'Heebo',size:10}}},y:{grid:{color:d.grid},ticks:{color:d.text,callback:v=>v.toFixed(0)},title:{display:true,text:'אינדקס (בסיס 100)',color:d.text,font:{family:'Heebo',size:10}}}}}});
