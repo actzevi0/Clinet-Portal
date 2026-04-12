@@ -164,14 +164,14 @@ CREATE TABLE IF NOT EXISTS timeline_events (
 CREATE INDEX IF NOT EXISTS idx_events_client ON timeline_events(client_id);
 
 -- ── INITIAL SUPERADMIN ────────────────────────────────────────────
--- password: Admin@12345  (SHA-256 hash)
+-- password: EasyAdmin@2025!  (SHA-256 hash)
 -- CHANGE THIS IMMEDIATELY after first login!
 INSERT OR IGNORE INTO agents (id,name,email,password_hash,role,status,plan,client_quota,created_at,updated_at,deleted)
 VALUES (
   'superadmin-1',
   'Super Admin',
   'admin@easyfinance.co.il',
-  '6f2cb9dd8f4b65e24e1c3f3fa5bc57982349237f11abceacd45bbcb74d621c25',
+  '032bb6c6e03edff61a1d453cd7169081570e2d0aa3dbdb4c1692835ea3563418',
   'superadmin',
   'active',
   'unlimited',

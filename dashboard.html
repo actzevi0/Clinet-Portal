@@ -2459,14 +2459,34 @@ function getRiskForProduct(p, mode){
     return { eq: parseFloat(latest.risk_equities)||0, bo: parseFloat(latest.risk_bonds)||0, al: parseFloat(latest.risk_alternatives)||0, source:'latest', month:latest.month };
   }
   if (mode === 'avg') {
-    // Average over months in ACTIVE_YEAR
-    const yearRows = mvRows.filter(r => r.month && r.month.endsWith('/'+String(ACTIVE_YEAR).slice(-2)));
-    const rows = yearRows.length ? yearRows : mvRows;
+    // ממוצע משוקלל לפי שווי — כל חודש מקבל משקל לפי value שלו
+    const yy = String(ACTIVE_YEAR).slice(-2);
+    const allMvForYear = (MV[p.id]||[]).filter(r => r.month && r.month.endsWith('/'+yy));
+    const rows = allMvForYear.length ? allMvForYear : mvRows;
+    const pts = rows.map(r => {
+      const val = parseFloat(r.value) || 0;
+      const eq = r.risk_equities != null ? parseFloat(r.risk_equities)||0 : p.risk_equities||0;
+      const bo = r.risk_bonds    != null ? parseFloat(r.risk_bonds)   ||0 : p.risk_bonds   ||0;
+      const al = r.risk_alternatives != null ? parseFloat(r.risk_alternatives)||0 : p.risk_alternatives||0;
+      return { val, eq, bo, al };
+    }).filter(r => r.val > 0);
+    if (pts.length) {
+      const sumV = pts.reduce((s,r) => s + r.val, 0);
+      return {
+        eq: pts.reduce((s,r) => s + r.eq * r.val, 0) / sumV,
+        bo: pts.reduce((s,r) => s + r.bo * r.val, 0) / sumV,
+        al: pts.reduce((s,r) => s + r.al * r.val, 0) / sumV,
+        source: 'avg', n: pts.length
+      };
+    }
+    // fallback: simple average
     const n = rows.length;
-    const eq = rows.reduce((s,r)=>s+(parseFloat(r.risk_equities)||0),0)/n;
-    const bo = rows.reduce((s,r)=>s+(parseFloat(r.risk_bonds)||0),0)/n;
-    const al = rows.reduce((s,r)=>s+(parseFloat(r.risk_alternatives)||0),0)/n;
-    return { eq, bo, al, source:'avg', n };
+    return {
+      eq: rows.reduce((s,r)=>s+(parseFloat(r.risk_equities)||0),0)/n,
+      bo: rows.reduce((s,r)=>s+(parseFloat(r.risk_bonds)   ||0),0)/n,
+      al: rows.reduce((s,r)=>s+(parseFloat(r.risk_alternatives)||0),0)/n,
+      source:'avg', n
+    };
   } else {
     // Latest month — sort by monthToNum לדיוק חוצה שנים
     const sorted = [...mvRows].sort((a,b)=>monthToNum(b.month)-monthToNum(a.month));
@@ -2568,12 +2588,27 @@ function renderRisk(){
       return { eq: p.risk_equities||0, bo: p.risk_bonds||0, al: p.risk_alternatives||0, source:'product' };
     }
     if (RISK_MODE === 'avg') {
-      const n = yearMvRows.length;
+      // ממוצע שנתי משוקלל לפי שווי — עם זיהוי שינויי מסלול
+      // מוצא את החלוקה לתת-תקופות לפי מסלול (track)
+      // כל תת-תקופה: ממוצע משוקלל של הסיכון בחלוקה לפי value
+      const sorted = yearMvRows.slice().sort((a,b)=>monthToNum(a.month)-monthToNum(b.month));
+      const pts = sorted.map(r => ({
+        val: parseFloat(r.value) || 0,
+        eq: r.risk_equities != null ? parseFloat(r.risk_equities)||0 : p.risk_equities||0,
+        bo: r.risk_bonds    != null ? parseFloat(r.risk_bonds)   ||0 : p.risk_bonds   ||0,
+        al: r.risk_alternatives != null ? parseFloat(r.risk_alternatives)||0 : p.risk_alternatives||0,
+        track: r.track || ''
+      })).filter(r => r.val > 0);
+      if (!pts.length) {
+        const n2 = yearMvRows.length;
+        return { eq: yearMvRows.reduce((s,r)=>s+(parseFloat(r.risk_equities)||0),0)/n2, bo: yearMvRows.reduce((s,r)=>s+(parseFloat(r.risk_bonds)||0),0)/n2, al: yearMvRows.reduce((s,r)=>s+(parseFloat(r.risk_alternatives)||0),0)/n2, source:'avg', n:n2 };
+      }
+      const sumV = pts.reduce((s,r)=>s+r.val,0);
       return {
-        eq: yearMvRows.reduce((s,r)=>s+(parseFloat(r.risk_equities)||0),0)/n,
-        bo: yearMvRows.reduce((s,r)=>s+(parseFloat(r.risk_bonds)||0),0)/n,
-        al: yearMvRows.reduce((s,r)=>s+(parseFloat(r.risk_alternatives)||0),0)/n,
-        source:'avg', n
+        eq: pts.reduce((s,r)=>s+r.eq*r.val,0)/sumV,
+        bo: pts.reduce((s,r)=>s+r.bo*r.val,0)/sumV,
+        al: pts.reduce((s,r)=>s+r.al*r.val,0)/sumV,
+        source:'avg', n: pts.length
       };
     }
     // latest within ACTIVE_YEAR
@@ -2586,19 +2621,59 @@ function renderRisk(){
   const prodRisks = [];
   let latestMonth = '';
   for (const p of PRODUCTS.filter(q => q.status === 'active')) {
-    const v = getValForMode(p);
-    if (v == null) continue; // product had no data in this period — skip entirely
-    const risk = getRiskForMode(p);
-    if (!risk) continue;
-    const eq = (risk.eq / 100) * v;
-    const bo = (risk.bo / 100) * v;
-    const al = (risk.al / 100) * v;
-    totalEquities += eq;
-    totalBonds += bo;
-    totalAlt += al;
-    totalVal += v;
-    if (risk.month && monthToNum(risk.month) > monthToNum(latestMonth || '00/00')) latestMonth = risk.month;
-    prodRisks.push({ p, v, eq, bo, al, risk });
+    if (RISK_MODE === 'avg') {
+      // ── ממוצע שנתי: חישוב משוקלל לפי שווי × סיכון לכל חודש ──
+      // כל חודש תורם לפי השווי שלו, לא ממוצע פשוט של %
+      const yy = String(ACTIVE_YEAR).slice(-2);
+      const yearMvRows = (MV[p.id]||[]).filter(r => r.month && r.month.endsWith('/'+yy));
+      if (!yearMvRows.length) continue; // אין נתונים לשנה זו
+      // בנה מערך חודשי: { value, eq, bo, al }
+      const monthlyPoints = yearMvRows.map(r => {
+        const val = parseFloat(r.value) || 0;
+        let eq, bo, al;
+        if (r.risk_equities != null || r.risk_bonds != null || r.risk_alternatives != null) {
+          eq = parseFloat(r.risk_equities) || 0;
+          bo = parseFloat(r.risk_bonds) || 0;
+          al = parseFloat(r.risk_alternatives) || 0;
+        } else {
+          // fallback to product defaults
+          eq = p.risk_equities || 0;
+          bo = p.risk_bonds || 0;
+          al = p.risk_alternatives || 0;
+        }
+        return { val, eq, bo, al };
+      }).filter(r => r.val > 0);
+      if (!monthlyPoints.length) continue;
+      // חישוב ממוצע משוקלל לפי שווי
+      const sumVal = monthlyPoints.reduce((s,r) => s + r.val, 0);
+      const avgEq  = monthlyPoints.reduce((s,r) => s + r.eq * r.val, 0) / sumVal;
+      const avgBo  = monthlyPoints.reduce((s,r) => s + r.bo * r.val, 0) / sumVal;
+      const avgAl  = monthlyPoints.reduce((s,r) => s + r.al * r.val, 0) / sumVal;
+      // השווי לצורך חישוב הכולל = ממוצע חודשי (שקלול הוגן לשנה חלקית)
+      const avgVal = sumVal / monthlyPoints.length;
+      const eq = (avgEq / 100) * avgVal;
+      const bo = (avgBo / 100) * avgVal;
+      const al = (avgAl / 100) * avgVal;
+      totalEquities += eq;
+      totalBonds += bo;
+      totalAlt += al;
+      totalVal += avgVal;
+      prodRisks.push({ p, v: avgVal, eq, bo, al, risk: { eq: avgEq, bo: avgBo, al: avgAl, source: 'avg', n: monthlyPoints.length } });
+    } else {
+      const v = getValForMode(p);
+      if (v == null) continue; // product had no data in this period — skip entirely
+      const risk = getRiskForMode(p);
+      if (!risk) continue;
+      const eq = (risk.eq / 100) * v;
+      const bo = (risk.bo / 100) * v;
+      const al = (risk.al / 100) * v;
+      totalEquities += eq;
+      totalBonds += bo;
+      totalAlt += al;
+      totalVal += v;
+      if (risk.month && monthToNum(risk.month) > monthToNum(latestMonth || '00/00')) latestMonth = risk.month;
+      prodRisks.push({ p, v, eq, bo, al, risk });
+    }
   }
   const eqPct = totalVal ? totalEquities / totalVal * 100 : 0;
   const boPct = totalVal ? totalBonds / totalVal * 100 : 0;
