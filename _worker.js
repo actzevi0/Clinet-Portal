@@ -9,9 +9,10 @@ const CORS = {
   'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Session-Token',
 };
 
-const DATA_TABLES   = ['clients','products','monthly_values','timeline_events'];
-const AGENT_TABLES  = ['agents','agent_sessions','audit_log','crm_notes'];
-const ADMIN_TABLES  = ['agents']; // only superadmin can manage
+const DATA_TABLES        = ['clients','products','monthly_values','timeline_events'];
+const AGENT_TABLES       = ['agents','agent_sessions','audit_log','crm_notes'];
+const ADMIN_TABLES       = ['agents']; // only superadmin can manage
+const TABLES_WITH_DELETED = ['clients','products']; // טבלאות שיש להן עמודת deleted
 
 const jr  = (data, status=200) => new Response(JSON.stringify(data), {
   status, headers: { 'Content-Type': 'application/json', ...CORS }
@@ -564,7 +565,8 @@ async function handleTables(request, env, sess) {
       const where = [];
       const bp    = [];
 
-      where.push('deleted=0');
+      // רק טבלאות עם עמודת deleted
+      if (TABLES_WITH_DELETED.includes(table)) where.push('deleted=0');
 
       // Agent isolation: filter by agent_id if the table supports it
       if (agentId) {
@@ -580,7 +582,7 @@ async function handleTables(request, env, sess) {
 
       if (search) { where.push('(id LIKE ? OR name LIKE ?)'); bp.push(`%${search}%`,`%${search}%`); }
 
-      const whereStr = where.join(' AND ');
+      const whereStr = where.length ? where.join(' AND ') : '1=1';
 
       let total = 0;
       try {
@@ -597,7 +599,8 @@ async function handleTables(request, env, sess) {
 
     // ── GET single ───────────────────────────────────────────────
     if (method === 'GET' && id) {
-      const row = await db.prepare(`SELECT * FROM ${table} WHERE id=? AND deleted=0`).bind(id).first();
+      const whereClause = TABLES_WITH_DELETED.includes(table) ? 'id=? AND deleted=0' : 'id=?';
+      const row = await db.prepare(`SELECT * FROM ${table} WHERE ${whereClause}`).bind(id).first();
       if (!row) return jr({error:'not found'},404);
 
       // Check access if agent is logged in
@@ -625,6 +628,32 @@ async function handleTables(request, env, sess) {
 
       const ci   = await db.prepare(`PRAGMA table_info(${table})`).all();
       const cols = (ci.results||[]).map(c=>c.name);
+
+      // UPSERT for monthly_values: if (product_id + month) already exists, update instead of insert
+      if (table === 'monthly_values' && body.product_id && body.month) {
+        const existing = await db.prepare(
+          `SELECT * FROM monthly_values WHERE product_id=? AND month=?`
+        ).bind(body.product_id, body.month).first();
+
+        if (existing) {
+          // Update existing record
+          const upd = { value: body.value, updated_at: now };
+          if (body.risk_equities   !== undefined) upd.risk_equities   = body.risk_equities;
+          if (body.risk_bonds      !== undefined) upd.risk_bonds      = body.risk_bonds;
+          if (body.risk_alternatives !== undefined) upd.risk_alternatives = body.risk_alternatives;
+          if (body.track           !== undefined) upd.track           = body.track;
+
+          const updKeys = Object.keys(upd).filter(k => cols.includes(k));
+          const updVals = updKeys.map(k => upd[k]);
+          await db.prepare(
+            `UPDATE monthly_values SET ${updKeys.map(k=>k+'=?').join(',')} WHERE id=?`
+          ).bind(...updVals, existing.id).run();
+
+          if (agentId) await auditLog(env, agentId, `update_monthly_values`, table, existing.id);
+          const updated = await db.prepare(`SELECT * FROM monthly_values WHERE id=?`).bind(existing.id).first();
+          return jr(updated || existing, 200);
+        }
+      }
 
       const rec  = {...body, id:nid, created_at:body.created_at??now, updated_at:now, deleted:0};
       // Inject agent_id for clients
@@ -658,7 +687,9 @@ async function handleTables(request, env, sess) {
       const cols = (ci.results||[]).map(c=>c.name);
 
       const upd  = {...body, updated_at:now};
-      const keys = Object.keys(upd).filter(k=>k!=='id'&&k!=='agent_id'&&cols.includes(k));
+      // agent_id מוגן — לא ניתן לשינוי דרך PATCH רגיל (רק דרך /admin/unassigned)
+      const protectedCols = ['id', 'agent_id'];
+      const keys = Object.keys(upd).filter(k=>!protectedCols.includes(k)&&cols.includes(k));
       if (!keys.length) return jr({error:'no valid fields'},400);
 
       const vals = [...keys.map(k=>upd[k]), id];
@@ -695,7 +726,11 @@ async function handleTables(request, env, sess) {
 
     // ── DELETE (soft) ─────────────────────────────────────────────
     if (method === 'DELETE' && id) {
-      await db.prepare(`UPDATE ${table} SET deleted=1,updated_at=? WHERE id=?`).bind(Date.now(),id).run();
+      if (TABLES_WITH_DELETED.includes(table)) {
+        await db.prepare(`UPDATE ${table} SET deleted=1,updated_at=? WHERE id=?`).bind(Date.now(),id).run();
+      } else {
+        await db.prepare(`DELETE FROM ${table} WHERE id=?`).bind(id).run();
+      }
       if (agentId) await auditLog(env, agentId, `delete_${table}`, table, id);
       return new Response(null,{status:204,headers:CORS});
     }
