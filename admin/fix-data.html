@@ -2,210 +2,767 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<title>תיקון נתונים</title>
-<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ניהול מוצרים</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 <style>
-body{font-family:'Heebo',sans-serif;background:#0f172a;color:#f1f5f9;padding:20px;direction:rtl;}
-table{width:100%;border-collapse:collapse;font-size:0.85rem;}
-th,td{padding:10px;border:1px solid #334155;text-align:right;}
-th{background:#1e293b;color:#94a3b8;}
-tr:hover{background:#1e293b;}
-.btn{padding:7px 14px;border-radius:6px;border:none;cursor:pointer;font-family:'Heebo',sans-serif;font-size:0.82rem;font-weight:600;}
-.btn-blue{background:#1a56db;color:#fff;}
-.btn-green{background:#10b981;color:#fff;}
-.btn-red{background:#ef4444;color:#fff;}
-.badge-on{background:rgba(16,185,129,0.2);color:#10b981;padding:2px 8px;border-radius:12px;font-size:0.75rem;}
-.badge-off{background:rgba(100,116,139,0.2);color:#64748b;padding:2px 8px;border-radius:12px;font-size:0.75rem;}
-pre{background:#1e293b;padding:12px;border-radius:8px;font-size:0.78rem;overflow-x:auto;color:#94a3b8;}
-.msg{padding:10px 16px;border-radius:8px;margin:8px 0;font-size:0.85rem;}
-.msg-ok{background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.3);}
-.msg-err{background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);}
-h2{font-size:1rem;margin:20px 0 10px;color:#94a3b8;}
-input[type=number]{background:#1e293b;border:1px solid #334155;color:#f1f5f9;padding:5px 8px;border-radius:5px;font-size:0.82rem;width:120px;}
+:root {
+  --bg: #0f172a;
+  --card: #1e293b;
+  --border: #334155;
+  --text: #f1f5f9;
+  --muted: #94a3b8;
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+  --green: #10b981;
+  --red: #ef4444;
+  --yellow: #f59e0b;
+  --radius: 10px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Heebo', sans-serif; background: var(--bg); color: var(--text); direction: rtl; min-height: 100vh; }
+
+/* ── Navbar ── */
+.navbar {
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.navbar-title { font-size: 1rem; font-weight: 700; }
+.navbar-sub { font-size: 0.8rem; color: var(--muted); }
+.navbar-spacer { flex: 1; }
+
+/* ── Main ── */
+.main { max-width: 1200px; margin: 0 auto; padding: 24px 20px; }
+
+/* ── Toolbar ── */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.toolbar-title { font-size: 1.1rem; font-weight: 700; flex: 1; }
+.search-box {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 14px;
+  color: var(--text);
+  font-family: 'Heebo', sans-serif;
+  font-size: 0.85rem;
+  width: 200px;
+  outline: none;
+}
+.search-box:focus { border-color: var(--primary); }
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-family: 'Heebo', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.btn:hover { opacity: 0.88; transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-green { background: var(--green); color: #fff; }
+.btn-red { background: var(--red); color: #fff; }
+.btn-yellow { background: var(--yellow); color: #000; }
+.btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+.btn-ghost:hover { color: var(--text); border-color: var(--text); }
+.btn-sm { padding: 5px 10px; font-size: 0.78rem; }
+.btn-icon { padding: 7px 10px; }
+
+/* ── Cards Grid ── */
+.products-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+}
+.product-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+.product-card:hover { border-color: #475569; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.card-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+.card-title { font-weight: 700; font-size: 0.92rem; flex: 1; }
+.card-subtitle { font-size: 0.78rem; color: var(--muted); }
+.badge {
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.badge-active { background: rgba(16,185,129,0.15); color: var(--green); }
+.badge-inactive { background: rgba(100,116,139,0.15); color: var(--muted); }
+.card-body { padding: 14px 16px; }
+.card-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 0;
+  font-size: 0.82rem;
+  border-bottom: 1px solid rgba(51,65,85,0.5);
+}
+.card-row:last-child { border-bottom: none; }
+.card-label { color: var(--muted); }
+.card-value { font-weight: 600; }
+.card-actions {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  background: rgba(0,0,0,0.15);
+}
+
+/* ── Modal ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+  z-index: 1000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--card);
+  z-index: 1;
+}
+.modal-header h3 { font-size: 1rem; font-weight: 700; flex: 1; }
+.modal-body { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.modal-footer {
+  display: flex;
+  gap: 10px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+  justify-content: flex-end;
+}
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-label { font-size: 0.8rem; font-weight: 600; color: var(--muted); }
+.form-control {
+  background: #0f172a;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--text);
+  padding: 9px 12px;
+  font-family: 'Heebo', sans-serif;
+  font-size: 0.85rem;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.15s;
+}
+.form-control:focus { border-color: var(--primary); }
+.form-control option { background: #1e293b; }
+.color-row { display: flex; align-items: center; gap: 10px; }
+.color-preview { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--border); flex-shrink: 0; }
+.risk-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.risk-sum { font-size: 0.78rem; text-align: center; margin-top: 4px; }
+.risk-sum.ok { color: var(--green); }
+.risk-sum.err { color: var(--red); }
+.section-title { font-size: 0.78rem; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); padding-bottom: 6px; margin-bottom: 2px; }
+
+/* ── Delete confirm ── */
+.delete-modal { max-width: 420px; }
+.delete-icon { font-size: 2.5rem; text-align: center; padding: 10px 0; }
+
+/* ── Toast ── */
+.toast-container { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 2000; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.toast {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: slideUp 0.25s ease;
+  pointer-events: all;
+  min-width: 260px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+.toast.ok { border-color: rgba(16,185,129,0.4); color: var(--green); }
+.toast.err { border-color: rgba(239,68,68,0.4); color: var(--red); }
+@keyframes slideUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+
+/* ── Empty state ── */
+.empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+.empty-state i { font-size: 3rem; margin-bottom: 16px; opacity: 0.4; }
+.empty-state p { font-size: 0.9rem; }
+
+/* ── Loading ── */
+.spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
-<h1 style="font-size:1.2rem;margin-bottom:4px;">🛠 תיקון נתוני מוצרים</h1>
-<p style="font-size:0.8rem;color:#64748b;margin-bottom:16px;">עמוד זה מאפשר לעדכן ytd_start_value, inception_value ו-exclude_open לכל מוצר</p>
-<div id="msgs"></div>
-<div id="tableWrap"><p style="color:#64748b;">טוען...</p></div>
 
-<h2>פעולות מיוחדות</h2>
-<div style="display:flex;gap:10px;flex-wrap:wrap;">
-  <button class="btn btn-blue" onclick="applyFixes()">✅ החל תיקונים ידועים (מנורה ALLSTARS + איילון)</button>
-  <button class="btn btn-green" onclick="loadProducts()">🔄 רענן</button>
+<!-- Navbar -->
+<nav class="navbar">
+  <a href="index.html" style="color:var(--muted);text-decoration:none;font-size:0.85rem;">
+    <i class="fa fa-arrow-right"></i>
+  </a>
+  <div>
+    <div class="navbar-title"><i class="fa fa-box" style="color:var(--primary);margin-left:8px;"></i>ניהול מוצרים</div>
+    <div class="navbar-sub">עריכה, מחיקה והוספת מוצרים</div>
+  </div>
+  <div class="navbar-spacer"></div>
+  <button class="btn btn-ghost btn-sm" onclick="loadProducts()"><i class="fa fa-rotate-right"></i> רענן</button>
+</nav>
+
+<!-- Toast container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Main -->
+<main class="main">
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="toolbar-title" id="productCount">מוצרים</div>
+    <input class="search-box" type="text" id="searchInput" placeholder="🔍 חיפוש מוצר..." oninput="filterProducts()">
+    <button class="btn btn-primary" onclick="openAddModal()">
+      <i class="fa fa-plus"></i> הוסף מוצר
+    </button>
+  </div>
+
+  <!-- Grid -->
+  <div id="productsGrid" class="products-grid">
+    <div class="empty-state"><i class="fa fa-spinner fa-spin"></i><p>טוען מוצרים...</p></div>
+  </div>
+</main>
+
+<!-- ══ Edit / Add Modal ══ -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <div class="modal-header">
+      <i class="fa fa-pen-to-square" style="color:var(--primary);"></i>
+      <h3 id="modalTitle">עריכת מוצר</h3>
+      <button class="btn btn-ghost btn-icon btn-sm" onclick="closeEditModal()" style="margin-right:auto;">
+        <i class="fa fa-xmark"></i>
+      </button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editId">
+
+      <!-- פרטים בסיסיים -->
+      <div class="section-title">פרטים בסיסיים</div>
+      <div class="form-group">
+        <label class="form-label">שם מלא <span style="color:var(--red)">*</span></label>
+        <input class="form-control" type="text" id="editName" placeholder="מנורה מבטחים – מסלול כללי">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">שם קצר</label>
+          <input class="form-control" type="text" id="editNameShort" placeholder="מנורה">
+        </div>
+        <div class="form-group">
+          <label class="form-label">מוסד / חברה</label>
+          <input class="form-control" type="text" id="editInstitution" placeholder="מנורה מבטחים">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">סוג מוצר</label>
+          <select class="form-control" id="editProductType">
+            <option value="">בחר...</option>
+            <option value="קרן פנסיה">קרן פנסיה</option>
+            <option value="ביטוח מנהלים">ביטוח מנהלים</option>
+            <option value="קופת גמל">קופת גמל</option>
+            <option value="קרן השתלמות">קרן השתלמות</option>
+            <option value="פוליסת חיסכון">פוליסת חיסכון</option>
+            <option value="תיק ניירות ערך">תיק ניירות ערך</option>
+            <option value="אחר">אחר</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">מסלול השקעה</label>
+          <input class="form-control" type="text" id="editTrack" placeholder="מסלול כללי">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">סטטוס</label>
+          <select class="form-control" id="editStatus">
+            <option value="active">פעיל</option>
+            <option value="inactive">נפדה / לא פעיל</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">צבע</label>
+          <div class="color-row">
+            <div class="color-preview" id="colorPreview"></div>
+            <input class="form-control" type="color" id="editColor" value="#3b82f6" oninput="updateColorPreview()" style="height:40px;cursor:pointer;padding:3px;">
+          </div>
+        </div>
+      </div>
+
+      <!-- ערכים פיננסיים -->
+      <div class="section-title" style="margin-top:6px;">ערכים פיננסיים</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">שווי פתיחת שנה (₪)</label>
+          <input class="form-control" type="number" id="editYtdStartValue" placeholder="0" step="1">
+        </div>
+        <div class="form-group">
+          <label class="form-label">חודש פתיחת שנה</label>
+          <input class="form-control" type="text" id="editYtdStartMonth" placeholder="01/25">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">שווי פתיחה (₪)</label>
+          <input class="form-control" type="number" id="editInceptionValue" placeholder="0" step="1">
+        </div>
+        <div class="form-group">
+          <label class="form-label">תאריך פתיחה</label>
+          <input class="form-control" type="date" id="editInceptionDate">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">הסתר מסיכום פתיחה</label>
+          <select class="form-control" id="editExcludeOpen">
+            <option value="false">לא (נכנס לחישוב)</option>
+            <option value="true">כן (מוסתר מסיכום)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">סדר הצגה</label>
+          <input class="form-control" type="number" id="editSortOrder" placeholder="1" min="0">
+        </div>
+      </div>
+
+      <!-- הרכב סיכון -->
+      <div class="section-title" style="margin-top:6px;">הרכב השקעה (%)</div>
+      <div class="risk-row">
+        <div class="form-group">
+          <label class="form-label">מניות</label>
+          <input class="form-control" type="number" id="editRiskEquities" placeholder="0" min="0" max="100" oninput="updateRiskSum()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">אג״ח</label>
+          <input class="form-control" type="number" id="editRiskBonds" placeholder="0" min="0" max="100" oninput="updateRiskSum()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">אלטרנטיבי</label>
+          <input class="form-control" type="number" id="editRiskAlternatives" placeholder="0" min="0" max="100" oninput="updateRiskSum()">
+        </div>
+      </div>
+      <div class="risk-sum" id="riskSumMsg"></div>
+
+      <div id="editError" style="color:var(--red);font-size:0.82rem;display:none;padding:8px 12px;background:rgba(239,68,68,0.1);border-radius:6px;border:1px solid rgba(239,68,68,0.3);"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeEditModal()">ביטול</button>
+      <button class="btn btn-primary" id="saveBtn" onclick="saveProduct()">
+        <i class="fa fa-floppy-disk"></i> שמור שינויים
+      </button>
+    </div>
+  </div>
 </div>
 
-<h2>לוג פעולות</h2>
-<pre id="logEl">—</pre>
+<!-- ══ Delete Confirm Modal ══ -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal delete-modal">
+    <div class="modal-header">
+      <i class="fa fa-trash" style="color:var(--red);"></i>
+      <h3>מחיקת מוצר</h3>
+      <button class="btn btn-ghost btn-icon btn-sm" onclick="closeDeleteModal()" style="margin-right:auto;">
+        <i class="fa fa-xmark"></i>
+      </button>
+    </div>
+    <div class="modal-body" style="text-align:center;">
+      <div class="delete-icon">🗑️</div>
+      <p style="font-size:0.95rem;font-weight:700;margin-bottom:8px;" id="deleteProductName">שם המוצר</p>
+      <p style="font-size:0.82rem;color:var(--muted);line-height:1.6;">
+        פעולה זו תסמן את המוצר כמחוק.<br>
+        הנתונים ההיסטוריים ישמרו אך המוצר לא יופיע בדשבורד.
+      </p>
+      <div id="deleteError" style="color:var(--red);font-size:0.82rem;margin-top:10px;display:none;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeDeleteModal()">ביטול</button>
+      <button class="btn btn-red" id="confirmDeleteBtn" onclick="confirmDelete()">
+        <i class="fa fa-trash"></i> כן, מחק
+      </button>
+    </div>
+  </div>
+</div>
 
 <script>
-let PRODUCTS=[];
-const log=[];
-let IS_DEMO_MODE_FIX = false;
+// ── State ──
+let PRODUCTS = [];
+let CLIENTS = [];
+let editingId = null;
+let deletingId = null;
+let searchQuery = '';
 
-const DEMO_PRODUCTS_FIX = [
-  { id:'prod-menora-allstars', client_id:'menachem-gilor', name:'מנורה מבטחים – אלסטאר', name_short:'מנורה ALLSTARS', institution:'מנורה', product_type:'קרן פנסיה', status:'active', color:'#1a56db', ytd_start_value:300000, ytd_start_month:'01/25', inception_value:295000, inception_date:'2024-01-01', exclude_open:0, sort_order:1 },
-  { id:'prod-hachshara', client_id:'menachem-gilor', name:'הכשרה ביטוח – מסלול כללי', name_short:'הכשרה', institution:'הכשרה', product_type:'ביטוח מנהלים', status:'active', color:'#10b981', ytd_start_value:1050000, ytd_start_month:'01/25', inception_value:1000000, inception_date:'2023-06-01', exclude_open:0, sort_order:2 },
-  { id:'prod-ayalon', client_id:'menachem-gilor', name:'איילון – גימל', name_short:'איילון ג׳', institution:'איילון', product_type:'גמל', status:'active', color:'#f59e0b', ytd_start_value:285000, ytd_start_month:'01/25', inception_value:280000, inception_date:'2023-01-01', exclude_open:0, sort_order:3 },
-];
+// ── Token ──
+function getToken() {
+  return sessionStorage.getItem('agent_token') || localStorage.getItem('agent_token') || '';
+}
+function authHeaders() {
+  const t = getToken();
+  return t ? { 'Content-Type': 'application/json', 'X-Session-Token': t } : { 'Content-Type': 'application/json' };
+}
 
-function addLog(msg){log.push(msg);document.getElementById('logEl').textContent=log.join('\n');}
-function addMsg(txt,ok){const d=document.createElement('div');d.className='msg '+(ok?'msg-ok':'msg-err');d.textContent=txt;document.getElementById('msgs').prepend(d);setTimeout(()=>d.remove(),6000);}
+// ── Toast ──
+function toast(msg, ok = true) {
+  const c = document.getElementById('toastContainer');
+  const d = document.createElement('div');
+  d.className = `toast ${ok ? 'ok' : 'err'}`;
+  d.innerHTML = `<i class="fa ${ok ? 'fa-circle-check' : 'fa-circle-xmark'}"></i> ${msg}`;
+  c.appendChild(d);
+  setTimeout(() => d.remove(), 4000);
+}
 
-const API_BASE='';
-
-async function fetchAll(url){
-  if (IS_DEMO_MODE_FIX) {
-    if (url.includes('/tables/products')) return [...DEMO_PRODUCTS_FIX];
-    return [];
-  }
-  const all=[];let page=1,total=Infinity;
-  const base = url.startsWith('http') ? '' : API_BASE;
-  while(all.length<total){
-    const full = `${base}${url}${url.includes('?')?'&':'?'}page=${page}&limit=100`;
-    const r=await fetch(full);
-    const d=await r.json();
-    all.push(...(d.data||[]));
-    total=d.total||0;
-    if((d.data||[]).length<100)break;
+// ── Fetch helpers ──
+async function fetchAll(url) {
+  const all = []; let page = 1, total = Infinity;
+  while (all.length < total) {
+    const r = await fetch(`${url}${url.includes('?') ? '&' : '?'}page=${page}&limit=100`, { headers: authHeaders() });
+    const d = await r.json();
+    all.push(...(d.data || []));
+    total = d.total || 0;
+    if ((d.data || []).length < 100) break;
     page++;
   }
   return all;
 }
 
-async function loadProducts(){
-  document.getElementById('tableWrap').innerHTML='<p style="color:#64748b;">טוען...</p>';
-  try{
-    PRODUCTS=await fetchAll(`${API_BASE}/tables/products?sort=sort_order`);
-    if (!PRODUCTS.length) throw new Error('no data');
-    addLog(`נטענו ${PRODUCTS.length} מוצרים`);
-    renderTable();
-  }catch(e){
-    // Demo Mode
-    IS_DEMO_MODE_FIX = true;
-    PRODUCTS = [...DEMO_PRODUCTS_FIX];
-    addLog(`[Demo Mode] ${PRODUCTS.length} מוצרי דוגמה`);
-    // הצג באנר
-    if (!document.getElementById('demoBannerFix')) {
-      const b=document.createElement('div');
-      b.id='demoBannerFix';
-      b.style.cssText='background:linear-gradient(90deg,rgba(245,158,11,0.2),rgba(245,158,11,0.1));border-bottom:1px solid rgba(245,158,11,0.4);color:#f59e0b;padding:10px 20px;text-align:center;font-size:0.84rem;font-weight:600;';
-      b.innerHTML='<i class="fa fa-flask" style="margin-left:6px;"></i><strong>מצב Demo</strong> – ה-DB לא מחובר. שינויים לא ישמרו לצמיתות.';
-      document.body.insertBefore(b, document.body.firstChild);
-    }
-    renderTable();
+// ── Load ──
+async function loadProducts() {
+  document.getElementById('productsGrid').innerHTML =
+    '<div class="empty-state"><i class="fa fa-spinner fa-spin"></i><p>טוען...</p></div>';
+  try {
+    [PRODUCTS, CLIENTS] = await Promise.all([
+      fetchAll('/tables/products?sort=sort_order'),
+      fetchAll('/tables/clients')
+    ]);
+    renderGrid();
+  } catch (e) {
+    document.getElementById('productsGrid').innerHTML =
+      '<div class="empty-state"><i class="fa fa-triangle-exclamation"></i><p>שגיאה בטעינה — בדוק חיבור</p></div>';
+    toast('שגיאה בטעינת נתונים', false);
   }
 }
 
-function renderTable(){
-  const html=`<table>
-    <thead><tr>
-      <th>שם</th><th>מוסד</th><th>סטטוס</th>
-      <th>ytd_start_value</th><th>ytd_start_month</th>
-      <th>inception_value</th><th>inception_date</th>
-      <th>exclude_open</th><th>פעולות</th>
-    </tr></thead>
-    <tbody>${PRODUCTS.map(p=>`<tr id="row-${p.id}">
-      <td>${p.name_short||p.name}</td>
-      <td>${p.institution||''}</td>
-      <td>${p.status==='active'?'<span class="badge-on">פעיל</span>':'<span class="badge-off">נפדה</span>'}</td>
-      <td><input type="number" id="ytd_sv_${p.id}" value="${p.ytd_start_value||''}" step="1"></td>
-      <td>${p.ytd_start_month||'—'}</td>
-      <td><input type="number" id="inc_v_${p.id}" value="${p.inception_value||''}" step="1"></td>
-      <td>${p.inception_date||'—'}</td>
-      <td>
-        <select id="excl_${p.id}" style="background:#1e293b;border:1px solid #334155;color:#f1f5f9;padding:4px 8px;border-radius:5px;font-size:0.8rem;">
-          <option value="false" ${!p.exclude_open?'selected':''}>לא</option>
-          <option value="true" ${p.exclude_open?'selected':''}>כן</option>
-        </select>
-      </td>
-      <td><button class="btn btn-blue" onclick="saveProduct('${p.id}')">שמור</button></td>
-    </tr>`).join('')}</tbody>
-  </table>`;
-  document.getElementById('tableWrap').innerHTML=html;
+// ── Filter ──
+function filterProducts() {
+  searchQuery = document.getElementById('searchInput').value.toLowerCase();
+  renderGrid();
 }
 
-async function saveProduct(id){
-  const p=PRODUCTS.find(x=>x.id===id);if(!p)return;
-  const ytdV=parseFloat(document.getElementById('ytd_sv_'+id).value)||null;
-  const incV=parseFloat(document.getElementById('inc_v_'+id).value)||null;
-  const excl=document.getElementById('excl_'+id).value==='true';
-  
-  const body={ytd_start_value:ytdV,inception_value:incV,exclude_open:excl};
-  addLog(`שומר ${p.name_short}: ytd=${ytdV}, inc=${incV}, excl=${excl}`);
+// ── Render Grid ──
+function renderGrid() {
+  const filtered = PRODUCTS.filter(p =>
+    !p.deleted &&
+    (!searchQuery ||
+      (p.name || '').toLowerCase().includes(searchQuery) ||
+      (p.institution || '').toLowerCase().includes(searchQuery) ||
+      (p.product_type || '').toLowerCase().includes(searchQuery))
+  );
 
-  if (IS_DEMO_MODE_FIX) {
-    Object.assign(p,body);
-    addMsg(`✅ Demo: ${p.name_short} עודכן מקומית`,true);
-    addLog(`✅ Demo: ${p.name_short} עודכן מקומית`);
+  document.getElementById('productCount').textContent = `${filtered.length} מוצרים`;
+
+  if (!filtered.length) {
+    document.getElementById('productsGrid').innerHTML =
+      '<div class="empty-state"><i class="fa fa-box-open"></i><p>לא נמצאו מוצרים</p></div>';
     return;
   }
-  
-  const res=await fetch(`${API_BASE}/tables/products/${id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  if(res.ok){
-    addMsg(`✅ ${p.name_short} עודכן בהצלחה`,true);
-    addLog(`✅ ${p.name_short} עודכן`);
-    // Update local
-    Object.assign(p,body);
-  } else {
-    addMsg(`❌ שגיאה בעדכון ${p.name_short}`,false);
-    addLog(`❌ שגיאה: ${await res.text()}`);
-  }
+
+  const clientMap = {};
+  CLIENTS.forEach(c => clientMap[c.id] = c.name);
+
+  document.getElementById('productsGrid').innerHTML = filtered.map(p => {
+    const isActive = p.status === 'active';
+    const clientName = clientMap[p.client_id] || p.client_id || '—';
+    const riskStr = [
+      p.risk_equities ? `מניות ${p.risk_equities}%` : '',
+      p.risk_bonds ? `אג״ח ${p.risk_bonds}%` : '',
+      p.risk_alternatives ? `אלט׳ ${p.risk_alternatives}%` : ''
+    ].filter(Boolean).join(' · ') || '—';
+
+    return `
+    <div class="product-card" id="card-${p.id}">
+      <div class="card-header">
+        <div class="card-dot" style="background:${p.color || '#64748b'};"></div>
+        <div style="flex:1;min-width:0;">
+          <div class="card-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name || '—'}</div>
+          <div class="card-subtitle">${p.institution || ''} ${p.product_type ? '· ' + p.product_type : ''}</div>
+        </div>
+        <span class="badge ${isActive ? 'badge-active' : 'badge-inactive'}">${isActive ? 'פעיל' : 'נפדה'}</span>
+      </div>
+      <div class="card-body">
+        <div class="card-row"><span class="card-label">לקוח</span><span class="card-value">${clientName}</span></div>
+        <div class="card-row"><span class="card-label">מסלול</span><span class="card-value">${p.track || '—'}</span></div>
+        <div class="card-row"><span class="card-label">שווי פתיחת שנה</span><span class="card-value">${p.ytd_start_value ? '₪' + Number(p.ytd_start_value).toLocaleString('he-IL') : '—'}</span></div>
+        <div class="card-row"><span class="card-label">שווי פתיחה</span><span class="card-value">${p.inception_value ? '₪' + Number(p.inception_value).toLocaleString('he-IL') : '—'}</span></div>
+        <div class="card-row"><span class="card-label">תאריך פתיחה</span><span class="card-value">${p.inception_date || '—'}</span></div>
+        <div class="card-row"><span class="card-label">הרכב</span><span class="card-value" style="font-size:0.78rem;">${riskStr}</span></div>
+        <div class="card-row"><span class="card-label">סיכום פתיחה</span><span class="card-value">${p.exclude_open ? '<span style="color:var(--yellow)">מוסתר</span>' : '<span style="color:var(--green)">נכנס לחישוב</span>'}</span></div>
+      </div>
+      <div class="card-actions">
+        <button class="btn btn-primary btn-sm" style="flex:1;" onclick="openEditModal('${p.id}')">
+          <i class="fa fa-pen"></i> עריכה
+        </button>
+        <button class="btn btn-red btn-sm" onclick="openDeleteModal('${p.id}')">
+          <i class="fa fa-trash"></i> מחיקה
+        </button>
+      </div>
+    </div>`;
+  }).join('');
 }
 
-// לוגיקת התיקון הנכונה:
-// exclude_open=true = "אל תספור את יתרת הפתיחה שלי ב-sumOpen"
-//
-// הכסף עבר: ALLSTARS (300K) → נפדה → כסף הגיע לאיילון (304.7K)
-// כדי למנוע double-count: רק אחד מהשניים צריך להיכנס ל-sumOpen
-// נכנס: ALLSTARS בסכום 300K (הכסף המקורי)
-// לא נכנס: איילון (כי כספו הוא הפדיון של ALLSTARS)
-//
-// מנורה ALLSTARS (נפדה): exclude_open=FALSE  — נכנס ל-sumOpen (300K)
-// איילון (פעיל):         exclude_open=TRUE   — לא נכנס ל-sumOpen, כן ל-sumClose
-//
-// sumOpen = 133K+201K+132K+115K+300K(ALLSTARS)+1050K+63K+300K+95K = 2,391,931
-// sumClose = כל הפעילים = 2,613,215
-// YTD = (2,613,215 - 2,391,931) / 2,391,931 = 9.25% ✅
-async function applyFixes(){
-  addLog('מתחיל תיקונים ידועים...');
-  
-  const allstars=PRODUCTS.find(p=>p.name&&p.name.toLowerCase().includes('allstars'));
-  const ayalon=PRODUCTS.find(p=>p.institution&&p.institution.includes('איילון'));
-  const mnoraIdx=PRODUCTS.find(p=>p.name&&(p.name.includes('אינדקס')||p.name.toLowerCase().includes('index'))&&p.institution&&p.institution.includes('מנורה'));
-  
-  const fixes=[];
-  
-  if(allstars){
-    // exclude_open=FALSE: נכנס ל-sumOpen (הכסף המקורי לפני העברה לאיילון)
-    fixes.push({id:allstars.id,name:allstars.name_short||allstars.name,body:{ytd_start_value:300000,inception_value:300000,exclude_open:false}});
-  } else addLog('⚠️ לא נמצא מנורה ALLSTARS');
-  
-  if(ayalon){
-    // exclude_open=TRUE: לא נכנס ל-sumOpen (כספו הוא הפדיון של ALLSTARS שכבר נספר)
-    fixes.push({id:ayalon.id,name:ayalon.name_short||ayalon.name,body:{ytd_start_value:304700,inception_value:304700,exclude_open:true}});
-  } else addLog('⚠️ לא נמצא איילון');
-  
-  if(mnoraIdx){
-    fixes.push({id:mnoraIdx.id,name:mnoraIdx.name_short||mnoraIdx.name,body:{ytd_start_value:300000,inception_value:300000,exclude_open:false}});
-  } else addLog('⚠️ לא נמצא מנורה אינדקס');
-  
-  for(const fix of fixes){
-    addLog(`עדכון ${fix.name}...`);
-    const res=await fetch(`${API_BASE}/tables/products/${fix.id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(fix.body)});
-    if(res.ok){
-      addMsg(`✅ ${fix.name} עודכן`,true);
-      addLog(`✅ ${fix.name} עודכן: ${JSON.stringify(fix.body)}`);
+// ── Color preview ──
+function updateColorPreview() {
+  document.getElementById('colorPreview').style.background = document.getElementById('editColor').value;
+}
+
+// ── Risk sum ──
+function updateRiskSum() {
+  const e = +document.getElementById('editRiskEquities').value || 0;
+  const b = +document.getElementById('editRiskBonds').value || 0;
+  const a = +document.getElementById('editRiskAlternatives').value || 0;
+  const s = e + b + a;
+  const el = document.getElementById('riskSumMsg');
+  if (s === 0) { el.textContent = ''; return; }
+  el.textContent = `סה״כ: ${s}% ${s === 100 ? '✅' : '⚠️ חייב להיות 100%'}`;
+  el.className = `risk-sum ${s === 100 ? 'ok' : 'err'}`;
+}
+
+// ── Open Add Modal ──
+function openAddModal() {
+  editingId = null;
+  document.getElementById('modalTitle').textContent = 'הוספת מוצר חדש';
+  document.getElementById('saveBtn').innerHTML = '<i class="fa fa-plus"></i> הוסף מוצר';
+  // Clear all fields
+  ['editName','editNameShort','editInstitution','editTrack','editYtdStartMonth',
+   'editYtdStartValue','editInceptionValue','editInceptionDate'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('editId').value = '';
+  document.getElementById('editStatus').value = 'active';
+  document.getElementById('editProductType').value = '';
+  document.getElementById('editExcludeOpen').value = 'false';
+  document.getElementById('editSortOrder').value = PRODUCTS.length + 1;
+  document.getElementById('editColor').value = '#3b82f6';
+  document.getElementById('editRiskEquities').value = '';
+  document.getElementById('editRiskBonds').value = '';
+  document.getElementById('editRiskAlternatives').value = '';
+  document.getElementById('riskSumMsg').textContent = '';
+  document.getElementById('editError').style.display = 'none';
+  updateColorPreview();
+  document.getElementById('editModal').classList.add('open');
+}
+
+// ── Open Edit Modal ──
+function openEditModal(id) {
+  const p = PRODUCTS.find(x => x.id === id);
+  if (!p) return;
+  editingId = id;
+  document.getElementById('modalTitle').textContent = 'עריכת מוצר';
+  document.getElementById('saveBtn').innerHTML = '<i class="fa fa-floppy-disk"></i> שמור שינויים';
+  document.getElementById('editId').value = id;
+  document.getElementById('editName').value = p.name || '';
+  document.getElementById('editNameShort').value = p.name_short || '';
+  document.getElementById('editInstitution').value = p.institution || '';
+  document.getElementById('editProductType').value = p.product_type || '';
+  document.getElementById('editTrack').value = p.track || '';
+  document.getElementById('editStatus').value = p.status || 'active';
+  document.getElementById('editColor').value = p.color || '#3b82f6';
+  document.getElementById('editYtdStartValue').value = p.ytd_start_value || '';
+  document.getElementById('editYtdStartMonth').value = p.ytd_start_month || '';
+  document.getElementById('editInceptionValue').value = p.inception_value || '';
+  document.getElementById('editInceptionDate').value = p.inception_date || '';
+  document.getElementById('editExcludeOpen').value = p.exclude_open ? 'true' : 'false';
+  document.getElementById('editSortOrder').value = p.sort_order || 0;
+  document.getElementById('editRiskEquities').value = p.risk_equities || '';
+  document.getElementById('editRiskBonds').value = p.risk_bonds || '';
+  document.getElementById('editRiskAlternatives').value = p.risk_alternatives || '';
+  document.getElementById('editError').style.display = 'none';
+  updateColorPreview();
+  updateRiskSum();
+  document.getElementById('editModal').classList.add('open');
+}
+
+function closeEditModal() {
+  document.getElementById('editModal').classList.remove('open');
+}
+
+// ── Save ──
+async function saveProduct() {
+  const name = document.getElementById('editName').value.trim();
+  if (!name) {
+    const errEl = document.getElementById('editError');
+    errEl.textContent = 'שם המוצר הוא שדה חובה';
+    errEl.style.display = 'block';
+    return;
+  }
+  document.getElementById('editError').style.display = 'none';
+
+  const body = {
+    name,
+    name_short: document.getElementById('editNameShort').value.trim() || null,
+    institution: document.getElementById('editInstitution').value.trim() || null,
+    product_type: document.getElementById('editProductType').value || null,
+    track: document.getElementById('editTrack').value.trim() || null,
+    status: document.getElementById('editStatus').value,
+    color: document.getElementById('editColor').value,
+    ytd_start_value: parseFloat(document.getElementById('editYtdStartValue').value) || null,
+    ytd_start_month: document.getElementById('editYtdStartMonth').value.trim() || null,
+    inception_value: parseFloat(document.getElementById('editInceptionValue').value) || null,
+    inception_date: document.getElementById('editInceptionDate').value || null,
+    exclude_open: document.getElementById('editExcludeOpen').value === 'true',
+    sort_order: parseInt(document.getElementById('editSortOrder').value) || 0,
+    risk_equities: parseFloat(document.getElementById('editRiskEquities').value) || 0,
+    risk_bonds: parseFloat(document.getElementById('editRiskBonds').value) || 0,
+    risk_alternatives: parseFloat(document.getElementById('editRiskAlternatives').value) || 0,
+  };
+
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> שומר...';
+
+  try {
+    let res;
+    if (editingId) {
+      res = await fetch(`/tables/products/${editingId}`, {
+        method: 'PATCH',
+        headers: authHeaders(),
+        body: JSON.stringify(body)
+      });
     } else {
-      addMsg(`❌ שגיאה ב-${fix.name}`,false);
-      addLog(`❌ שגיאה: ${await res.text()}`);
+      // New product — need client_id
+      const clientId = prompt('מזהה לקוח (client_id):');
+      if (!clientId) { btn.disabled = false; btn.innerHTML = '<i class="fa fa-plus"></i> הוסף מוצר'; return; }
+      body.client_id = clientId.trim();
+      body.id = 'prod-' + Date.now();
+      res = await fetch('/tables/products', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify(body)
+      });
     }
+
+    if (res.ok) {
+      toast(editingId ? '✅ המוצר עודכן בהצלחה' : '✅ המוצר נוסף בהצלחה');
+      closeEditModal();
+      await loadProducts();
+    } else {
+      const err = await res.json().catch(() => ({}));
+      const errEl = document.getElementById('editError');
+      errEl.textContent = err.error || 'שגיאה בשמירה';
+      errEl.style.display = 'block';
+    }
+  } catch (e) {
+    const errEl = document.getElementById('editError');
+    errEl.textContent = 'שגיאת תקשורת: ' + e.message;
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = editingId ? '<i class="fa fa-floppy-disk"></i> שמור שינויים' : '<i class="fa fa-plus"></i> הוסף מוצר';
   }
-  
-  await loadProducts();
 }
 
+// ── Delete ──
+function openDeleteModal(id) {
+  const p = PRODUCTS.find(x => x.id === id);
+  if (!p) return;
+  deletingId = id;
+  document.getElementById('deleteProductName').textContent = p.name || p.id;
+  document.getElementById('deleteError').style.display = 'none';
+  document.getElementById('deleteModal').classList.add('open');
+}
+
+function closeDeleteModal() {
+  document.getElementById('deleteModal').classList.remove('open');
+  deletingId = null;
+}
+
+async function confirmDelete() {
+  if (!deletingId) return;
+  const btn = document.getElementById('confirmDeleteBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> מוחק...';
+
+  try {
+    const res = await fetch(`/tables/products/${deletingId}`, {
+      method: 'DELETE',
+      headers: authHeaders()
+    });
+    if (res.ok || res.status === 204) {
+      toast('✅ המוצר נמחק');
+      closeDeleteModal();
+      await loadProducts();
+    } else {
+      const err = await res.json().catch(() => ({}));
+      document.getElementById('deleteError').textContent = err.error || 'שגיאה במחיקה';
+      document.getElementById('deleteError').style.display = 'block';
+    }
+  } catch (e) {
+    document.getElementById('deleteError').textContent = 'שגיאת תקשורת';
+    document.getElementById('deleteError').style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa fa-trash"></i> כן, מחק';
+  }
+}
+
+// Close on backdrop click
+document.getElementById('editModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeEditModal(); });
+document.getElementById('deleteModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeDeleteModal(); });
+
+// Init
 loadProducts();
 </script>
 </body>

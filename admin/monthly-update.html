@@ -835,7 +835,10 @@ async function selectClient(cid){
   // Populate year selector
   const yearSel=document.getElementById('yearSel');
   const curYear=new Date().getFullYear();
-  yearSel.innerHTML=[curYear+1,curYear,curYear-1,curYear-2]
+  const minYear = 2022;
+  const years = [];
+  for (let y = curYear + 1; y >= minYear; y--) years.push(y);
+  yearSel.innerHTML = years
     .map(y=>`<option value="${y}" ${y===curYear?'selected':''}>${y}</option>`).join('');
   SEL_YEAR=curYear;
 
