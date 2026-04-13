@@ -3,767 +3,874 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ניהול מוצרים</title>
+<title>ניהול לקוחות ומוצרים</title>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 <style>
 :root {
-  --bg: #0f172a;
-  --card: #1e293b;
-  --border: #334155;
-  --text: #f1f5f9;
-  --muted: #94a3b8;
-  --primary: #3b82f6;
-  --primary-hover: #2563eb;
-  --green: #10b981;
-  --red: #ef4444;
-  --yellow: #f59e0b;
-  --radius: 10px;
+  --bg: #0f172a; --card: #1e293b; --card2: #162032;
+  --border: #334155; --text: #f1f5f9; --muted: #94a3b8;
+  --primary: #3b82f6; --green: #10b981; --red: #ef4444;
+  --yellow: #f59e0b; --purple: #8b5cf6; --radius: 10px;
 }
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'Heebo', sans-serif; background: var(--bg); color: var(--text); direction: rtl; min-height: 100vh; }
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Heebo',sans-serif;background:var(--bg);color:var(--text);direction:rtl;min-height:100vh;}
 
-/* ── Navbar ── */
-.navbar {
-  background: var(--card);
-  border-bottom: 1px solid var(--border);
-  padding: 0 24px;
-  height: 56px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-.navbar-title { font-size: 1rem; font-weight: 700; }
-.navbar-sub { font-size: 0.8rem; color: var(--muted); }
-.navbar-spacer { flex: 1; }
+/* navbar */
+.navbar{background:var(--card);border-bottom:1px solid var(--border);padding:0 20px;height:54px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100;}
+.navbar-title{font-size:.95rem;font-weight:700;}
+.navbar-sub{font-size:.75rem;color:var(--muted);}
+.navbar-spacer{flex:1;}
 
-/* ── Main ── */
-.main { max-width: 1200px; margin: 0 auto; padding: 24px 20px; }
+/* tabs */
+.tabs-bar{display:flex;gap:4px;padding:16px 20px 0;border-bottom:1px solid var(--border);background:var(--card2);}
+.tab-btn{padding:10px 22px;border:none;background:transparent;color:var(--muted);font-family:'Heebo',sans-serif;font-size:.88rem;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;display:flex;align-items:center;gap:7px;}
+.tab-btn:hover{color:var(--text);}
+.tab-btn.active{color:var(--primary);border-bottom-color:var(--primary);}
+.tab-pane{display:none;padding:20px;}
+.tab-pane.active{display:block;}
 
-/* ── Toolbar ── */
-.toolbar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 20px;
-}
-.toolbar-title { font-size: 1.1rem; font-weight: 700; flex: 1; }
-.search-box {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 14px;
-  color: var(--text);
-  font-family: 'Heebo', sans-serif;
-  font-size: 0.85rem;
-  width: 200px;
-  outline: none;
-}
-.search-box:focus { border-color: var(--primary); }
+/* main layout */
+.main{max-width:1200px;margin:0 auto;}
 
-/* ── Buttons ── */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  border-radius: 8px;
-  border: none;
-  cursor: pointer;
-  font-family: 'Heebo', sans-serif;
-  font-size: 0.85rem;
-  font-weight: 600;
-  transition: all 0.15s;
-  white-space: nowrap;
-}
-.btn:hover { opacity: 0.88; transform: translateY(-1px); }
-.btn:active { transform: translateY(0); }
-.btn-primary { background: var(--primary); color: #fff; }
-.btn-green { background: var(--green); color: #fff; }
-.btn-red { background: var(--red); color: #fff; }
-.btn-yellow { background: var(--yellow); color: #000; }
-.btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
-.btn-ghost:hover { color: var(--text); border-color: var(--text); }
-.btn-sm { padding: 5px 10px; font-size: 0.78rem; }
-.btn-icon { padding: 7px 10px; }
+/* toolbar */
+.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px;}
+.toolbar-title{font-size:1rem;font-weight:700;flex:1;}
+.search-box{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 14px;color:var(--text);font-family:'Heebo',sans-serif;font-size:.83rem;width:200px;outline:none;}
+.search-box:focus{border-color:var(--primary);}
 
-/* ── Cards Grid ── */
-.products-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 16px;
-}
-.product-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
-  transition: box-shadow 0.2s, border-color 0.2s;
-}
-.product-card:hover { border-color: #475569; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
-.card-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--border);
-}
-.card-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
-.card-title { font-weight: 700; font-size: 0.92rem; flex: 1; }
-.card-subtitle { font-size: 0.78rem; color: var(--muted); }
-.badge {
-  padding: 3px 10px;
-  border-radius: 20px;
-  font-size: 0.72rem;
-  font-weight: 700;
-}
-.badge-active { background: rgba(16,185,129,0.15); color: var(--green); }
-.badge-inactive { background: rgba(100,116,139,0.15); color: var(--muted); }
-.card-body { padding: 14px 16px; }
-.card-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 5px 0;
-  font-size: 0.82rem;
-  border-bottom: 1px solid rgba(51,65,85,0.5);
-}
-.card-row:last-child { border-bottom: none; }
-.card-label { color: var(--muted); }
-.card-value { font-weight: 600; }
-.card-actions {
-  display: flex;
-  gap: 8px;
-  padding: 12px 16px;
-  border-top: 1px solid var(--border);
-  background: rgba(0,0,0,0.15);
-}
+/* buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-family:'Heebo',sans-serif;font-size:.83rem;font-weight:600;transition:all .15s;white-space:nowrap;}
+.btn:hover{opacity:.88;transform:translateY(-1px);}
+.btn:active{transform:translateY(0);}
+.btn-primary{background:var(--primary);color:#fff;}
+.btn-green{background:var(--green);color:#fff;}
+.btn-red{background:var(--red);color:#fff;}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border);}
+.btn-ghost:hover{color:var(--text);border-color:var(--text);}
+.btn-sm{padding:5px 10px;font-size:.76rem;}
+.btn-icon{padding:7px 10px;}
 
-/* ── Modal ── */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.65);
-  z-index: 1000;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-}
-.modal-overlay.open { display: flex; }
-.modal {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  width: 100%;
-  max-width: 560px;
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-}
-.modal-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 18px 20px;
-  border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  background: var(--card);
-  z-index: 1;
-}
-.modal-header h3 { font-size: 1rem; font-weight: 700; flex: 1; }
-.modal-body { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
-.modal-footer {
-  display: flex;
-  gap: 10px;
-  padding: 16px 20px;
-  border-top: 1px solid var(--border);
-  justify-content: flex-end;
-}
-.form-group { display: flex; flex-direction: column; gap: 6px; }
-.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.form-label { font-size: 0.8rem; font-weight: 600; color: var(--muted); }
-.form-control {
-  background: #0f172a;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  color: var(--text);
-  padding: 9px 12px;
-  font-family: 'Heebo', sans-serif;
-  font-size: 0.85rem;
-  outline: none;
-  width: 100%;
-  transition: border-color 0.15s;
-}
-.form-control:focus { border-color: var(--primary); }
-.form-control option { background: #1e293b; }
-.color-row { display: flex; align-items: center; gap: 10px; }
-.color-preview { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--border); flex-shrink: 0; }
-.risk-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-.risk-sum { font-size: 0.78rem; text-align: center; margin-top: 4px; }
-.risk-sum.ok { color: var(--green); }
-.risk-sum.err { color: var(--red); }
-.section-title { font-size: 0.78rem; font-weight: 700; color: var(--primary); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); padding-bottom: 6px; margin-bottom: 2px; }
+/* cards grid */
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:box-shadow .2s,border-color .2s;}
+.card:hover{border-color:#475569;box-shadow:0 4px 20px rgba(0,0,0,.3);}
+.card-header{display:flex;align-items:center;gap:10px;padding:13px 15px;border-bottom:1px solid var(--border);}
+.card-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;}
+.card-title{font-weight:700;font-size:.9rem;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.card-sub{font-size:.75rem;color:var(--muted);}
+.badge{padding:2px 9px;border-radius:20px;font-size:.7rem;font-weight:700;}
+.badge-active{background:rgba(16,185,129,.15);color:var(--green);}
+.badge-inactive{background:rgba(100,116,139,.15);color:var(--muted);}
+.badge-client{background:rgba(59,130,246,.15);color:var(--primary);}
+.card-body{padding:12px 15px;display:flex;flex-direction:column;gap:5px;}
+.card-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:.8rem;border-bottom:1px solid rgba(51,65,85,.4);}
+.card-row:last-child{border-bottom:none;}
+.card-label{color:var(--muted);}
+.card-value{font-weight:600;}
+.card-actions{display:flex;gap:8px;padding:11px 15px;border-top:1px solid var(--border);background:rgba(0,0,0,.12);}
 
-/* ── Delete confirm ── */
-.delete-modal { max-width: 420px; }
-.delete-icon { font-size: 2.5rem; text-align: center; padding: 10px 0; }
+/* tracks section inside card */
+.tracks-list{margin-top:6px;}
+.track-row{background:rgba(0,0,0,.2);border-radius:6px;padding:8px 10px;margin-bottom:6px;font-size:.78rem;}
+.track-row-header{display:flex;justify-content:space-between;align-items:center;font-weight:600;}
+.track-risk-badges{display:flex;gap:5px;margin-top:4px;flex-wrap:wrap;}
+.risk-badge{padding:2px 7px;border-radius:10px;font-size:.68rem;font-weight:600;}
+.risk-eq{background:rgba(59,130,246,.2);color:#60a5fa;}
+.risk-bo{background:rgba(16,185,129,.2);color:#34d399;}
+.risk-al{background:rgba(139,92,246,.2);color:#a78bfa;}
 
-/* ── Toast ── */
-.toast-container { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 2000; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
-.toast {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 12px 20px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  animation: slideUp 0.25s ease;
-  pointer-events: all;
-  min-width: 260px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-}
-.toast.ok { border-color: rgba(16,185,129,0.4); color: var(--green); }
-.toast.err { border-color: rgba(239,68,68,0.4); color: var(--red); }
-@keyframes slideUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+/* modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:1000;display:none;align-items:center;justify-content:center;padding:16px;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:14px;width:100%;max-width:600px;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+.modal-sm{max-width:420px;}
+.modal-header{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--card);z-index:1;}
+.modal-header h3{font-size:.95rem;font-weight:700;flex:1;}
+.modal-body{padding:20px;display:flex;flex-direction:column;gap:13px;}
+.modal-footer{display:flex;gap:10px;padding:14px 20px;border-top:1px solid var(--border);justify-content:flex-end;}
+.form-group{display:flex;flex-direction:column;gap:5px;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+.form-label{font-size:.77rem;font-weight:600;color:var(--muted);}
+.form-control{background:#0f172a;border:1px solid var(--border);border-radius:7px;color:var(--text);padding:8px 11px;font-family:'Heebo',sans-serif;font-size:.83rem;outline:none;width:100%;transition:border-color .15s;}
+.form-control:focus{border-color:var(--primary);}
+.form-control option{background:#1e293b;}
+.section-divider{font-size:.72rem;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border);padding-bottom:5px;}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;background:#0f172a;border:1px solid var(--border);border-radius:7px;padding:9px 12px;}
+.toggle-label{font-size:.83rem;font-weight:600;}
+.toggle-sub{font-size:.72rem;color:var(--muted);}
+.toggle{position:relative;width:40px;height:22px;flex-shrink:0;}
+.toggle input{opacity:0;width:0;height:0;}
+.toggle-slider{position:absolute;cursor:pointer;inset:0;background:#334155;border-radius:22px;transition:.2s;}
+.toggle-slider::before{position:absolute;content:"";width:16px;height:16px;right:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;}
+.toggle input:checked+.toggle-slider{background:var(--primary);}
+.toggle input:checked+.toggle-slider::before{transform:translateX(-18px);}
+.color-row{display:flex;align-items:center;gap:10px;}
+.color-preview{width:34px;height:34px;border-radius:50%;border:2px solid var(--border);flex-shrink:0;}
+.risk-sum{font-size:.75rem;text-align:center;margin-top:3px;}
+.risk-sum.ok{color:var(--green);}
+.risk-sum.err{color:var(--red);}
+.err-box{color:var(--red);font-size:.8rem;padding:8px 12px;background:rgba(239,68,68,.1);border-radius:6px;border:1px solid rgba(239,68,68,.3);display:none;}
 
-/* ── Empty state ── */
-.empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
-.empty-state i { font-size: 3rem; margin-bottom: 16px; opacity: 0.4; }
-.empty-state p { font-size: 0.9rem; }
+/* tracks editor */
+.tracks-editor{display:flex;flex-direction:column;gap:8px;}
+.track-item{background:#0f172a;border:1px solid var(--border);border-radius:8px;padding:12px;}
+.track-item-header{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.track-item-header span{font-size:.82rem;font-weight:700;flex:1;}
+.track-risk-row{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;align-items:end;}
+.add-track-btn{border:1px dashed var(--border);background:transparent;color:var(--muted);border-radius:8px;padding:9px;width:100%;cursor:pointer;font-family:'Heebo',sans-serif;font-size:.8rem;transition:all .15s;}
+.add-track-btn:hover{border-color:var(--primary);color:var(--primary);}
 
-/* ── Loading ── */
-.spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
+/* toast */
+.toast-container{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:2000;display:flex;flex-direction:column;gap:7px;pointer-events:none;}
+.toast{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:11px 18px;font-size:.83rem;font-weight:600;display:flex;align-items:center;gap:9px;animation:slideUp .2s ease;pointer-events:all;min-width:240px;box-shadow:0 8px 24px rgba(0,0,0,.4);}
+.toast.ok{border-color:rgba(16,185,129,.4);color:var(--green);}
+.toast.err{border-color:rgba(239,68,68,.4);color:var(--red);}
+@keyframes slideUp{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+.empty-state{text-align:center;padding:50px 20px;color:var(--muted);}
+.empty-state i{font-size:2.5rem;margin-bottom:12px;opacity:.4;display:block;}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
 </style>
 </head>
 <body>
 
-<!-- Navbar -->
 <nav class="navbar">
-  <a href="index.html" style="color:var(--muted);text-decoration:none;font-size:0.85rem;">
-    <i class="fa fa-arrow-right"></i>
-  </a>
+  <a href="index.html" style="color:var(--muted);text-decoration:none;font-size:.85rem;"><i class="fa fa-arrow-right"></i></a>
   <div>
-    <div class="navbar-title"><i class="fa fa-box" style="color:var(--primary);margin-left:8px;"></i>ניהול מוצרים</div>
-    <div class="navbar-sub">עריכה, מחיקה והוספת מוצרים</div>
+    <div class="navbar-title"><i class="fa fa-sliders" style="color:var(--primary);margin-left:8px;"></i>ניהול לקוחות ומוצרים</div>
+    <div class="navbar-sub">עריכה, הוספה ומחיקה</div>
   </div>
   <div class="navbar-spacer"></div>
-  <button class="btn btn-ghost btn-sm" onclick="loadProducts()"><i class="fa fa-rotate-right"></i> רענן</button>
+  <button class="btn btn-ghost btn-sm" onclick="reloadAll()"><i class="fa fa-rotate-right"></i> רענן</button>
 </nav>
 
-<!-- Toast container -->
-<div class="toast-container" id="toastContainer"></div>
+<div class="toast-container" id="toastEl"></div>
 
-<!-- Main -->
-<main class="main">
-  <!-- Toolbar -->
-  <div class="toolbar">
-    <div class="toolbar-title" id="productCount">מוצרים</div>
-    <input class="search-box" type="text" id="searchInput" placeholder="🔍 חיפוש מוצר..." oninput="filterProducts()">
-    <button class="btn btn-primary" onclick="openAddModal()">
-      <i class="fa fa-plus"></i> הוסף מוצר
+<div class="main">
+  <!-- Tab bar -->
+  <div class="tabs-bar">
+    <button class="tab-btn active" id="tab-clients" onclick="switchTab('clients')">
+      <i class="fa fa-users"></i> לקוחות
+    </button>
+    <button class="tab-btn" id="tab-products" onclick="switchTab('products')">
+      <i class="fa fa-box"></i> מוצרים
     </button>
   </div>
 
-  <!-- Grid -->
-  <div id="productsGrid" class="products-grid">
-    <div class="empty-state"><i class="fa fa-spinner fa-spin"></i><p>טוען מוצרים...</p></div>
+  <!-- ══ TAB: CLIENTS ══ -->
+  <div class="tab-pane active" id="pane-clients">
+    <div class="toolbar">
+      <div class="toolbar-title" id="clientsCount">לקוחות</div>
+      <input class="search-box" type="text" id="clientSearch" placeholder="🔍 חיפוש לקוח..." oninput="renderClients()">
+      <button class="btn btn-primary" onclick="openClientModal()"><i class="fa fa-plus"></i> לקוח חדש</button>
+    </div>
+    <div class="cards-grid" id="clientsGrid">
+      <div class="empty-state"><i class="fa fa-spinner fa-spin"></i><p>טוען...</p></div>
+    </div>
   </div>
-</main>
 
-<!-- ══ Edit / Add Modal ══ -->
-<div class="modal-overlay" id="editModal">
+  <!-- ══ TAB: PRODUCTS ══ -->
+  <div class="tab-pane" id="pane-products">
+    <div class="toolbar">
+      <div class="toolbar-title" id="productsCount">מוצרים</div>
+      <select class="search-box" id="prodClientFilter" onchange="renderProducts()" style="width:180px;">
+        <option value="">כל הלקוחות</option>
+      </select>
+      <input class="search-box" type="text" id="productSearch" placeholder="🔍 חיפוש..." oninput="renderProducts()">
+      <button class="btn btn-primary" onclick="openProductModal()"><i class="fa fa-plus"></i> מוצר חדש</button>
+    </div>
+    <div class="cards-grid" id="productsGrid">
+      <div class="empty-state"><i class="fa fa-spinner fa-spin"></i><p>טוען...</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ CLIENT MODAL ══════════════ -->
+<div class="modal-overlay" id="clientModal">
   <div class="modal">
     <div class="modal-header">
-      <i class="fa fa-pen-to-square" style="color:var(--primary);"></i>
-      <h3 id="modalTitle">עריכת מוצר</h3>
-      <button class="btn btn-ghost btn-icon btn-sm" onclick="closeEditModal()" style="margin-right:auto;">
-        <i class="fa fa-xmark"></i>
-      </button>
+      <i class="fa fa-user" style="color:var(--primary);"></i>
+      <h3 id="clientModalTitle">עריכת לקוח</h3>
+      <button class="btn btn-ghost btn-icon btn-sm" onclick="closeClientModal()" style="margin-right:auto;"><i class="fa fa-xmark"></i></button>
     </div>
     <div class="modal-body">
-      <input type="hidden" id="editId">
+      <input type="hidden" id="cEditId">
 
-      <!-- פרטים בסיסיים -->
-      <div class="section-title">פרטים בסיסיים</div>
+      <div class="section-divider">פרטים אישיים</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">שם מלא <span style="color:var(--red)">*</span></label>
+          <input class="form-control" type="text" id="cName" placeholder="ישראל ישראלי">
+        </div>
+        <div class="form-group">
+          <label class="form-label">תאריך לידה</label>
+          <input class="form-control" type="date" id="cBirthDate">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">תאריך הצטרפות ללקוח</label>
+          <input class="form-control" type="date" id="cJoinDate">
+        </div>
+        <div class="form-group">
+          <label class="form-label">טלפון WhatsApp</label>
+          <input class="form-control" type="text" id="cWhatsapp" placeholder="050-0000000">
+        </div>
+      </div>
+
+      <div class="section-divider">הצגה ללקוח</div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">הצג תאריך הצטרפות בדשבורד</div>
+          <div class="toggle-sub">הלקוח יראה כמה זמן הוא מלווה על ידך</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="cShowJoinDate">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="section-divider">הגדרות דוח</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">כותרת דוח</label>
+          <input class="form-control" type="text" id="cReportTitle" placeholder="תיק השקעות">
+        </div>
+        <div class="form-group">
+          <label class="form-label">סטטוס</label>
+          <select class="form-control" id="cActive">
+            <option value="1">פעיל</option>
+            <option value="0">לא פעיל</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">חודש פתיחת שנה (MM/YY)</label>
+          <input class="form-control" type="text" id="cYtdStart" placeholder="01/25">
+        </div>
+        <div class="form-group">
+          <label class="form-label">חודש סיום שנה (MM/YY)</label>
+          <input class="form-control" type="text" id="cYtdEnd" placeholder="12/25">
+        </div>
+      </div>
+
+      <div id="cErr" class="err-box"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeClientModal()">ביטול</button>
+      <button class="btn btn-primary" id="cSaveBtn" onclick="saveClient()"><i class="fa fa-floppy-disk"></i> שמור</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ PRODUCT MODAL ══════════════ -->
+<div class="modal-overlay" id="productModal">
+  <div class="modal">
+    <div class="modal-header">
+      <i class="fa fa-box" style="color:var(--primary);"></i>
+      <h3 id="productModalTitle">עריכת מוצר</h3>
+      <button class="btn btn-ghost btn-icon btn-sm" onclick="closeProductModal()" style="margin-right:auto;"><i class="fa fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="pEditId">
+
+      <div class="section-divider">פרטי מוצר</div>
       <div class="form-group">
         <label class="form-label">שם מלא <span style="color:var(--red)">*</span></label>
-        <input class="form-control" type="text" id="editName" placeholder="מנורה מבטחים – מסלול כללי">
+        <input class="form-control" type="text" id="pName" placeholder="מנורה מבטחים – מסלול כללי">
       </div>
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">שם קצר</label>
-          <input class="form-control" type="text" id="editNameShort" placeholder="מנורה">
+          <input class="form-control" type="text" id="pNameShort" placeholder="מנורה">
         </div>
         <div class="form-group">
           <label class="form-label">מוסד / חברה</label>
-          <input class="form-control" type="text" id="editInstitution" placeholder="מנורה מבטחים">
+          <input class="form-control" type="text" id="pInstitution" placeholder="מנורה מבטחים">
         </div>
       </div>
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">סוג מוצר</label>
-          <select class="form-control" id="editProductType">
+          <select class="form-control" id="pProductType">
             <option value="">בחר...</option>
-            <option value="קרן פנסיה">קרן פנסיה</option>
-            <option value="ביטוח מנהלים">ביטוח מנהלים</option>
-            <option value="קופת גמל">קופת גמל</option>
-            <option value="קרן השתלמות">קרן השתלמות</option>
-            <option value="פוליסת חיסכון">פוליסת חיסכון</option>
-            <option value="תיק ניירות ערך">תיק ניירות ערך</option>
-            <option value="אחר">אחר</option>
+            <option>קרן פנסיה</option>
+            <option>ביטוח מנהלים</option>
+            <option>קופת גמל</option>
+            <option>קרן השתלמות</option>
+            <option>פוליסת חיסכון</option>
+            <option>תיק ניירות ערך</option>
+            <option>אחר</option>
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">מסלול השקעה</label>
-          <input class="form-control" type="text" id="editTrack" placeholder="מסלול כללי">
+          <label class="form-label">לקוח <span style="color:var(--red)">*</span></label>
+          <select class="form-control" id="pClientId"></select>
         </div>
       </div>
       <div class="form-row">
         <div class="form-group">
+          <label class="form-label">מספר חשבון / פוליסה</label>
+          <input class="form-control" type="text" id="pAccountNumber" placeholder="123-456789">
+        </div>
+        <div class="form-group">
           <label class="form-label">סטטוס</label>
-          <select class="form-control" id="editStatus">
+          <select class="form-control" id="pStatus">
             <option value="active">פעיל</option>
             <option value="inactive">נפדה / לא פעיל</option>
           </select>
         </div>
+      </div>
+      <div class="form-row">
         <div class="form-group">
           <label class="form-label">צבע</label>
           <div class="color-row">
-            <div class="color-preview" id="colorPreview"></div>
-            <input class="form-control" type="color" id="editColor" value="#3b82f6" oninput="updateColorPreview()" style="height:40px;cursor:pointer;padding:3px;">
+            <div class="color-preview" id="pColorPreview"></div>
+            <input class="form-control" type="color" id="pColor" value="#3b82f6" oninput="updatePColorPreview()" style="height:38px;cursor:pointer;padding:2px;">
           </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">סדר הצגה</label>
+          <input class="form-control" type="number" id="pSortOrder" value="1" min="0">
         </div>
       </div>
 
-      <!-- ערכים פיננסיים -->
-      <div class="section-title" style="margin-top:6px;">ערכים פיננסיים</div>
+      <div class="section-divider">ערכים פיננסיים</div>
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">שווי פתיחת שנה (₪)</label>
-          <input class="form-control" type="number" id="editYtdStartValue" placeholder="0" step="1">
+          <input class="form-control" type="number" id="pYtdStartValue" placeholder="0">
         </div>
         <div class="form-group">
           <label class="form-label">חודש פתיחת שנה</label>
-          <input class="form-control" type="text" id="editYtdStartMonth" placeholder="01/25">
+          <input class="form-control" type="text" id="pYtdStartMonth" placeholder="01/25">
         </div>
       </div>
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">שווי פתיחה (₪)</label>
-          <input class="form-control" type="number" id="editInceptionValue" placeholder="0" step="1">
+          <input class="form-control" type="number" id="pInceptionValue" placeholder="0">
         </div>
         <div class="form-group">
           <label class="form-label">תאריך פתיחה</label>
-          <input class="form-control" type="date" id="editInceptionDate">
+          <input class="form-control" type="date" id="pInceptionDate">
         </div>
       </div>
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">הסתר מסיכום פתיחה</label>
-          <select class="form-control" id="editExcludeOpen">
+          <select class="form-control" id="pExcludeOpen">
             <option value="false">לא (נכנס לחישוב)</option>
             <option value="true">כן (מוסתר מסיכום)</option>
           </select>
         </div>
+      </div>
+
+      <div class="section-divider">דמי ניהול</div>
+      <div class="form-row">
         <div class="form-group">
-          <label class="form-label">סדר הצגה</label>
-          <input class="form-control" type="number" id="editSortOrder" placeholder="1" min="0">
+          <label class="form-label">דמי ניהול (%)</label>
+          <input class="form-control" type="number" id="pMgmtFee" placeholder="0.00" step="0.01" min="0" max="5">
+        </div>
+        <div class="form-group" style="justify-content:flex-end;">
+          <label class="form-label" style="margin-bottom:8px;">הצג ללקוח</label>
+          <div class="toggle-row" style="border:none;padding:5px 0;background:transparent;">
+            <div class="toggle-sub">הצג דמי ניהול בדשבורד</div>
+            <label class="toggle">
+              <input type="checkbox" id="pShowFee">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
         </div>
       </div>
 
-      <!-- הרכב סיכון -->
-      <div class="section-title" style="margin-top:6px;">הרכב השקעה (%)</div>
-      <div class="risk-row">
-        <div class="form-group">
-          <label class="form-label">מניות</label>
-          <input class="form-control" type="number" id="editRiskEquities" placeholder="0" min="0" max="100" oninput="updateRiskSum()">
-        </div>
-        <div class="form-group">
-          <label class="form-label">אג״ח</label>
-          <input class="form-control" type="number" id="editRiskBonds" placeholder="0" min="0" max="100" oninput="updateRiskSum()">
-        </div>
-        <div class="form-group">
-          <label class="form-label">אלטרנטיבי</label>
-          <input class="form-control" type="number" id="editRiskAlternatives" placeholder="0" min="0" max="100" oninput="updateRiskSum()">
-        </div>
+      <!-- מסלולים -->
+      <div class="section-divider" style="display:flex;align-items:center;justify-content:space-between;">
+        <span>מסלולי השקעה</span>
+        <button class="btn btn-ghost btn-sm" onclick="addTrackRow()" style="font-size:.72rem;padding:3px 8px;">
+          <i class="fa fa-plus"></i> הוסף מסלול
+        </button>
       </div>
-      <div class="risk-sum" id="riskSumMsg"></div>
+      <div style="font-size:.75rem;color:var(--muted);margin-bottom:6px;">
+        לקופות עם מסלול אחד — הזן שורה אחת. לקופות משולבות — הוסף שורה לכל מסלול עם סכום הצבירה.
+      </div>
+      <div class="tracks-editor" id="tracksEditor"></div>
+      <div class="risk-sum" id="tracksRiskSummary"></div>
 
-      <div id="editError" style="color:var(--red);font-size:0.82rem;display:none;padding:8px 12px;background:rgba(239,68,68,0.1);border-radius:6px;border:1px solid rgba(239,68,68,0.3);"></div>
+      <div id="pErr" class="err-box"></div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeEditModal()">ביטול</button>
-      <button class="btn btn-primary" id="saveBtn" onclick="saveProduct()">
-        <i class="fa fa-floppy-disk"></i> שמור שינויים
-      </button>
+      <button class="btn btn-ghost" onclick="closeProductModal()">ביטול</button>
+      <button class="btn btn-primary" id="pSaveBtn" onclick="saveProduct()"><i class="fa fa-floppy-disk"></i> שמור</button>
     </div>
   </div>
 </div>
 
-<!-- ══ Delete Confirm Modal ══ -->
+<!-- ══ DELETE MODAL ══ -->
 <div class="modal-overlay" id="deleteModal">
-  <div class="modal delete-modal">
+  <div class="modal modal-sm">
     <div class="modal-header">
       <i class="fa fa-trash" style="color:var(--red);"></i>
-      <h3>מחיקת מוצר</h3>
-      <button class="btn btn-ghost btn-icon btn-sm" onclick="closeDeleteModal()" style="margin-right:auto;">
-        <i class="fa fa-xmark"></i>
-      </button>
+      <h3 id="delTitle">מחיקה</h3>
+      <button class="btn btn-ghost btn-icon btn-sm" onclick="closeDeleteModal()" style="margin-right:auto;"><i class="fa fa-xmark"></i></button>
     </div>
     <div class="modal-body" style="text-align:center;">
-      <div class="delete-icon">🗑️</div>
-      <p style="font-size:0.95rem;font-weight:700;margin-bottom:8px;" id="deleteProductName">שם המוצר</p>
-      <p style="font-size:0.82rem;color:var(--muted);line-height:1.6;">
-        פעולה זו תסמן את המוצר כמחוק.<br>
-        הנתונים ההיסטוריים ישמרו אך המוצר לא יופיע בדשבורד.
-      </p>
-      <div id="deleteError" style="color:var(--red);font-size:0.82rem;margin-top:10px;display:none;"></div>
+      <div style="font-size:2.2rem;margin-bottom:8px;">🗑️</div>
+      <p style="font-size:.9rem;font-weight:700;margin-bottom:8px;" id="delName">—</p>
+      <p style="font-size:.8rem;color:var(--muted);line-height:1.6;" id="delDesc">הנתונים ייסומנו כמחוקים ולא יופיעו יותר.</p>
+      <div id="delErr" class="err-box" style="margin-top:8px;text-align:right;"></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeDeleteModal()">ביטול</button>
-      <button class="btn btn-red" id="confirmDeleteBtn" onclick="confirmDelete()">
-        <i class="fa fa-trash"></i> כן, מחק
-      </button>
+      <button class="btn btn-red" id="delConfirmBtn" onclick="confirmDelete()"><i class="fa fa-trash"></i> מחק</button>
     </div>
   </div>
 </div>
 
 <script>
 // ── State ──
-let PRODUCTS = [];
-let CLIENTS = [];
-let editingId = null;
-let deletingId = null;
-let searchQuery = '';
+let CLIENTS = [], PRODUCTS = [];
+let cEditingId = null, pEditingId = null;
+let deleteTarget = null; // {type:'client'|'product', id, name}
 
-// ── Token ──
-function getToken() {
-  return sessionStorage.getItem('agent_token') || localStorage.getItem('agent_token') || '';
-}
-function authHeaders() {
-  const t = getToken();
-  return t ? { 'Content-Type': 'application/json', 'X-Session-Token': t } : { 'Content-Type': 'application/json' };
-}
+// ── Auth ──
+function getToken(){ return sessionStorage.getItem('agent_token') || localStorage.getItem('agent_token') || ''; }
+function authHdr(){ const t=getToken(); const h={'Content-Type':'application/json'}; if(t) h['X-Session-Token']=t; return h; }
 
 // ── Toast ──
-function toast(msg, ok = true) {
-  const c = document.getElementById('toastContainer');
-  const d = document.createElement('div');
-  d.className = `toast ${ok ? 'ok' : 'err'}`;
-  d.innerHTML = `<i class="fa ${ok ? 'fa-circle-check' : 'fa-circle-xmark'}"></i> ${msg}`;
-  c.appendChild(d);
-  setTimeout(() => d.remove(), 4000);
+function toast(msg, ok=true){
+  const c=document.getElementById('toastEl');
+  const d=document.createElement('div'); d.className=`toast ${ok?'ok':'err'}`;
+  d.innerHTML=`<i class="fa ${ok?'fa-circle-check':'fa-circle-xmark'}"></i> ${msg}`;
+  c.appendChild(d); setTimeout(()=>d.remove(),4000);
 }
 
-// ── Fetch helpers ──
-async function fetchAll(url) {
-  const all = []; let page = 1, total = Infinity;
-  while (all.length < total) {
-    const r = await fetch(`${url}${url.includes('?') ? '&' : '?'}page=${page}&limit=100`, { headers: authHeaders() });
-    const d = await r.json();
-    all.push(...(d.data || []));
-    total = d.total || 0;
-    if ((d.data || []).length < 100) break;
-    page++;
+// ── Fetch ──
+async function fetchAll(url){
+  const all=[]; let page=1, total=Infinity;
+  while(all.length<total){
+    const r=await fetch(`${url}${url.includes('?')?'&':'?'}page=${page}&limit=100`,{headers:authHdr()});
+    const d=await r.json(); all.push(...(d.data||[]));
+    total=d.total||0; if((d.data||[]).length<100)break; page++;
   }
   return all;
 }
 
 // ── Load ──
-async function loadProducts() {
-  document.getElementById('productsGrid').innerHTML =
-    '<div class="empty-state"><i class="fa fa-spinner fa-spin"></i><p>טוען...</p></div>';
-  try {
-    [PRODUCTS, CLIENTS] = await Promise.all([
-      fetchAll('/tables/products?sort=sort_order'),
-      fetchAll('/tables/clients')
+async function reloadAll(){
+  try{
+    [CLIENTS, PRODUCTS] = await Promise.all([
+      fetchAll('/tables/clients?sort=name'),
+      fetchAll('/tables/products?sort=sort_order')
     ]);
-    renderGrid();
-  } catch (e) {
-    document.getElementById('productsGrid').innerHTML =
-      '<div class="empty-state"><i class="fa fa-triangle-exclamation"></i><p>שגיאה בטעינה — בדוק חיבור</p></div>';
-    toast('שגיאה בטעינת נתונים', false);
+    // populate client filter in products tab
+    const sel=document.getElementById('prodClientFilter');
+    sel.innerHTML='<option value="">כל הלקוחות</option>'+
+      CLIENTS.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+    renderClients(); renderProducts();
+  }catch(e){
+    toast('שגיאה בטעינת נתונים',false);
   }
 }
 
-// ── Filter ──
-function filterProducts() {
-  searchQuery = document.getElementById('searchInput').value.toLowerCase();
-  renderGrid();
+// ── Tabs ──
+function switchTab(tab){
+  ['clients','products'].forEach(t=>{
+    document.getElementById(`tab-${t}`).classList.toggle('active',t===tab);
+    document.getElementById(`pane-${t}`).classList.toggle('active',t===tab);
+  });
 }
 
-// ── Render Grid ──
-function renderGrid() {
-  const filtered = PRODUCTS.filter(p =>
-    !p.deleted &&
-    (!searchQuery ||
-      (p.name || '').toLowerCase().includes(searchQuery) ||
-      (p.institution || '').toLowerCase().includes(searchQuery) ||
-      (p.product_type || '').toLowerCase().includes(searchQuery))
-  );
+// ═══════════════════════════
+// CLIENTS
+// ═══════════════════════════
+function calcAge(birthDate){
+  if(!birthDate) return null;
+  const b=new Date(birthDate), n=new Date();
+  let age=n.getFullYear()-b.getFullYear();
+  if(n.getMonth()<b.getMonth()||(n.getMonth()===b.getMonth()&&n.getDate()<b.getDate())) age--;
+  return age;
+}
+function calcYears(joinDate){
+  if(!joinDate) return null;
+  const j=new Date(joinDate), n=new Date();
+  const diff=(n-j)/(1000*60*60*24*365.25);
+  if(diff<1) return `${Math.round(diff*12)} חודשים`;
+  return `${diff.toFixed(1)} שנים`;
+}
 
-  document.getElementById('productCount').textContent = `${filtered.length} מוצרים`;
-
-  if (!filtered.length) {
-    document.getElementById('productsGrid').innerHTML =
-      '<div class="empty-state"><i class="fa fa-box-open"></i><p>לא נמצאו מוצרים</p></div>';
+function renderClients(){
+  const q=(document.getElementById('clientSearch').value||'').toLowerCase();
+  const list=CLIENTS.filter(c=>!c.deleted&&(!q||(c.name||'').toLowerCase().includes(q)));
+  document.getElementById('clientsCount').textContent=`${list.length} לקוחות`;
+  if(!list.length){
+    document.getElementById('clientsGrid').innerHTML='<div class="empty-state"><i class="fa fa-users-slash"></i><p>לא נמצאו לקוחות</p></div>';
     return;
   }
-
-  const clientMap = {};
-  CLIENTS.forEach(c => clientMap[c.id] = c.name);
-
-  document.getElementById('productsGrid').innerHTML = filtered.map(p => {
-    const isActive = p.status === 'active';
-    const clientName = clientMap[p.client_id] || p.client_id || '—';
-    const riskStr = [
-      p.risk_equities ? `מניות ${p.risk_equities}%` : '',
-      p.risk_bonds ? `אג״ח ${p.risk_bonds}%` : '',
-      p.risk_alternatives ? `אלט׳ ${p.risk_alternatives}%` : ''
-    ].filter(Boolean).join(' · ') || '—';
-
-    return `
-    <div class="product-card" id="card-${p.id}">
+  const prodCount={};
+  PRODUCTS.forEach(p=>{ if(p.client_id) prodCount[p.client_id]=(prodCount[p.client_id]||0)+1; });
+  document.getElementById('clientsGrid').innerHTML=list.map(c=>{
+    const age=calcAge(c.birth_date);
+    const tenure=calcYears(c.join_date);
+    return `<div class="card">
       <div class="card-header">
-        <div class="card-dot" style="background:${p.color || '#64748b'};"></div>
+        <div class="card-dot" style="background:${c.active?'var(--green)':'var(--muted)'};"></div>
         <div style="flex:1;min-width:0;">
-          <div class="card-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name || '—'}</div>
-          <div class="card-subtitle">${p.institution || ''} ${p.product_type ? '· ' + p.product_type : ''}</div>
+          <div class="card-title">${c.name||'—'}</div>
+          <div class="card-sub">${c.report_title||''}</div>
         </div>
-        <span class="badge ${isActive ? 'badge-active' : 'badge-inactive'}">${isActive ? 'פעיל' : 'נפדה'}</span>
+        <span class="badge ${c.active?'badge-active':'badge-inactive'}">${c.active?'פעיל':'לא פעיל'}</span>
       </div>
       <div class="card-body">
-        <div class="card-row"><span class="card-label">לקוח</span><span class="card-value">${clientName}</span></div>
-        <div class="card-row"><span class="card-label">מסלול</span><span class="card-value">${p.track || '—'}</span></div>
-        <div class="card-row"><span class="card-label">שווי פתיחת שנה</span><span class="card-value">${p.ytd_start_value ? '₪' + Number(p.ytd_start_value).toLocaleString('he-IL') : '—'}</span></div>
-        <div class="card-row"><span class="card-label">שווי פתיחה</span><span class="card-value">${p.inception_value ? '₪' + Number(p.inception_value).toLocaleString('he-IL') : '—'}</span></div>
-        <div class="card-row"><span class="card-label">תאריך פתיחה</span><span class="card-value">${p.inception_date || '—'}</span></div>
-        <div class="card-row"><span class="card-label">הרכב</span><span class="card-value" style="font-size:0.78rem;">${riskStr}</span></div>
-        <div class="card-row"><span class="card-label">סיכום פתיחה</span><span class="card-value">${p.exclude_open ? '<span style="color:var(--yellow)">מוסתר</span>' : '<span style="color:var(--green)">נכנס לחישוב</span>'}</span></div>
+        ${age!==null?`<div class="card-row"><span class="card-label">גיל</span><span class="card-value">${age}</span></div>`:''}
+        ${tenure?`<div class="card-row"><span class="card-label">ליווי</span><span class="card-value">${tenure}</span></div>`:''}
+        ${c.birth_date?`<div class="card-row"><span class="card-label">ת. לידה</span><span class="card-value">${c.birth_date}</span></div>`:''}
+        ${c.join_date?`<div class="card-row"><span class="card-label">ת. הצטרפות</span><span class="card-value">${c.join_date}</span></div>`:''}
+        ${c.whatsapp_phone?`<div class="card-row"><span class="card-label">WhatsApp</span><span class="card-value">${c.whatsapp_phone}</span></div>`:''}
+        <div class="card-row"><span class="card-label">מוצרים</span><span class="card-value">${prodCount[c.id]||0}</span></div>
+        <div class="card-row"><span class="card-label">הצג ת. הצטרפות</span><span class="card-value">${c.show_join_date?'<span style="color:var(--green)">כן</span>':'<span style="color:var(--muted)">לא</span>'}</span></div>
       </div>
       <div class="card-actions">
-        <button class="btn btn-primary btn-sm" style="flex:1;" onclick="openEditModal('${p.id}')">
-          <i class="fa fa-pen"></i> עריכה
-        </button>
-        <button class="btn btn-red btn-sm" onclick="openDeleteModal('${p.id}')">
-          <i class="fa fa-trash"></i> מחיקה
-        </button>
+        <button class="btn btn-primary btn-sm" style="flex:1;" onclick="openClientModal('${c.id}')"><i class="fa fa-pen"></i> עריכה</button>
+        <button class="btn btn-ghost btn-sm" onclick="switchTab('products');document.getElementById('prodClientFilter').value='${c.id}';renderProducts();" title="הצג מוצרי לקוח"><i class="fa fa-box"></i></button>
+        <button class="btn btn-red btn-sm" onclick="openDeleteModal('client','${c.id}','${(c.name||'').replace(/'/g,"\\'")}')"><i class="fa fa-trash"></i></button>
       </div>
     </div>`;
   }).join('');
 }
 
-// ── Color preview ──
-function updateColorPreview() {
-  document.getElementById('colorPreview').style.background = document.getElementById('editColor').value;
+function openClientModal(id){
+  cEditingId=id||null;
+  document.getElementById('clientModalTitle').textContent=id?'עריכת לקוח':'לקוח חדש';
+  document.getElementById('cSaveBtn').innerHTML=id?'<i class="fa fa-floppy-disk"></i> שמור':'<i class="fa fa-plus"></i> הוסף';
+  const c=id?CLIENTS.find(x=>x.id===id):{};
+  document.getElementById('cEditId').value=id||'';
+  document.getElementById('cName').value=c.name||'';
+  document.getElementById('cBirthDate').value=c.birth_date||'';
+  document.getElementById('cJoinDate').value=c.join_date||'';
+  document.getElementById('cWhatsapp').value=c.whatsapp_phone||'';
+  document.getElementById('cShowJoinDate').checked=!!(c.show_join_date);
+  document.getElementById('cReportTitle').value=c.report_title||'';
+  document.getElementById('cActive').value=(c.active===0||c.active===false)?'0':'1';
+  document.getElementById('cYtdStart').value=c.ytd_start_month||'';
+  document.getElementById('cYtdEnd').value=c.ytd_end_month||'';
+  document.getElementById('cErr').style.display='none';
+  document.getElementById('clientModal').classList.add('open');
+}
+function closeClientModal(){ document.getElementById('clientModal').classList.remove('open'); }
+
+async function saveClient(){
+  const name=document.getElementById('cName').value.trim();
+  if(!name){ showErr('cErr','שם הלקוח הוא שדה חובה'); return; }
+  const body={
+    name,
+    birth_date: document.getElementById('cBirthDate').value||null,
+    join_date: document.getElementById('cJoinDate').value||null,
+    whatsapp_phone: document.getElementById('cWhatsapp').value.trim()||null,
+    show_join_date: document.getElementById('cShowJoinDate').checked?1:0,
+    report_title: document.getElementById('cReportTitle').value.trim()||null,
+    active: document.getElementById('cActive').value==='1'?1:0,
+    ytd_start_month: document.getElementById('cYtdStart').value.trim()||null,
+    ytd_end_month: document.getElementById('cYtdEnd').value.trim()||null,
+  };
+  const btn=document.getElementById('cSaveBtn');
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span> שומר...';
+  try{
+    let res;
+    if(cEditingId){
+      res=await fetch(`/tables/clients/${cEditingId}`,{method:'PATCH',headers:authHdr(),body:JSON.stringify(body)});
+    } else {
+      body.id='client-'+Date.now();
+      res=await fetch('/tables/clients',{method:'POST',headers:authHdr(),body:JSON.stringify(body)});
+    }
+    if(res.ok||res.status===201){
+      toast(cEditingId?'הלקוח עודכן':'הלקוח נוסף'); closeClientModal(); await reloadAll();
+    } else {
+      const e=await res.json().catch(()=>({})); showErr('cErr',e.error||'שגיאה בשמירה');
+    }
+  }catch(e){ showErr('cErr','שגיאת תקשורת'); }
+  finally{ btn.disabled=false; btn.innerHTML=cEditingId?'<i class="fa fa-floppy-disk"></i> שמור':'<i class="fa fa-plus"></i> הוסף'; }
 }
 
-// ── Risk sum ──
-function updateRiskSum() {
-  const e = +document.getElementById('editRiskEquities').value || 0;
-  const b = +document.getElementById('editRiskBonds').value || 0;
-  const a = +document.getElementById('editRiskAlternatives').value || 0;
-  const s = e + b + a;
-  const el = document.getElementById('riskSumMsg');
-  if (s === 0) { el.textContent = ''; return; }
-  el.textContent = `סה״כ: ${s}% ${s === 100 ? '✅' : '⚠️ חייב להיות 100%'}`;
-  el.className = `risk-sum ${s === 100 ? 'ok' : 'err'}`;
-}
-
-// ── Open Add Modal ──
-function openAddModal() {
-  editingId = null;
-  document.getElementById('modalTitle').textContent = 'הוספת מוצר חדש';
-  document.getElementById('saveBtn').innerHTML = '<i class="fa fa-plus"></i> הוסף מוצר';
-  // Clear all fields
-  ['editName','editNameShort','editInstitution','editTrack','editYtdStartMonth',
-   'editYtdStartValue','editInceptionValue','editInceptionDate'].forEach(id => {
-    document.getElementById(id).value = '';
-  });
-  document.getElementById('editId').value = '';
-  document.getElementById('editStatus').value = 'active';
-  document.getElementById('editProductType').value = '';
-  document.getElementById('editExcludeOpen').value = 'false';
-  document.getElementById('editSortOrder').value = PRODUCTS.length + 1;
-  document.getElementById('editColor').value = '#3b82f6';
-  document.getElementById('editRiskEquities').value = '';
-  document.getElementById('editRiskBonds').value = '';
-  document.getElementById('editRiskAlternatives').value = '';
-  document.getElementById('riskSumMsg').textContent = '';
-  document.getElementById('editError').style.display = 'none';
-  updateColorPreview();
-  document.getElementById('editModal').classList.add('open');
-}
-
-// ── Open Edit Modal ──
-function openEditModal(id) {
-  const p = PRODUCTS.find(x => x.id === id);
-  if (!p) return;
-  editingId = id;
-  document.getElementById('modalTitle').textContent = 'עריכת מוצר';
-  document.getElementById('saveBtn').innerHTML = '<i class="fa fa-floppy-disk"></i> שמור שינויים';
-  document.getElementById('editId').value = id;
-  document.getElementById('editName').value = p.name || '';
-  document.getElementById('editNameShort').value = p.name_short || '';
-  document.getElementById('editInstitution').value = p.institution || '';
-  document.getElementById('editProductType').value = p.product_type || '';
-  document.getElementById('editTrack').value = p.track || '';
-  document.getElementById('editStatus').value = p.status || 'active';
-  document.getElementById('editColor').value = p.color || '#3b82f6';
-  document.getElementById('editYtdStartValue').value = p.ytd_start_value || '';
-  document.getElementById('editYtdStartMonth').value = p.ytd_start_month || '';
-  document.getElementById('editInceptionValue').value = p.inception_value || '';
-  document.getElementById('editInceptionDate').value = p.inception_date || '';
-  document.getElementById('editExcludeOpen').value = p.exclude_open ? 'true' : 'false';
-  document.getElementById('editSortOrder').value = p.sort_order || 0;
-  document.getElementById('editRiskEquities').value = p.risk_equities || '';
-  document.getElementById('editRiskBonds').value = p.risk_bonds || '';
-  document.getElementById('editRiskAlternatives').value = p.risk_alternatives || '';
-  document.getElementById('editError').style.display = 'none';
-  updateColorPreview();
-  updateRiskSum();
-  document.getElementById('editModal').classList.add('open');
-}
-
-function closeEditModal() {
-  document.getElementById('editModal').classList.remove('open');
-}
-
-// ── Save ──
-async function saveProduct() {
-  const name = document.getElementById('editName').value.trim();
-  if (!name) {
-    const errEl = document.getElementById('editError');
-    errEl.textContent = 'שם המוצר הוא שדה חובה';
-    errEl.style.display = 'block';
+// ═══════════════════════════
+// PRODUCTS
+// ═══════════════════════════
+function renderProducts(){
+  const q=(document.getElementById('productSearch').value||'').toLowerCase();
+  const cf=document.getElementById('prodClientFilter').value;
+  const clientMap={}; CLIENTS.forEach(c=>clientMap[c.id]=c.name);
+  const list=PRODUCTS.filter(p=>
+    !p.deleted &&
+    (!cf||p.client_id===cf) &&
+    (!q||(p.name||'').toLowerCase().includes(q)||(p.institution||'').toLowerCase().includes(q))
+  );
+  document.getElementById('productsCount').textContent=`${list.length} מוצרים`;
+  if(!list.length){
+    document.getElementById('productsGrid').innerHTML='<div class="empty-state"><i class="fa fa-box-open"></i><p>לא נמצאו מוצרים</p></div>';
     return;
   }
-  document.getElementById('editError').style.display = 'none';
+  document.getElementById('productsGrid').innerHTML=list.map(p=>{
+    const tracks=safeParseJSON(p.tracks_json)||[];
+    const avgRisk=calcWeightedRisk(tracks, p);
+    const tracksHTML=tracks.length>0?`
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">
+        <div style="font-size:.72rem;font-weight:700;color:var(--muted);margin-bottom:5px;">מסלולים</div>
+        ${tracks.map(t=>`<div class="track-row">
+          <div class="track-row-header"><span>${t.name||'מסלול'}</span><span style="color:var(--muted)">${t.value?'₪'+Number(t.value).toLocaleString('he-IL'):''}</span></div>
+          <div class="track-risk-badges">
+            ${t.equities?`<span class="risk-badge risk-eq">מניות ${t.equities}%</span>`:''}
+            ${t.bonds?`<span class="risk-badge risk-bo">אג"ח ${t.bonds}%</span>`:''}
+            ${t.alternatives?`<span class="risk-badge risk-al">אלט' ${t.alternatives}%</span>`:''}
+          </div>
+        </div>`).join('')}
+        ${avgRisk?`<div style="font-size:.72rem;color:var(--muted);margin-top:4px;">ממוצע משוקלל: מניות ${avgRisk.eq}% · אג"ח ${avgRisk.bo}% · אלט' ${avgRisk.al}%</div>`:''}
+      </div>` : (p.risk_equities||p.risk_bonds?`<div class="card-row"><span class="card-label">הרכב</span><span class="card-value" style="font-size:.76rem;">מניות ${p.risk_equities||0}% · אג"ח ${p.risk_bonds||0}% · אלט' ${p.risk_alternatives||0}%</span></div>`:'');
 
-  const body = {
-    name,
-    name_short: document.getElementById('editNameShort').value.trim() || null,
-    institution: document.getElementById('editInstitution').value.trim() || null,
-    product_type: document.getElementById('editProductType').value || null,
-    track: document.getElementById('editTrack').value.trim() || null,
-    status: document.getElementById('editStatus').value,
-    color: document.getElementById('editColor').value,
-    ytd_start_value: parseFloat(document.getElementById('editYtdStartValue').value) || null,
-    ytd_start_month: document.getElementById('editYtdStartMonth').value.trim() || null,
-    inception_value: parseFloat(document.getElementById('editInceptionValue').value) || null,
-    inception_date: document.getElementById('editInceptionDate').value || null,
-    exclude_open: document.getElementById('editExcludeOpen').value === 'true',
-    sort_order: parseInt(document.getElementById('editSortOrder').value) || 0,
-    risk_equities: parseFloat(document.getElementById('editRiskEquities').value) || 0,
-    risk_bonds: parseFloat(document.getElementById('editRiskBonds').value) || 0,
-    risk_alternatives: parseFloat(document.getElementById('editRiskAlternatives').value) || 0,
-  };
-
-  const btn = document.getElementById('saveBtn');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> שומר...';
-
-  try {
-    let res;
-    if (editingId) {
-      res = await fetch(`/tables/products/${editingId}`, {
-        method: 'PATCH',
-        headers: authHeaders(),
-        body: JSON.stringify(body)
-      });
-    } else {
-      // New product — need client_id
-      const clientId = prompt('מזהה לקוח (client_id):');
-      if (!clientId) { btn.disabled = false; btn.innerHTML = '<i class="fa fa-plus"></i> הוסף מוצר'; return; }
-      body.client_id = clientId.trim();
-      body.id = 'prod-' + Date.now();
-      res = await fetch('/tables/products', {
-        method: 'POST',
-        headers: authHeaders(),
-        body: JSON.stringify(body)
-      });
-    }
-
-    if (res.ok) {
-      toast(editingId ? '✅ המוצר עודכן בהצלחה' : '✅ המוצר נוסף בהצלחה');
-      closeEditModal();
-      await loadProducts();
-    } else {
-      const err = await res.json().catch(() => ({}));
-      const errEl = document.getElementById('editError');
-      errEl.textContent = err.error || 'שגיאה בשמירה';
-      errEl.style.display = 'block';
-    }
-  } catch (e) {
-    const errEl = document.getElementById('editError');
-    errEl.textContent = 'שגיאת תקשורת: ' + e.message;
-    errEl.style.display = 'block';
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = editingId ? '<i class="fa fa-floppy-disk"></i> שמור שינויים' : '<i class="fa fa-plus"></i> הוסף מוצר';
-  }
+    return `<div class="card">
+      <div class="card-header">
+        <div class="card-dot" style="background:${p.color||'#64748b'};"></div>
+        <div style="flex:1;min-width:0;">
+          <div class="card-title">${p.name||'—'}</div>
+          <div class="card-sub">${p.institution||''} ${p.product_type?'· '+p.product_type:''}</div>
+        </div>
+        <span class="badge ${p.status==='active'?'badge-active':'badge-inactive'}">${p.status==='active'?'פעיל':'נפדה'}</span>
+      </div>
+      <div class="card-body">
+        <div class="card-row"><span class="card-label">לקוח</span><span class="card-value">${clientMap[p.client_id]||p.client_id||'—'}</span></div>
+        ${p.account_number?`<div class="card-row"><span class="card-label">מס' חשבון</span><span class="card-value">${p.account_number}</span></div>`:''}
+        ${p.track?`<div class="card-row"><span class="card-label">מסלול</span><span class="card-value">${p.track}</span></div>`:''}
+        ${p.ytd_start_value?`<div class="card-row"><span class="card-label">שווי פתיחת שנה</span><span class="card-value">₪${Number(p.ytd_start_value).toLocaleString('he-IL')}</span></div>`:''}
+        ${p.inception_date?`<div class="card-row"><span class="card-label">תאריך פתיחה</span><span class="card-value">${p.inception_date}</span></div>`:''}
+        ${p.management_fee?`<div class="card-row"><span class="card-label">דמי ניהול</span><span class="card-value">${p.management_fee}% ${p.show_fee?'<span style="color:var(--green);font-size:.7rem;">מוצג</span>':'<span style="color:var(--muted);font-size:.7rem;">מוסתר</span>'}</span></div>`:''}
+        ${tracksHTML}
+      </div>
+      <div class="card-actions">
+        <button class="btn btn-primary btn-sm" style="flex:1;" onclick="openProductModal('${p.id}')"><i class="fa fa-pen"></i> עריכה</button>
+        <button class="btn btn-red btn-sm" onclick="openDeleteModal('product','${p.id}','${(p.name||'').replace(/'/g,"\\'")}')"><i class="fa fa-trash"></i></button>
+      </div>
+    </div>`;
+  }).join('');
 }
 
-// ── Delete ──
-function openDeleteModal(id) {
-  const p = PRODUCTS.find(x => x.id === id);
-  if (!p) return;
-  deletingId = id;
-  document.getElementById('deleteProductName').textContent = p.name || p.id;
-  document.getElementById('deleteError').style.display = 'none';
+function safeParseJSON(s){ try{ return s?JSON.parse(s):null; }catch(e){ return null; } }
+
+function calcWeightedRisk(tracks, fallback){
+  if(!tracks||!tracks.length) return null;
+  const total=tracks.reduce((a,t)=>a+(parseFloat(t.value)||0),0);
+  if(!total) return null;
+  let eq=0,bo=0,al=0;
+  tracks.forEach(t=>{
+    const w=(parseFloat(t.value)||0)/total;
+    eq+=w*(parseFloat(t.equities)||0);
+    bo+=w*(parseFloat(t.bonds)||0);
+    al+=w*(parseFloat(t.alternatives)||0);
+  });
+  return {eq:Math.round(eq*10)/10, bo:Math.round(bo*10)/10, al:Math.round(al*10)/10};
+}
+
+// ── Tracks editor ──
+let trackRows=[];
+function renderTracksEditor(){
+  const ed=document.getElementById('tracksEditor');
+  if(!trackRows.length){ ed.innerHTML=`<button class="add-track-btn" onclick="addTrackRow()"><i class="fa fa-plus"></i> הוסף מסלול</button>`; updateTracksRiskSummary(); return; }
+  ed.innerHTML=trackRows.map((t,i)=>`
+    <div class="track-item" id="track-item-${i}">
+      <div class="track-item-header">
+        <span>מסלול ${i+1}</span>
+        <button class="btn btn-ghost btn-sm" onclick="removeTrackRow(${i})" style="color:var(--red);border-color:rgba(239,68,68,.3);"><i class="fa fa-trash"></i></button>
+      </div>
+      <div class="form-row" style="margin-bottom:8px;">
+        <div class="form-group">
+          <label class="form-label">שם המסלול</label>
+          <input class="form-control" type="text" value="${t.name||''}" placeholder="מסלול כללי" oninput="updateTrackField(${i},'name',this.value)">
+        </div>
+        <div class="form-group">
+          <label class="form-label">סכום צבירה (₪)</label>
+          <input class="form-control" type="number" value="${t.value||''}" placeholder="0" oninput="updateTrackField(${i},'value',this.value);updateTracksRiskSummary()">
+        </div>
+      </div>
+      <div class="track-risk-row">
+        <div class="form-group">
+          <label class="form-label">מניות %</label>
+          <input class="form-control" type="number" value="${t.equities||''}" placeholder="0" min="0" max="100" oninput="updateTrackField(${i},'equities',this.value);updateTracksRiskSummary()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">אג"ח %</label>
+          <input class="form-control" type="number" value="${t.bonds||''}" placeholder="0" min="0" max="100" oninput="updateTrackField(${i},'bonds',this.value);updateTracksRiskSummary()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">אלטרנטיבי %</label>
+          <input class="form-control" type="number" value="${t.alternatives||''}" placeholder="0" min="0" max="100" oninput="updateTrackField(${i},'alternatives',this.value);updateTracksRiskSummary()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">סה"כ</label>
+          <div class="form-control" style="background:rgba(0,0,0,.2);display:flex;align-items:center;" id="track-sum-${i}">—</div>
+        </div>
+      </div>
+    </div>
+  `).join('')+`<button class="add-track-btn" onclick="addTrackRow()"><i class="fa fa-plus"></i> הוסף מסלול נוסף</button>`;
+  updateTracksRiskSummary();
+}
+function addTrackRow(){ trackRows.push({name:'',value:'',equities:'',bonds:'',alternatives:''}); renderTracksEditor(); }
+function removeTrackRow(i){ trackRows.splice(i,1); renderTracksEditor(); }
+function updateTrackField(i,field,val){ trackRows[i][field]=val; }
+function updateTracksRiskSummary(){
+  // per-row sums
+  trackRows.forEach((t,i)=>{
+    const el=document.getElementById(`track-sum-${i}`);
+    if(!el) return;
+    const s=(parseFloat(t.equities)||0)+(parseFloat(t.bonds)||0)+(parseFloat(t.alternatives)||0);
+    el.textContent=s?`${s}%`:'—';
+    el.style.color=s===100?'var(--green)':s>0?'var(--red)':'var(--muted)';
+  });
+  // weighted average
+  const avg=calcWeightedRisk(trackRows,null);
+  const el=document.getElementById('tracksRiskSummary');
+  if(!avg||!trackRows.length){ el.textContent=''; return; }
+  el.textContent=`ממוצע משוקלל: מניות ${avg.eq}% · אג"ח ${avg.bo}% · אלט' ${avg.al}%`;
+  el.className='risk-sum ok';
+}
+
+function openProductModal(id){
+  pEditingId=id||null;
+  document.getElementById('productModalTitle').textContent=id?'עריכת מוצר':'מוצר חדש';
+  document.getElementById('pSaveBtn').innerHTML=id?'<i class="fa fa-floppy-disk"></i> שמור':'<i class="fa fa-plus"></i> הוסף';
+  const p=id?PRODUCTS.find(x=>x.id===id):{};
+  document.getElementById('pEditId').value=id||'';
+  document.getElementById('pName').value=p.name||'';
+  document.getElementById('pNameShort').value=p.name_short||'';
+  document.getElementById('pInstitution').value=p.institution||'';
+  document.getElementById('pProductType').value=p.product_type||'';
+  document.getElementById('pAccountNumber').value=p.account_number||'';
+  document.getElementById('pStatus').value=p.status||'active';
+  document.getElementById('pColor').value=p.color||'#3b82f6';
+  document.getElementById('pSortOrder').value=p.sort_order||1;
+  document.getElementById('pYtdStartValue').value=p.ytd_start_value||'';
+  document.getElementById('pYtdStartMonth').value=p.ytd_start_month||'';
+  document.getElementById('pInceptionValue').value=p.inception_value||'';
+  document.getElementById('pInceptionDate').value=p.inception_date||'';
+  document.getElementById('pExcludeOpen').value=p.exclude_open?'true':'false';
+  document.getElementById('pMgmtFee').value=p.management_fee||'';
+  document.getElementById('pShowFee').checked=!!(p.show_fee);
+  // client select
+  const sel=document.getElementById('pClientId');
+  sel.innerHTML=CLIENTS.map(c=>`<option value="${c.id}" ${c.id===p.client_id?'selected':''}>${c.name}</option>`).join('');
+  // tracks
+  trackRows=safeParseJSON(p.tracks_json)||[];
+  if(!trackRows.length && (p.risk_equities||p.risk_bonds)){
+    trackRows=[{name:p.track||'מסלול ראשי',value:p.ytd_start_value||'',equities:p.risk_equities||0,bonds:p.risk_bonds||0,alternatives:p.risk_alternatives||0}];
+  }
+  renderTracksEditor();
+  updatePColorPreview();
+  document.getElementById('pErr').style.display='none';
+  document.getElementById('productModal').classList.add('open');
+}
+function closeProductModal(){ document.getElementById('productModal').classList.remove('open'); }
+function updatePColorPreview(){ document.getElementById('pColorPreview').style.background=document.getElementById('pColor').value; }
+
+async function saveProduct(){
+  const name=document.getElementById('pName').value.trim();
+  const clientId=document.getElementById('pClientId').value;
+  if(!name){ showErr('pErr','שם המוצר הוא שדה חובה'); return; }
+  if(!clientId){ showErr('pErr','יש לבחור לקוח'); return; }
+
+  // calc weighted risk from tracks
+  const avg=calcWeightedRisk(trackRows,null);
+  const body={
+    name, client_id: clientId,
+    name_short: document.getElementById('pNameShort').value.trim()||null,
+    institution: document.getElementById('pInstitution').value.trim()||null,
+    product_type: document.getElementById('pProductType').value||null,
+    account_number: document.getElementById('pAccountNumber').value.trim()||null,
+    status: document.getElementById('pStatus').value,
+    color: document.getElementById('pColor').value,
+    sort_order: parseInt(document.getElementById('pSortOrder').value)||0,
+    ytd_start_value: parseFloat(document.getElementById('pYtdStartValue').value)||null,
+    ytd_start_month: document.getElementById('pYtdStartMonth').value.trim()||null,
+    inception_value: parseFloat(document.getElementById('pInceptionValue').value)||null,
+    inception_date: document.getElementById('pInceptionDate').value||null,
+    exclude_open: document.getElementById('pExcludeOpen').value==='true',
+    management_fee: parseFloat(document.getElementById('pMgmtFee').value)||null,
+    show_fee: document.getElementById('pShowFee').checked?1:0,
+    tracks_json: trackRows.length?JSON.stringify(trackRows):null,
+    // set main risk fields to weighted avg
+    risk_equities: avg?avg.eq:(parseFloat(document.getElementById('pName').value)||0),
+    risk_bonds: avg?avg.bo:0,
+    risk_alternatives: avg?avg.al:0,
+  };
+  // use first track's values as main risk if no weighted avg
+  if(trackRows.length===1){
+    body.risk_equities=parseFloat(trackRows[0].equities)||0;
+    body.risk_bonds=parseFloat(trackRows[0].bonds)||0;
+    body.risk_alternatives=parseFloat(trackRows[0].alternatives)||0;
+    body.track=trackRows[0].name||null;
+  } else if(avg){
+    body.risk_equities=avg.eq; body.risk_bonds=avg.bo; body.risk_alternatives=avg.al;
+  }
+
+  const btn=document.getElementById('pSaveBtn');
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span> שומר...';
+  try{
+    let res;
+    if(pEditingId){
+      res=await fetch(`/tables/products/${pEditingId}`,{method:'PATCH',headers:authHdr(),body:JSON.stringify(body)});
+    } else {
+      body.id='prod-'+Date.now();
+      res=await fetch('/tables/products',{method:'POST',headers:authHdr(),body:JSON.stringify(body)});
+    }
+    if(res.ok||res.status===201){
+      toast(pEditingId?'המוצר עודכן':'המוצר נוסף'); closeProductModal(); await reloadAll();
+    } else {
+      const e=await res.json().catch(()=>({})); showErr('pErr',e.error||'שגיאה בשמירה');
+    }
+  }catch(e){ showErr('pErr','שגיאת תקשורת'); }
+  finally{ btn.disabled=false; btn.innerHTML=pEditingId?'<i class="fa fa-floppy-disk"></i> שמור':'<i class="fa fa-plus"></i> הוסף'; }
+}
+
+// ═══════════════════════════
+// DELETE
+// ═══════════════════════════
+function openDeleteModal(type,id,name){
+  deleteTarget={type,id,name};
+  document.getElementById('delTitle').textContent=type==='client'?'מחיקת לקוח':'מחיקת מוצר';
+  document.getElementById('delName').textContent=name;
+  document.getElementById('delDesc').textContent=type==='client'
+    ?"הלקוח ייסומן כמחוק ולא יופיע. המוצרים שלו ישמרו."
+    :"המוצר ייסומן כמחוק. הנתונים ההיסטוריים ישמרו.";
+  document.getElementById('delErr').style.display='none';
   document.getElementById('deleteModal').classList.add('open');
 }
-
-function closeDeleteModal() {
-  document.getElementById('deleteModal').classList.remove('open');
-  deletingId = null;
-}
-
-async function confirmDelete() {
-  if (!deletingId) return;
-  const btn = document.getElementById('confirmDeleteBtn');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> מוחק...';
-
-  try {
-    const res = await fetch(`/tables/products/${deletingId}`, {
-      method: 'DELETE',
-      headers: authHeaders()
-    });
-    if (res.ok || res.status === 204) {
-      toast('✅ המוצר נמחק');
-      closeDeleteModal();
-      await loadProducts();
+function closeDeleteModal(){ document.getElementById('deleteModal').classList.remove('open'); deleteTarget=null; }
+async function confirmDelete(){
+  if(!deleteTarget) return;
+  const btn=document.getElementById('delConfirmBtn');
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span> מוחק...';
+  try{
+    const url=deleteTarget.type==='client'?`/tables/clients/${deleteTarget.id}`:`/tables/products/${deleteTarget.id}`;
+    const res=await fetch(url,{method:'DELETE',headers:authHdr()});
+    if(res.ok||res.status===204){
+      toast('✅ נמחק בהצלחה'); closeDeleteModal(); await reloadAll();
     } else {
-      const err = await res.json().catch(() => ({}));
-      document.getElementById('deleteError').textContent = err.error || 'שגיאה במחיקה';
-      document.getElementById('deleteError').style.display = 'block';
+      const e=await res.json().catch(()=>({}));
+      document.getElementById('delErr').textContent=e.error||'שגיאה במחיקה';
+      document.getElementById('delErr').style.display='block';
     }
-  } catch (e) {
-    document.getElementById('deleteError').textContent = 'שגיאת תקשורת';
-    document.getElementById('deleteError').style.display = 'block';
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fa fa-trash"></i> כן, מחק';
-  }
+  }catch(e){ document.getElementById('delErr').textContent='שגיאת תקשורת'; document.getElementById('delErr').style.display='block'; }
+  finally{ btn.disabled=false; btn.innerHTML='<i class="fa fa-trash"></i> מחק'; }
 }
 
-// Close on backdrop click
-document.getElementById('editModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeEditModal(); });
-document.getElementById('deleteModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeDeleteModal(); });
+function showErr(id,msg){ const el=document.getElementById(id); el.textContent=msg; el.style.display='block'; }
+
+// Close on backdrop
+['clientModal','productModal','deleteModal'].forEach(id=>{
+  document.getElementById(id).addEventListener('click',e=>{ if(e.target===e.currentTarget) document.getElementById(id).classList.remove('open'); });
+});
 
 // Init
-loadProducts();
+reloadAll();
 </script>
 </body>
 </html>
