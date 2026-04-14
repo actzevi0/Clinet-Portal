@@ -747,8 +747,16 @@ const REPORT_YEAR=2025; // השנה שבה ytd_start_value הוגדר ידנית
 
 function getYearOpen(prod, year){
   if(year === REPORT_YEAR){
-    // שנת הדוח הרשמית — תמיד ytd_start_value
-    return prod.ytd_start_value ?? null;
+    // שנת הדוח הרשמית — ytd_start_value ידני, אחרת ינואר מנתונים
+    if(prod.ytd_start_value != null) return prod.ytd_start_value;
+    const janVal = getYearVal(prod.id, year, 0);
+    if(janVal != null) return janVal;
+    // נפתח אמצע שנה
+    for(let m=1; m<12; m++){
+      const v = getYearVal(prod.id, year, m);
+      if(v != null && v > 0) return v;
+    }
+    return null;
   } else if(year > REPORT_YEAR){
     // שנה עוקבת — פתיחה = דצמבר של שנה קודמת
     return getYearVal(prod.id, year-1, 11); // דצמבר
