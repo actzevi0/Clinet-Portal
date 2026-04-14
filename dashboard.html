@@ -753,7 +753,14 @@ function getYearOpen(prod, year){
     // שנה עוקבת — פתיחה = דצמבר של שנה קודמת
     return getYearVal(prod.id, year-1, 11); // דצמבר
   } else {
-    // לפני שנת הדוח — אין מספיק נתונים
+    // שנה קודמת לשנת הדוח — ינואר של אותה שנה (מנתוני monthly_values)
+    const janVal = getYearVal(prod.id, year, 0);
+    if(janVal != null) return janVal;
+    // נפתח אמצע שנה — ערך ראשון קיים
+    for(let m=1; m<12; m++){
+      const v = getYearVal(prod.id, year, m);
+      if(v != null && v > 0) return v;
+    }
     return null;
   }
 }
