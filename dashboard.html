@@ -932,20 +932,47 @@ function getEffectiveClose(prod, year){
 }
 
 function calcPortfolioYTD(year=ACTIVE_YEAR){
+  // לוגיקת חישוב תשואת תיק:
+  //
+  // • קופה רגילה (הייתה בינואר): open = ינואר/ytd_start_value, close = 12/YY
+  // • קופת מקור (נויידה החוצה):  open = ינואר, close = ערך חודש ניוד (אח"כ הכסף בקופת יעד)
+  // • קופת יעד (נכנסה מניוד):    לא נכנסת ל-sumOpen (הכסף כבר ב-sumOpen דרך קופת המקור)
+  //                               כן נכנסת ל-sumClose עם ערך 12/YY
+  //
+  // "קופת יעד" = קופה שנפתחה אמצע שנה, אין לה ינואר ואין ytd_start_value
+  //              (= getEffectiveOpen מחזיר ערך ראשון אמצע שנה)
+
+  const transferredOutIds = new Set(
+    EVENTS.filter(e => e.event_type === 'transfer').map(e => e.product_id)
+  );
+
+  // פונקציית עזר: האם הקופה היא "קופת יעד" (נפתחה אמצע שנה ואין לה ינואר)
+  function isTransferTarget(prod, yr){
+    if(prod.ytd_start_value != null) return false; // יש ytd_start_value → לא קופת יעד
+    const janVal = getYearVal(prod.id, yr, 0);
+    if(janVal != null) return false; // יש ינואר → קופה ישנה, לא קופת יעד
+    // אין ינואר ואין ytd_start_value → קופת יעד (נפתחה אמצע שנה)
+    return true;
+  }
+
   let sumOpen=0, sumClose=0;
 
   for(const p of PRODUCTS){
-    // דלג על מוצרים שסומנו ידנית כ-exclude_open (ניודים שהיועץ סימן ידנית)
     if(p.exclude_open) continue;
 
-    const open  = getEffectiveOpen(p, year);
     const close = getEffectiveClose(p, year);
+    if(close == null) continue;
 
-    // מוצר נכנס לחישוב רק אם יש לו גם open וגם close
-    if(open == null || close == null) continue;
-
-    sumOpen  += open;
-    sumClose += close;
+    if(isTransferTarget(p, year)){
+      // קופת יעד — רק ל-sumClose (open כבר נספר דרך קופת המקור)
+      sumClose += close;
+    } else {
+      // קופה רגילה או קופת מקור — open + close
+      const open = getEffectiveOpen(p, year);
+      if(open == null || open === 0) continue;
+      sumOpen  += open;
+      sumClose += close;
+    }
   }
 
   console.log(`[calcPortfolioYTD ${year}] sumOpen=${sumOpen.toLocaleString()} sumClose=${sumClose.toLocaleString()} ret=${sumOpen>0?((sumClose-sumOpen)/sumOpen*100).toFixed(2)+'%':'null'}`);
@@ -954,11 +981,18 @@ function calcPortfolioYTD(year=ACTIVE_YEAR){
 }
 
 // ממוצע משוקלל: תשואת כל מוצר × משקלו בתיק
-// משתמש ב-getEffectiveOpen כדי לנטרל ספירה כפולה בניודים
+// קופות יעד (נפתחו מניוד אמצע שנה) לא נכנסות כ-open (כבר מיוצגות בקופת המקור)
 function calcPortfolioWeighted(year=ACTIVE_YEAR){
   let sumWeighted=0, sumWeights=0;
+  function isTransferTarget(prod, yr){
+    if(prod.ytd_start_value != null) return false;
+    const janVal = getYearVal(prod.id, yr, 0);
+    if(janVal != null) return false;
+    return true;
+  }
   for(const p of PRODUCTS){
     if(p.exclude_open) continue;
+    if(isTransferTarget(p, year)) continue; // קופת יעד — לא כוללים במשוקלל
     const open = getEffectiveOpen(p, year);
     const close = getEffectiveClose(p, year);
     if(open==null || close==null || open===0) continue;
@@ -1287,15 +1321,26 @@ function renderKPIs(){
     ? `נכון ל-${lastMonthOfYear ? monthLabel(lastMonthOfYear) : ACTIVE_YEAR} · (סגירה − דצמ׳ ${ACTIVE_YEAR-1}) / דצמ׳ ${ACTIVE_YEAR-1}`
     : `(סה״כ סגירה ${ACTIVE_YEAR} − סה״כ פתיחה) / פתיחה`;
 
-  // צבירה לסוף השנה הנבחרת — רק מוצרים שיש להם close (נמנע כפל ניוד)
+  // צבירה לסוף השנה הנבחרת
+  // לוגיקה: סכום ערך 12/YY (או החודש האחרון בשנה) של כל קופה,
+  // תוך סינון קופות שנויידו (transfer-out) — הן לא אמורות להיספר בצבירת סוף השנה
+  // כי הכסף כבר עבר לקופת יעד שנספרת
   const yearValSub = isPartialYear
     ? `נכון ל-${lastMonthOfYear ? monthLabel(lastMonthOfYear) : ACTIVE_YEAR}`
     : `סוף ${ACTIVE_YEAR}`;
+
+  // בנה סט של product_ids שנויידו (transfer-out) — הם לא נכללים בצבירת סוף שנה
+  const transferredOutIds = new Set(
+    EVENTS
+      .filter(e => e.event_type === 'transfer')
+      .map(e => e.product_id)
+  );
+
   const yearCloseVal = PRODUCTS
-    .filter(p=>!p.exclude_open)
+    .filter(p => !transferredOutIds.has(p.id))  // רק קופות שלא נויידו
     .reduce((s,p)=>{
-      const c=getEffectiveClose(p,ACTIVE_YEAR);
-      return s+(c??0);
+      const c = getYearClose(p, ACTIVE_YEAR);   // ערך 12/YY (או האחרון)
+      return s + (c ?? 0);
     },0);
 
   document.getElementById('kpiGrid').innerHTML=
