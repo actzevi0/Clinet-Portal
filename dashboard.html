@@ -947,9 +947,13 @@ function calcPortfolioYTD(year=ACTIVE_YEAR){
   // נוסחה: YTD = (CLOSE - OPEN) / OPEN
   // ══════════════════════════════════════════════════════════════
 
-  // מי שנויד החוצה (מקור)
-  const transferredOutIds = new Set(
-    EVENTS.filter(e => e.event_type === 'transfer').map(e => e.product_id)
+  // מי שנויד החוצה (מקור) — רק אירועי transfer בשנה הנוכחית!
+  // חשוב: קופה שנויידה ב-2025 היא "מקור" רק לחישוב 2025, לא ל-2023/2024
+  const transferredOutIdsThisYear = new Set(
+    EVENTS
+      .filter(e => e.event_type === 'transfer' &&
+                   e.event_date && parseInt(e.event_date.slice(0,4)) === year)
+      .map(e => e.product_id)
   );
 
   // מפה: product_id → סכום deposits בשנה זו
@@ -962,11 +966,12 @@ function calcPortfolioYTD(year=ACTIVE_YEAR){
   }
 
   // האם קופה היא "קופת יעד טהורה" (ניוד בלי הפקדה) — לא מוסיפה ל-OPEN
+  // רק אם הקופה נפתחה באמצע השנה הנוכחית (אין לה ינואר ואין ytd_start_value)
   function isPureTransferTarget(prod, yr){
     if(prod.ytd_start_value != null) return false;   // יש ytd_start_value → לא יעד
     if(getYearVal(prod.id, yr, 0) != null) return false; // יש ינואר → קיימת מקדם
     if(depositSumByProduct[prod.id]) return false;   // יש הפקדה → נפתחה בהפקדה
-    // בדוק שיש ערך בשנה
+    // בדוק שיש ערך בשנה (אחרת אין רלוונטיות)
     for(let m=0; m<12; m++){
       if(getYearVal(prod.id, yr, m) != null) return true;
     }
@@ -978,7 +983,8 @@ function calcPortfolioYTD(year=ACTIVE_YEAR){
   for(const p of PRODUCTS){
     if(p.exclude_open) continue;
 
-    const isSource = transferredOutIds.has(p.id);  // קופת מקור שנויידה
+    // קופת מקור: רק אם הניוד קרה בשנה הנוכחית
+    const isSource = transferredOutIdsThisYear.has(p.id);
     const isTarget = isPureTransferTarget(p, year); // קופת יעד טהורה (ניוד)
 
     if(isTarget){
@@ -1391,15 +1397,17 @@ function renderKPIs(){
     ? `נכון ל-${lastMonthOfYear ? monthLabel(lastMonthOfYear) : ACTIVE_YEAR}`
     : `סוף ${ACTIVE_YEAR}`;
 
-  // בנה סט של product_ids שנויידו (transfer-out) — הם לא נכללים בצבירת סוף שנה
-  const transferredOutIds = new Set(
+  // בנה סט של product_ids שנויידו (transfer-out) **בשנה הנבחרת בלבד**
+  // קופה שנויידה ב-2025 מוצגת בצבירת 2023/2024 עם ערכיה הרגילים
+  const transferredOutThisYear = new Set(
     EVENTS
-      .filter(e => e.event_type === 'transfer')
+      .filter(e => e.event_type === 'transfer' &&
+                   e.event_date && parseInt(e.event_date.slice(0,4)) === ACTIVE_YEAR)
       .map(e => e.product_id)
   );
 
   const yearCloseVal = PRODUCTS
-    .filter(p => p.status === 'active' && !transferredOutIds.has(p.id))  // רק קופות פעילות שלא נויידו
+    .filter(p => p.status === 'active' && !transferredOutThisYear.has(p.id))  // רק קופות פעילות שלא נויידו השנה
     .reduce((s,p)=>{
       const c = getYearClose(p, ACTIVE_YEAR);   // ערך 12/YY (או האחרון)
       return s + (c ?? 0);
