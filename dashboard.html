@@ -932,27 +932,45 @@ function getEffectiveClose(prod, year){
 }
 
 function calcPortfolioYTD(year=ACTIVE_YEAR){
-  // לוגיקת חישוב תשואת תיק:
+  // ══════════════════════════════════════════════════════════════
+  // לוגיקת חישוב YTD תיק נקי:
   //
-  // • קופה רגילה (הייתה בינואר): open = ינואר/ytd_start_value, close = 12/YY
-  // • קופת מקור (נויידה החוצה):  open = ינואר, close = ערך חודש ניוד (אח"כ הכסף בקופת יעד)
-  // • קופת יעד (נכנסה מניוד):    לא נכנסת ל-sumOpen (הכסף כבר ב-sumOpen דרך קופת המקור)
-  //                               כן נכנסת ל-sumClose עם ערך 12/YY
+  // OPEN  = Σ ערכי ינואר/ytd_start_value של קופות שהיו ב-01/YY
+  //       + Σ ערך ראשון של קופות חדשות שנפתחו בהפקדה (deposit) באמצע שנה
+  //       — קופות שנויידו אליהן (transfer target) לא מוסיפות ל-OPEN
+  //         (הכסף שלהן כבר בתוך OPEN של קופת המקור)
   //
-  // "קופת יעד" = קופה שנפתחה אמצע שנה, אין לה ינואר ואין ytd_start_value
-  //              (= getEffectiveOpen מחזיר ערך ראשון אמצע שנה)
+  // CLOSE = Σ ערך 12/YY (או אחרון) של קופות שלא נויידו החוצה
+  //       — קופות מקור שנויידו לא נכנסות ל-CLOSE
+  //         (הכסף שלהן נספר ב-CLOSE דרך קופת היעד)
+  //
+  // נוסחה: YTD = (CLOSE - OPEN) / OPEN
+  // ══════════════════════════════════════════════════════════════
 
+  // מי שנויד החוצה (מקור)
   const transferredOutIds = new Set(
     EVENTS.filter(e => e.event_type === 'transfer').map(e => e.product_id)
   );
 
-  // פונקציית עזר: האם הקופה היא "קופת יעד" (נפתחה אמצע שנה ואין לה ינואר)
-  function isTransferTarget(prod, yr){
-    if(prod.ytd_start_value != null) return false; // יש ytd_start_value → לא קופת יעד
-    const janVal = getYearVal(prod.id, yr, 0);
-    if(janVal != null) return false; // יש ינואר → קופה ישנה, לא קופת יעד
-    // אין ינואר ואין ytd_start_value → קופת יעד (נפתחה אמצע שנה)
-    return true;
+  // מפה: product_id → סכום deposits בשנה זו
+  const depositSumByProduct = {};
+  for(const e of EVENTS){
+    if(e.event_type === 'deposit' && e.event_date && e.event_date.startsWith(String(year))){
+      if(!depositSumByProduct[e.product_id]) depositSumByProduct[e.product_id] = 0;
+      depositSumByProduct[e.product_id] += (e.amount || 0);
+    }
+  }
+
+  // האם קופה היא "קופת יעד טהורה" (ניוד בלי הפקדה) — לא מוסיפה ל-OPEN
+  function isPureTransferTarget(prod, yr){
+    if(prod.ytd_start_value != null) return false;   // יש ytd_start_value → לא יעד
+    if(getYearVal(prod.id, yr, 0) != null) return false; // יש ינואר → קיימת מקדם
+    if(depositSumByProduct[prod.id]) return false;   // יש הפקדה → נפתחה בהפקדה
+    // בדוק שיש ערך בשנה
+    for(let m=0; m<12; m++){
+      if(getYearVal(prod.id, yr, m) != null) return true;
+    }
+    return false;
   }
 
   let sumOpen=0, sumClose=0;
@@ -960,16 +978,39 @@ function calcPortfolioYTD(year=ACTIVE_YEAR){
   for(const p of PRODUCTS){
     if(p.exclude_open) continue;
 
-    const close = getEffectiveClose(p, year);
-    if(close == null) continue;
+    const isSource = transferredOutIds.has(p.id);  // קופת מקור שנויידה
+    const isTarget = isPureTransferTarget(p, year); // קופת יעד טהורה (ניוד)
 
-    if(isTransferTarget(p, year)){
-      // קופת יעד — רק ל-sumClose (open כבר נספר דרך קופת המקור)
-      sumClose += close;
-    } else {
-      // קופה רגילה או קופת מקור — open + close
+    if(isTarget){
+      // קופת יעד: לא מוסיפה ל-OPEN (הכסף מגיע ממקור שכבר ב-OPEN)
+      // מוסיפה ל-CLOSE עם ערך סוף השנה
+      const close = getYearClose(p, year);
+      if(close != null) sumClose += close;
+
+    } else if(isSource){
+      // קופת מקור: מוסיפה ל-OPEN בינואר
+      // לא מוסיפה ל-CLOSE (הכסף המשיך לקופת היעד שנספרת שם)
       const open = getEffectiveOpen(p, year);
-      if(open == null || open === 0) continue;
+      if(open != null && open > 0) sumOpen += open;
+
+    } else {
+      // קופה רגילה או קופה חדשה (deposit):
+      let open = getEffectiveOpen(p, year);
+      if(open == null) open = 0;
+      // קופה שנפתחה בהפקדה — effectiveOpen = ערך ראשון (כבר כולל הפקדה)
+      if(open === 0){
+        const dep = depositSumByProduct[p.id] || 0;
+        if(dep > 0){
+          // חפש ערך ראשון בשנה זו
+          for(let m=0; m<12; m++){
+            const v = getYearVal(p.id, year, m);
+            if(v != null && v > 0){ open = v; break; }
+          }
+        }
+      }
+      if(open === 0) continue;
+      const close = getEffectiveClose(p, year);
+      if(close == null) continue;
       sumOpen  += open;
       sumClose += close;
     }
@@ -981,24 +1022,40 @@ function calcPortfolioYTD(year=ACTIVE_YEAR){
 }
 
 // ממוצע משוקלל: תשואת כל מוצר × משקלו בתיק
-// קופות יעד (נפתחו מניוד אמצע שנה) לא נכנסות כ-open (כבר מיוצגות בקופת המקור)
+// קופות יעד טהורות (ניוד ללא הפקדה) לא נכנסות כ-open
 function calcPortfolioWeighted(year=ACTIVE_YEAR){
   let sumWeighted=0, sumWeights=0;
-  function isTransferTarget(prod, yr){
-    if(prod.ytd_start_value != null) return false;
-    const janVal = getYearVal(prod.id, yr, 0);
-    if(janVal != null) return false;
-    return true;
+
+  const depositSumByProduct = {};
+  for(const e of EVENTS){
+    if(e.event_type === 'deposit' && e.event_date && e.event_date.startsWith(String(year))){
+      if(!depositSumByProduct[e.product_id]) depositSumByProduct[e.product_id] = 0;
+      depositSumByProduct[e.product_id] += (e.amount || 0);
+    }
   }
+  function isPureTransferTarget(prod, yr){
+    if(prod.ytd_start_value != null) return false;
+    if(getYearVal(prod.id, yr, 0) != null) return false;
+    if(depositSumByProduct[prod.id]) return false;
+    for(let m=0; m<12; m++){
+      if(getYearVal(prod.id, yr, m) != null) return true;
+    }
+    return false;
+  }
+
   for(const p of PRODUCTS){
     if(p.exclude_open) continue;
-    if(isTransferTarget(p, year)) continue; // קופת יעד — לא כוללים במשוקלל
-    const open = getEffectiveOpen(p, year);
+    if(isPureTransferTarget(p, year)) continue;
+    let open = getEffectiveOpen(p, year);
+    if(open == null) open = 0;
+    const depInYear = depositSumByProduct[p.id] || 0;
+    const effectiveOpen = (open === 0 && depInYear > 0) ? depInYear : open;
+    if(effectiveOpen === 0) continue;
     const close = getEffectiveClose(p, year);
-    if(open==null || close==null || open===0) continue;
-    const ytd = (close - open) / open;
-    sumWeighted += ytd * open;
-    sumWeights  += open;
+    if(close == null) continue;
+    const ytd = (close - effectiveOpen) / effectiveOpen;
+    sumWeighted += ytd * effectiveOpen;
+    sumWeights  += effectiveOpen;
   }
   if(sumWeights===0)return null;
   return sumWeighted/sumWeights;
@@ -1026,8 +1083,13 @@ function calcPortfolioTotals(){
     m++; if(m>12){m=1; y++;}
     return `${String(m).padStart(2,'0')}/${String(y).padStart(2,'0')}`;
   }
+  // סט של מוצרים שנויידו (יש להם transfer-out) — כולל גם retired עם ניוד
+  const hasTransferSet = new Set(Object.keys(transferOutMonth));
+
   for(const m of MONTHS){
     totals[m]=PRODUCTS.reduce((s,p)=>{
+      // דלג על מוצרים retired שאין להם transfer-out (נתון שגוי/לא רלוונטי)
+      if(p.status==='retired' && !hasTransferSet.has(p.id)) return s;
       // קופת מקור: לא נספרת מהחודש שאחרי הניוד ואילך
       const tMonth = transferOutMonth[p.id];
       if(tMonth && monthToNum(m) > monthToNum(tMonth)) return s;
@@ -1337,7 +1399,7 @@ function renderKPIs(){
   );
 
   const yearCloseVal = PRODUCTS
-    .filter(p => !transferredOutIds.has(p.id))  // רק קופות שלא נויידו
+    .filter(p => p.status === 'active' && !transferredOutIds.has(p.id))  // רק קופות פעילות שלא נויידו
     .reduce((s,p)=>{
       const c = getYearClose(p, ACTIVE_YEAR);   // ערך 12/YY (או האחרון)
       return s + (c ?? 0);
