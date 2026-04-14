@@ -971,8 +971,8 @@ function calcPortfolioWeighted(year=ACTIVE_YEAR){
 }
 
 // Portfolio totals per month (sum of all active products)
-// מוצרים שנויידו — לא נספרים בחודש שבו הניוד בוצע ואילך
-// (כדי למנוע כפל: גם מקור וגם יעד אינם נספרים באותו חודש)
+// קופת מקור — נספרת עד חודש הניוד (כולל), ולא מאחריו
+// (בחודש הניוד עצמו הכסף עוד אצלה; מהחודש הבא הוא כבר בקופת היעד)
 function calcPortfolioTotals(){
   const totals={};
   // בנה מפה: product_id → חודש ניוד (MM/YY) — החודש שבו בוצע הניוד
@@ -985,11 +985,18 @@ function calcPortfolioTotals(){
       transferOutMonth[e.product_id] = `${mm}/${yy}`;
     }
   }
+  // פונקציה לחישוב "החודש הבא" בפורמט MM/YY
+  function nextMonth(mStr){
+    const [mm,yy] = mStr.split('/');
+    let m = parseInt(mm), y = parseInt(yy);
+    m++; if(m>12){m=1; y++;}
+    return `${String(m).padStart(2,'0')}/${String(y).padStart(2,'0')}`;
+  }
   for(const m of MONTHS){
     totals[m]=PRODUCTS.reduce((s,p)=>{
-      // אם המוצר נויד, לא נספר אותו מחודש הניוד ואילך
+      // קופת מקור: לא נספרת מהחודש שאחרי הניוד ואילך
       const tMonth = transferOutMonth[p.id];
-      if(tMonth && monthToNum(m) >= monthToNum(tMonth)) return s;
+      if(tMonth && monthToNum(m) > monthToNum(tMonth)) return s;
       const v=getVal(p.id,m);
       return s+(v??0);
     },0);
@@ -1419,7 +1426,28 @@ function renderPortfolioChart(){
     const totals=calcPortfolioTotals();
     CHARTS.port=new Chart(ctx,{type:'line',data:{labels,datasets:[{label:'שווי תיק',data:CMonths.map(m=>totals[m]||0),borderColor:'#1a56db',backgroundColor:'rgba(26,86,219,0.1)',fill:true,tension:.4,pointRadius:4,borderWidth:2.5}]},options:lineOpts(d)});
   }else{
-    const datasets=PRODUCTS.filter(p=>p.status==='active').map(p=>({label:p.name_short,data:CMonths.map(m=>getVal(p.id,m)),borderColor:p.color,backgroundColor:p.color+'18',fill:false,tension:.4,pointRadius:3,borderWidth:2,spanGaps:true}));
+    // בנה transferOutMonth לסינון מוצרים שנויידו בגרף לפי מוצר
+    const transferOutMonthMap={};
+    for(const e of EVENTS){
+      if(e.event_type==='transfer'&&e.event_date){
+        const d=new Date(e.event_date);
+        const mm=String(d.getMonth()+1).padStart(2,'0');
+        const yy=String(d.getFullYear()).slice(-2);
+        transferOutMonthMap[e.product_id]=`${mm}/${yy}`;
+      }
+    }
+    const datasets=PRODUCTS.filter(p=>p.status==='active').map(p=>{
+      const tMonth=transferOutMonthMap[p.id];
+      return {
+        label:p.name_short,
+        // מוצר שנויד — מוצג עד חודש הניוד בלבד (אח"כ null)
+        data:CMonths.map(m=>{
+          if(tMonth && monthToNum(m) > monthToNum(tMonth)) return null;
+          return getVal(p.id,m);
+        }),
+        borderColor:p.color,backgroundColor:p.color+'18',fill:false,tension:.4,pointRadius:3,borderWidth:2,spanGaps:false
+      };
+    });
     CHARTS.port=new Chart(ctx,{type:'line',data:{labels,datasets},options:lineOpts(d)});
   }
 }
