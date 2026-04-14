@@ -687,6 +687,19 @@ function getLastVal(prodId){
   const arr=(MV[prodId]||[]).filter(r=>r.value!=null&&r.value>0).sort((a,b)=>monthToNum(b.month)-monthToNum(a.month));
   return arr.length?arr[0].value:null;
 }
+
+// מחזיר את הערך הנוכחי של מוצר — null אם הוא נויד (יש לו transfer-out)
+// משמש לצבירה עדכנית כדי למנוע כפל ניוד
+function getCurrentVal(prodId){
+  // בדוק אם יש transfer-out (הניוד יצא מהמוצר)
+  const hasTransferOut = EVENTS.some(e =>
+    e.product_id === prodId &&
+    e.event_type === 'transfer'
+  );
+  if(hasTransferOut) return null; // נויד — לא מצרפים לצבירה עדכנית
+  return getLastVal(prodId);
+}
+
 function getOpeningVal(prod){return prod.ytd_start_value??null;}
 
 // מחזיר תאריך החודש האחרון שיש נתונים (עם שנה מלאה)
@@ -840,6 +853,7 @@ function getValOrNull(prodId, month){
 //   • אם REPORT_YEAR ויש ytd_start_value → ytd_start_value
 //   • אם שנה > REPORT_YEAR → דצמבר שנה קודמת
 //   • אם שנה < REPORT_YEAR → ינואר של אותה שנה (מנתוני monthly_values)
+//   • אם נפתח אמצע שנה (אין ינואר) → ערך החודש הראשון שיש לו (כניסה לתיק)
 //   • אחרת → null
 function getEffectiveOpen(prod, year){
   // בדוק אם יש אירוע transfer-in לתוך המוצר הזה בשנה הנוכחית
@@ -855,15 +869,36 @@ function getEffectiveOpen(prod, year){
 
   if(year === REPORT_YEAR){
     // שנת הדוח — ytd_start_value (ידני)
-    // אם אין ytd_start_value, נסה ינואר של אותה שנה
     if(prod.ytd_start_value != null) return prod.ytd_start_value;
-    return getYearVal(prod.id, year, 0); // ינואר
+    // אין ytd_start_value — חפש ינואר
+    const janVal = getYearVal(prod.id, year, 0);
+    if(janVal != null) return janVal;
+    // נפתח אמצע שנה (ניוד שאין עליו אירוע, או קופה חדשה) — קח ערך ראשון
+    for(let m=0; m<12; m++){
+      const v = getYearVal(prod.id, year, m);
+      if(v != null && v > 0) return v;
+    }
+    return null;
   } else if(year > REPORT_YEAR){
     // שנה עוקבת — דצמבר שנה קודמת
-    return getYearVal(prod.id, year-1, 11);
+    const dec = getYearVal(prod.id, year-1, 11);
+    if(dec != null) return dec;
+    // קופה שנפתחה בשנה הנוכחית (אין לה דצמבר שנה קודמת) — קח ערך ראשון
+    for(let m=0; m<12; m++){
+      const v = getYearVal(prod.id, year, m);
+      if(v != null && v > 0) return v;
+    }
+    return null;
   } else {
     // שנה קודמת ל-REPORT_YEAR — ינואר של אותה שנה
-    return getYearVal(prod.id, year, 0);
+    const janVal = getYearVal(prod.id, year, 0);
+    if(janVal != null) return janVal;
+    // נפתח אמצע שנה — קח ערך ראשון
+    for(let m=0; m<12; m++){
+      const v = getYearVal(prod.id, year, m);
+      if(v != null && v > 0) return v;
+    }
+    return null;
   }
 }
 
@@ -936,10 +971,28 @@ function calcPortfolioWeighted(year=ACTIVE_YEAR){
 }
 
 // Portfolio totals per month (sum of all active products)
+// מוצרים שנויידו — לא נספרים בחודש שבו הניוד בוצע ואילך
+// (כדי למנוע כפל: גם מקור וגם יעד אינם נספרים באותו חודש)
 function calcPortfolioTotals(){
   const totals={};
+  // בנה מפה: product_id → חודש ניוד (MM/YY) — החודש שבו בוצע הניוד
+  const transferOutMonth={};
+  for(const e of EVENTS){
+    if(e.event_type === 'transfer' && e.event_date){
+      const d = new Date(e.event_date);
+      const mm = String(d.getMonth()+1).padStart(2,'0');
+      const yy = String(d.getFullYear()).slice(-2);
+      transferOutMonth[e.product_id] = `${mm}/${yy}`;
+    }
+  }
   for(const m of MONTHS){
-    totals[m]=PRODUCTS.reduce((s,p)=>{const v=getVal(p.id,m);return s+(v??0);},0);
+    totals[m]=PRODUCTS.reduce((s,p)=>{
+      // אם המוצר נויד, לא נספר אותו מחודש הניוד ואילך
+      const tMonth = transferOutMonth[p.id];
+      if(tMonth && monthToNum(m) >= monthToNum(tMonth)) return s;
+      const v=getVal(p.id,m);
+      return s+(v??0);
+    },0);
   }
   return totals;
 }
@@ -1202,7 +1255,8 @@ function getAvailableYears(){
 }
 
 function renderKPIs(){
-  const totalVal=PRODUCTS.filter(p=>p.status==='active').reduce((s,p)=>s+(getLastVal(p.id)??0),0);
+  // צבירה עדכנית — מוצרים פעילים, ללא מוצרים שנויידו (getCurrentVal מסנן)
+  const totalVal=PRODUCTS.filter(p=>p.status==='active').reduce((s,p)=>s+(getCurrentVal(p.id)??0),0);
   const portYTD=calcPortfolioYTD(ACTIVE_YEAR);
 
   const ytds=PRODUCTS.map(p=>({p,r:calcYTD(p,ACTIVE_YEAR)})).filter(x=>x.r!==null);
@@ -1240,7 +1294,7 @@ function renderKPIs(){
   document.getElementById('kpiGrid').innerHTML=
     yearSelector+
     [
-      {label:'צבירה עדכנית',val:ILS(totalVal),sub:`נכון ל-${getLastDataDate()} | ${PRODUCTS.filter(p=>p.status==='active').length} מוצרים פעילים`,cls:'blue',badge:null},
+      {label:'צבירה עדכנית',val:ILS(totalVal),sub:`נכון ל-${getLastDataDate()} | ${PRODUCTS.filter(p=>p.status==='active' && getCurrentVal(p.id)!=null).length} מוצרים פעילים`,cls:'blue',badge:null},
       {label:`צבירה לסוף ${ACTIVE_YEAR}${isPartialYear?' (חלקית)':''}`,val:ILS(yearCloseVal),sub:yearValSub,cls:'blue',badge:null},
       {label:`תשואה ${ACTIVE_YEAR}${isPartialYear?' (חלקית)':''}`,val:FMT_PCT(portYTD),sub:ytdSub,cls:portYTD!=null&&portYTD>=0?'green':'red',badge:portYTD!=null?{dir:portYTD>=0?'up':'down',txt:FMT_PCT(portYTD)}:null},
       {label:'מוצר מוביל',val:best?best.p.name_short:'—',sub:best?best.p.institution:'',cls:'green',badge:best?{dir:'up',txt:FMT_PCT(best.r)}:null},
@@ -1379,7 +1433,8 @@ function renderPieChart(){
   const d=cd();
   const groups={};
   for(const p of PRODUCTS.filter(q=>q.status==='active')){
-    const v=getLastVal(p.id)||0;
+    const v=getCurrentVal(p.id)||0;
+    if(v===0) continue; // דלג על מוצרים שנויידו (getCurrentVal מחזיר null)
     const k=PIE_MODE==='institution'?p.institution:PIE_MODE==='product_type'?p.product_type:p.name_short;
     groups[k]=(groups[k]||0)+v;
   }
@@ -2021,7 +2076,7 @@ async function doShare(mode){
   ctx2.fillStyle = grad;
   ctx2.fillRect(0, 0, W, mode === 'story' ? 8 : 6);
 
-  const totalVal = PRODUCTS.filter(p => p.status === 'active').reduce((s, p2) => s + (getLastVal(p2.id) || 0), 0);
+  const totalVal = PRODUCTS.filter(p => p.status === 'active').reduce((s, p2) => s + (getCurrentVal(p2.id) || 0), 0);
   const portYTD = calcPortfolioYTD(ACTIVE_YEAR);
 
   if (mode === 'story') {
@@ -2298,7 +2353,7 @@ function renderGoals(){
     el.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:32px;"><i class="fa fa-bullseye" style="font-size:2rem;opacity:0.3;"></i><p style="margin-top:12px;">לא הוגדרו יעדים עדיין.</p></div>';
     return;
   }
-  const totalVal = PRODUCTS.filter(p => p.status === 'active').reduce((s, p2) => s + (getLastVal(p2.id) || 0), 0);
+  const totalVal = PRODUCTS.filter(p => p.status === 'active').reduce((s, p2) => s + (getCurrentVal(p2.id) || 0), 0);
   el.innerHTML = goals.map(g => {
     const current = g.linked_to_portfolio ? totalVal : (g.current_amount || 0);
     const target = g.target_amount || 1;
@@ -2356,7 +2411,7 @@ function calcWhatIf(){
   document.getElementById('wiYearsVal').textContent = years;
   document.getElementById('wiRateVal').textContent = (rate * 100).toFixed(1) + '%';
 
-  const totalVal = PRODUCTS.filter(p => p.status === 'active').reduce((s, p2) => s + (getLastVal(p2.id) || 0), 0);
+  const totalVal = PRODUCTS.filter(p => p.status === 'active').reduce((s, p2) => s + (getCurrentVal(p2.id) || 0), 0);
   const months = years * 12;
 
   // ריבית דריבית עם הפקדה חד-פעמית בהתחלה + הפקדה חודשית
@@ -2415,7 +2470,7 @@ function renderInsights(){
   try { personalNotes = JSON.parse(CLIENT.insights_json || '[]'); } catch(e) {}
 
   // תובנות אוטומטיות
-  const total = PRODUCTS.filter(p => p.status === 'active').reduce((s, p2) => s + (getLastVal(p2.id) || 0), 0);
+  const total = PRODUCTS.filter(p => p.status === 'active').reduce((s, p2) => s + (getCurrentVal(p2.id) || 0), 0);
   const portYTD = calcPortfolioYTD(ACTIVE_YEAR);
   const ytds = PRODUCTS.map(p2 => ({ p: p2, r: calcYTD(p2, ACTIVE_YEAR) })).filter(x => x.r !== null);
   const best = ytds.length ? ytds.reduce((a, b) => b.r > a.r ? b : a) : null;
