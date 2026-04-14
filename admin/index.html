@@ -391,15 +391,28 @@ function renderClientsGrid() {
     const mvs=MV_ALL[c.id]||[];
     let totalVal=0;
     const institutions=new Set();
-    // מזהים קופות שנויידו החוצה (transfer-out) — לא נספרות בצבירה
-    const transferredOutIds = new Set(
-      EVENTS_ALL
-        .filter(e => e.client_id===c.id && e.event_type==='transfer')
-        .map(e => e.product_id)
-    );
+    // מזהים קופות שנויידו החוצה (transfer-out אמיתי) — קופת מקור = אין נתונים אחרי חודש הניוד
+    // קופת יעד (קיבלה ניוד) = יש לה נתונים אחרי → עדיין נספרת
+    const transferSourceIds = new Set();
+    EVENTS_ALL
+      .filter(e => e.client_id===c.id && e.event_type==='transfer')
+      .forEach(e => {
+        const tDate = e.event_date || '';
+        const tYear = parseInt(tDate.slice(0,4));
+        const tMonth = parseInt(tDate.slice(5,7)) || 1;
+        const tNum = tYear * 100 + tMonth;
+        const pMvs = (MV_ALL[c.id]||[]).filter(m => m.product_id === e.product_id);
+        const hasDataAfter = pMvs.some(m => {
+          if(!m.month || m.value == null) return false;
+          const [mm, yy] = m.month.split('/');
+          const rNum = parseInt('20'+yy)*100 + parseInt(mm);
+          return rNum > tNum;
+        });
+        if(!hasDataAfter) transferSourceIds.add(e.product_id); // מקור אמיתי — נויד והסתיים
+      });
     for(const p of prods){
       institutions.add(p.institution||'');
-      if(transferredOutIds.has(p.id)) continue; // קופת מקור שנויידה — דלג
+      if(transferSourceIds.has(p.id)) continue; // קופת מקור שנויידה — דלג
       // מיין לפי חודש ולקח ערך אחרון
       const pMvs=mvs
         .filter(m=>m.product_id===p.id && m.value!=null)
@@ -480,6 +493,15 @@ function renderClientsGrid() {
   grid.innerHTML = html;
 }
 
+// Helper: בנה base URL של dashboard.html בצורה בטוחה
+// תומך גם ב-/admin/ וגם ב-/admin/index.html
+function getDashboardBase() {
+  const origin = window.location.origin;
+  // הסר /admin/index.html, /admin/, /admin מה-path
+  const path = window.location.pathname.replace(/\/admin\/?(?:index\.html)?$/, '/');
+  return `${origin}${path}dashboard.html`;
+}
+
 // פתח דשבורד עם view-token (read-write לסוכן בלבד)
 async function openDashboard(clientId) {
   try {
@@ -495,12 +517,12 @@ async function openDashboard(clientId) {
         viewToken = data.view_token || '';
       }
     }
-    const base = `${window.location.origin}${window.location.pathname.replace('admin/index.html', '')}dashboard.html`;
+    const base = getDashboardBase();
     const url  = `${base}?client=${clientId}${viewToken ? '&_st=' + encodeURIComponent(viewToken) : ''}`;
     window.open(url, '_blank');
   } catch(e) {
     // fallback ללא token
-    const base = `${window.location.origin}${window.location.pathname.replace('admin/index.html', '')}dashboard.html`;
+    const base = getDashboardBase();
     window.open(`${base}?client=${clientId}`, '_blank');
   }
 }
@@ -509,7 +531,7 @@ async function openDashboard(clientId) {
 // שולחים את ה-agent_token עצמו כ-_st (הוא read-write, is_readonly=0)
 function openDashboardEdit(clientId) {
   const agentToken = sessionStorage.getItem('agent_token') || localStorage.getItem('agent_token') || '';
-  const base = `${window.location.origin}${window.location.pathname.replace('admin/index.html', '')}dashboard.html`;
+  const base = getDashboardBase();
 
   if (!agentToken || agentToken === 'demo-token') {
     // Demo mode or no token — פתח ללא token (עריכה לא תהיה זמינה)
@@ -525,7 +547,7 @@ function openDashboardEdit(clientId) {
 
 function copyClientLink(clientId) {
   // קישור ציבורי (ללא token) — לשיתוף עם הלקוח
-  const url = `${window.location.origin}${window.location.pathname.replace('admin/index.html', '')}dashboard.html?client=${clientId}`;
+  const url = `${getDashboardBase()}?client=${clientId}`;
   navigator.clipboard.writeText(url).then(() => {
     alert(`קישור ללקוח הועתק:\n${url}`);
   });
