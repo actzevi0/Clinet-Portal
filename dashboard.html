@@ -1344,10 +1344,13 @@ async function loadData(){
       if(vals.length>0) COMP_ON.push(p.id);
     });
 
-    // קבע ACTIVE_YEAR לפי החודש האחרון בנתונים
+    // קבע ACTIVE_YEAR לפי החודש האחרון בנתונים — אבל לא לשנה מוסתרת
     if(MONTHS.length){
       const lastM=MONTHS[MONTHS.length-1];
-      ACTIVE_YEAR=parseInt('20'+lastM.split('/')[1]);
+      const lastYear=parseInt('20'+lastM.split('/')[1]);
+      const visibleYears=getAvailableYears(); // מסונן כבר לפי hidden_years
+      // בחר את השנה הנגלית הקרובה ביותר לשנה האחרונה
+      ACTIVE_YEAR = visibleYears.find(y=>y<=lastYear) || visibleYears[0] || lastYear;
     }
 
     initUI();
@@ -1387,6 +1390,12 @@ function initUI(){
 
   document.getElementById('loadingEl').style.display='none';
   document.getElementById('appEl').style.display='block';
+
+  // אם נפתח עם ?tab=events — עבור ישירות לטאב אירועים
+  const tabParam = new URLSearchParams(window.location.search).get('tab');
+  if (tabParam === 'events') {
+    setTimeout(() => showTab('timeline', 4), 200);
+  }
 }
 
 // ═══════════════════════════════════════════
@@ -1412,7 +1421,10 @@ function showTab(name,idx){
 function getAvailableYears(){
   const years=new Set();
   MONTHS.forEach(m=>{ const yy=m.split('/')[1]; if(yy) years.add(parseInt('20'+yy)); });
-  return [...years].sort((a,b)=>b-a); // יורד
+  // סנן שנים מוסתרות לפי הגדרות הלקוח
+  let hidden=[];
+  try{ hidden=JSON.parse(CLIENT?.hidden_years||'[]'); }catch(e){ hidden=[]; }
+  return [...years].filter(y=>!hidden.includes(y)).sort((a,b)=>b-a); // יורד
 }
 
 function renderKPIs(){

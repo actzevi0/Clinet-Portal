@@ -451,6 +451,9 @@ function renderClientsGrid() {
           <button class="btn btn-secondary btn-sm" onclick="openDashboard('${c.id}')">
             <i class="fa fa-eye"></i> תצוגת לקוח
           </button>
+          <button class="btn btn-secondary btn-sm" onclick="openDashboardEdit('${c.id}')" style="background:rgba(139,92,246,0.1);color:#8b5cf6;border-color:rgba(139,92,246,0.35);" title="פתח דשבורד עם הרשאות עריכה — הוספה/עריכה/מחיקה של אירועים">
+            <i class="fa fa-pen"></i> ערוך אירועים
+          </button>
           <button class="btn btn-secondary btn-sm" onclick="openClientSettings('${c.id}')">
             <i class="fa fa-cog"></i> הגדרות
           </button>
@@ -499,6 +502,29 @@ async function openDashboard(clientId) {
     // fallback ללא token
     const base = `${window.location.origin}${window.location.pathname.replace('admin/index.html', '')}dashboard.html`;
     window.open(`${base}?client=${clientId}`, '_blank');
+  }
+}
+
+// פתח דשבורד עם הרשאות עריכה (edit-token) — לסוכן בלבד
+async function openDashboardEdit(clientId) {
+  try {
+    const agentToken = sessionStorage.getItem('agent_token') || localStorage.getItem('agent_token') || '';
+    if (!agentToken) {
+      alert('יש להתחבר תחילה כסוכן כדי לערוך אירועים');
+      return;
+    }
+    const resp = await fetch('/auth/edit-token', {
+      method: 'POST',
+      headers: { 'X-Session-Token': agentToken }
+    });
+    if (!resp.ok) throw new Error('שגיאה ביצירת edit-token');
+    const data = await resp.json();
+    const editToken = data.edit_token || '';
+    const base = `${window.location.origin}${window.location.pathname.replace('admin/index.html', '')}dashboard.html`;
+    const url  = `${base}?client=${clientId}${editToken ? '&_st=' + encodeURIComponent(editToken) : ''}&tab=events`;
+    window.open(url, '_blank');
+  } catch(e) {
+    alert('שגיאה בפתיחת מצב עריכה: ' + e.message);
   }
 }
 
@@ -784,6 +810,22 @@ async function refreshAll() {
       </div>
     </div>
 
+    <!-- Hidden Years -->
+    <div class="settings-card" id="hiddenYearsCard">
+      <div class="settings-row">
+        <div class="settings-icon-label">
+          <i class="fa fa-calendar-times" style="background:rgba(107,114,128,0.15);color:var(--text-muted);"></i>
+          <div>
+            <div>שנים מוצגות בדשבורד</div>
+            <div style="font-size:0.75rem;font-weight:400;color:var(--text-muted);">בחר אילו שנים הלקוח יוכל לראות (שנים ללא סימון יוסתרו)</div>
+          </div>
+        </div>
+      </div>
+      <div id="hiddenYearsWrap" style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px;">
+        <span style="font-size:0.8rem;color:var(--text-muted);">טוען שנים...</span>
+      </div>
+    </div>
+
     <!-- Risk per product -->
     <div class="settings-card" id="riskCard">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
@@ -982,6 +1024,9 @@ async function openClientSettings(clientId) {
   // Render insights builder
   renderInsightsBuilder();
 
+  // Hidden Years — render checkboxes from all MV months for this client
+  renderHiddenYearsField(clientId);
+
   // Risk
   renderRiskProductFields();
 
@@ -1015,6 +1060,46 @@ function toggleInsightsField() {
   const checked = document.getElementById('settingsInsights').checked;
   document.getElementById('insightsJsonWrap').style.display = checked ? '' : 'none';
   updateCardStyle('insightsCard', 'settingsInsights');
+}
+
+// ═══════════════════════════════════════════════════════════
+// HIDDEN YEARS — בחירת שנים גלויות ללקוח
+// ═══════════════════════════════════════════════════════════
+function renderHiddenYearsField(clientId) {
+  const wrap = document.getElementById('hiddenYearsWrap');
+  // Gather all years from MV_ALL for this client
+  const mvs = MV_ALL[clientId] || [];
+  const yearsSet = new Set();
+  mvs.forEach(r => {
+    if (r.month) {
+      const parts = r.month.split('/');
+      if (parts[1]) yearsSet.add(parseInt('20' + parts[1]));
+    }
+  });
+  const allYears = [...yearsSet].sort((a, b) => a - b);
+  if (!allYears.length) {
+    wrap.innerHTML = '<span style="font-size:0.8rem;color:var(--text-muted);">אין נתונים לשנים</span>';
+    return;
+  }
+  // Parse current hidden_years
+  let hidden = [];
+  try { hidden = JSON.parse(SETTINGS_CLIENT.hidden_years || '[]'); } catch(e) { hidden = []; }
+
+  wrap.innerHTML = allYears.map(y => {
+    const isVisible = !hidden.includes(y);
+    return `<label style="display:flex;align-items:center;gap:6px;padding:6px 12px;border:1.5px solid ${isVisible ? 'var(--primary)' : 'var(--border)'};border-radius:20px;cursor:pointer;font-size:0.84rem;font-weight:600;transition:.2s;user-select:none;" id="yearLbl_${y}">
+      <input type="checkbox" id="yearVis_${y}" ${isVisible ? 'checked' : ''}
+        onchange="toggleYearLabel(${y})"
+        style="width:14px;height:14px;cursor:pointer;accent-color:var(--primary);">
+      ${y}
+    </label>`;
+  }).join('');
+}
+
+function toggleYearLabel(y) {
+  const checked = document.getElementById('yearVis_' + y).checked;
+  const lbl = document.getElementById('yearLbl_' + y);
+  if (lbl) lbl.style.borderColor = checked ? 'var(--primary)' : 'var(--border)';
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1297,6 +1382,13 @@ async function saveSettings() {
     return;
   }
 
+  // Build hidden_years from checkboxes
+  const hiddenYearsArr = [];
+  document.querySelectorAll('[id^="yearVis_"]').forEach(cb => {
+    if (!cb.checked) hiddenYearsArr.push(parseInt(cb.id.replace('yearVis_', '')));
+  });
+  const hiddenYearsJson = JSON.stringify(hiddenYearsArr);
+
   // Demo Mode: simulate save without API call
   if (IS_DEMO_MODE) {
     const clientPatch = {
@@ -1307,6 +1399,7 @@ async function saveSettings() {
       enable_whatif: document.getElementById('settingsWhatif').checked ? 1 : 0,
       enable_insights: document.getElementById('settingsInsights').checked ? 1 : 0,
       insights_json: document.getElementById('settingsInsightsJson').value.trim(),
+      hidden_years: hiddenYearsJson,
     };
     // Update demo data locally
     const ci = CLIENTS.findIndex(c => c.id === clientId);
@@ -1336,6 +1429,7 @@ async function saveSettings() {
       enable_whatif: document.getElementById('settingsWhatif').checked ? 1 : 0,
       enable_insights: document.getElementById('settingsInsights').checked ? 1 : 0,
       insights_json: document.getElementById('settingsInsightsJson').value.trim(),
+      hidden_years: hiddenYearsJson,
     };
 
     const r = await authFetch(`/tables/clients/${clientId}`, {

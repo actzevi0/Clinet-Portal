@@ -154,6 +154,26 @@ async function handleAuth(request, env) {
     return jr({ view_token: token, expires });
   }
 
+  // POST /auth/edit-token — יוצר token קצר-טווח לעריכה (read-write) לדשבורד
+  if (method === 'POST' && path === '/auth/edit-token') {
+    const sess = await getSession(request, env);
+    if (!sess) return jr({error:'Not authenticated'},401);
+    if (isReadOnly(sess)) return jr({error:'Cannot create edit-token from read-only session'},403);
+
+    const token   = generateToken(48);
+    const expires = Date.now() + (4 * 60 * 60 * 1000); // 4 שעות
+    const sessId  = mkid();
+    const ua = request.headers.get('User-Agent') || '';
+    const ip = request.headers.get('CF-Connecting-IP') || '';
+
+    await env.DB.prepare(
+      `INSERT INTO agent_sessions (id,agent_id,token,expires_at,user_agent,ip_address,created_at,revoked,is_readonly)
+       VALUES (?,?,?,?,?,?,?,0,0)`
+    ).bind(sessId, sess.agent_id, token, expires, ua.slice(0,200), ip, Date.now()).run();
+
+    return jr({ edit_token: token, expires });
+  }
+
   // POST /auth/logout
   if (method === 'POST' && path === '/auth/logout') {
     const token = request.headers.get('X-Session-Token');
