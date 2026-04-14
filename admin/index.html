@@ -461,6 +461,9 @@ function renderClientsGrid() {
           <a href="monthly-update.html?client=${c.id}" class="btn btn-primary btn-sm">
             <i class="fa fa-plus-circle"></i> עדכון חודשי
           </a>
+          <button class="btn btn-secondary btn-sm" onclick="openSurenseSync('${c.id}','${c.name}')" style="background:rgba(1,142,245,0.1);color:#018ef5;border-color:rgba(1,142,245,0.35);" title="סנכרן נתוני צבירה מ-Surense (מסלקה פנסיונית)">
+            <i class="fa fa-sync-alt"></i> Surense
+          </button>
           <button class="btn btn-secondary btn-sm" onclick="openDashboard('${c.id}')">
             <i class="fa fa-eye"></i> תצוגת לקוח
           </button>
@@ -855,6 +858,24 @@ async function refreshAll() {
       <div id="riskProductsWrap" style="margin-top:14px;"></div>
     </div>
 
+    <!-- Surense / Identity Number -->
+    <div class="settings-card" id="surenseCard" style="border-color:rgba(1,142,245,0.2);background:rgba(1,142,245,0.03);">
+      <div class="settings-row" style="border-bottom:1px solid rgba(1,142,245,0.15);padding-bottom:12px;margin-bottom:12px;">
+        <div class="settings-icon-label">
+          <i class="fa fa-sync-alt" style="background:rgba(1,142,245,0.12);color:#018ef5;"></i>
+          <div>
+            <div>Surense – מסלקה פנסיונית</div>
+            <div style="font-size:0.75rem;font-weight:400;color:var(--text-muted);">מספר זהות לשאיבת נתוני צבירה אוטומטית</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <label class="form-label">מספר זהות לקוח <span style="color:var(--text-dim);font-weight:400;">(ת.ז.)</span></label>
+        <input type="text" id="settingsIdentityNumber" class="form-control" dir="ltr" placeholder="123456789" maxlength="9">
+        <p class="form-hint"><i class="fa fa-info-circle" style="margin-left:4px;"></i>ישמש לסנכרון אוטומטי מ-Surense. 9 ספרות.</p>
+      </div>
+    </div>
+
     <div id="settingsSaveMsg" class="alert alert-success" style="display:none;margin-bottom:12px;gap:8px;"></div>
     <div id="settingsSaveErr" class="alert alert-danger" style="display:none;margin-bottom:12px;"></div>
 
@@ -929,6 +950,73 @@ async function refreshAll() {
 <!-- ══════════════════════════════════════════════════════════ -->
 <!-- PDF Generator Modal                                        -->
 <!-- ══════════════════════════════════════════════════════════ -->
+<!-- ══════════════════════════════════════════════
+     Surense Sync Modal
+═══════════════════════════════════════════════ -->
+<div class="modal-overlay" id="surenseSyncModal" onclick="if(event.target.id==='surenseSyncModal')closeSurenseModal()">
+  <div class="modal" style="max-width:640px;">
+    <div class="modal-header">
+      <div>
+        <h3 style="margin:0;font-size:1.1rem;">
+          <i class="fa fa-sync-alt" style="margin-left:8px;color:#018ef5;"></i>
+          סנכרון נתוני Surense
+        </h3>
+        <div style="font-size:0.78rem;color:var(--text-muted);margin-top:3px;" id="surenseClientName"></div>
+      </div>
+      <button class="modal-close" onclick="closeSurenseModal()"><i class="fa fa-times"></i></button>
+    </div>
+    <input type="hidden" id="surenseClientId">
+
+    <!-- Step 1: Input -->
+    <div id="surenseStep1">
+      <div style="background:rgba(1,142,245,0.07);border:1px solid rgba(1,142,245,0.2);border-radius:10px;padding:16px;margin-bottom:18px;">
+        <p style="margin:0 0 4px;font-size:0.88rem;color:var(--text-muted);">
+          <i class="fa fa-info-circle" style="color:#018ef5;margin-left:6px;"></i>
+          מערכת Surense מתממשקת למסלקה הפנסיונית ומשיגה נתוני צבירה עדכניים לכל המוצרים הפנסיוניים של הלקוח לפי מספר זהות.
+        </p>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">מספר זהות לקוח *</label>
+        <input type="text" id="surenseIdentityNumber" class="form-input" placeholder="לדוגמה: 123456789" maxlength="9" dir="ltr">
+        <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">9 ספרות, ללא מקפים</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">חודש נתונים</label>
+        <input type="month" id="surenseMonth" class="form-input" dir="ltr">
+        <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">ברירת מחדל: החודש הקודם</div>
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;">
+        <button class="btn btn-secondary" onclick="closeSurenseModal()">ביטול</button>
+        <button class="btn btn-primary" onclick="surensePreview()" id="surensePreviewBtn">
+          <i class="fa fa-search"></i> תצוגה מקדימה
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 2: Preview -->
+    <div id="surenseStep2" style="display:none;">
+      <div id="surensePreviewResult" style="margin-bottom:16px;"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn btn-secondary" onclick="surenseBack()"><i class="fa fa-arrow-right"></i> חזרה</button>
+        <button class="btn btn-primary" onclick="surenseConfirmSync()" id="surenseSyncBtn" style="background:#018ef5;border-color:#018ef5;">
+          <i class="fa fa-check"></i> אישור וסנכרון
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 3: Result -->
+    <div id="surenseStep3" style="display:none;">
+      <div id="surenseSyncResult"></div>
+      <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+        <button class="btn btn-primary" onclick="closeSurenseModal()">סגור</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="pdfModal" onclick="if(event.target.id==='pdfModal')closePDFModal()">
   <div class="modal" style="max-width:560px;">
     <div class="modal-header">
@@ -1046,6 +1134,9 @@ async function openClientSettings(clientId) {
 
   // Risk
   renderRiskProductFields();
+
+  // Surense / Identity Number
+  document.getElementById('settingsIdentityNumber').value = SETTINGS_CLIENT.identity_number || '';
 
   document.getElementById('settingsSaveMsg').style.display = 'none';
   document.getElementById('settingsSaveErr').style.display = 'none';
@@ -1417,6 +1508,7 @@ async function saveSettings() {
       enable_insights: document.getElementById('settingsInsights').checked ? 1 : 0,
       insights_json: document.getElementById('settingsInsightsJson').value.trim(),
       hidden_years: hiddenYearsJson,
+      identity_number: document.getElementById('settingsIdentityNumber').value.trim() || null,
     };
     // Update demo data locally
     const ci = CLIENTS.findIndex(c => c.id === clientId);
@@ -1447,6 +1539,7 @@ async function saveSettings() {
       enable_insights: document.getElementById('settingsInsights').checked ? 1 : 0,
       insights_json: document.getElementById('settingsInsightsJson').value.trim(),
       hidden_years: hiddenYearsJson,
+      identity_number: document.getElementById('settingsIdentityNumber').value.trim() || null,
     };
 
     const r = await authFetch(`/tables/clients/${clientId}`, {
@@ -1879,6 +1972,195 @@ async function generatePDF() {
     closePDFModal();
   } else {
     alert('לא ניתן לפתוח חלון הדפסה. אפשר חלונות קופצים בדפדפן שלך.');
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Surense Integration Functions
+// ════════════════════════════════════════════════════════════════════
+
+function openSurenseSync(clientId, clientName) {
+  document.getElementById('surenseClientId').value = clientId;
+  document.getElementById('surenseClientName').textContent = clientName;
+
+  // Default month = previous month
+  const d = new Date();
+  d.setMonth(d.getMonth() - 1);
+  const defaultMonth = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  document.getElementById('surenseMonth').value = defaultMonth;
+
+  // Pre-fill identity number from client settings if available
+  const client = (typeof CLIENTS !== 'undefined') ? CLIENTS.find(c => c.id === clientId) : null;
+  document.getElementById('surenseIdentityNumber').value = (client && client.identity_number) ? client.identity_number : '';
+
+  // Reset steps
+  document.getElementById('surenseStep1').style.display = '';
+  document.getElementById('surenseStep2').style.display = 'none';
+  document.getElementById('surenseStep3').style.display = 'none';
+
+  document.getElementById('surenseSyncModal').classList.add('open');
+}
+
+function closeSurenseModal() {
+  document.getElementById('surenseSyncModal').classList.remove('open');
+}
+
+function surenseBack() {
+  document.getElementById('surenseStep1').style.display = '';
+  document.getElementById('surenseStep2').style.display = 'none';
+}
+
+async function surensePreview() {
+  const identityNumber = document.getElementById('surenseIdentityNumber').value.trim();
+  const month = document.getElementById('surenseMonth').value;
+
+  if (!identityNumber || identityNumber.length < 7) {
+    alert('יש להזין מספר זהות תקין (לפחות 7 ספרות)');
+    return;
+  }
+
+  const btn = document.getElementById('surensePreviewBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> טוען...';
+
+  try {
+    const agentToken = sessionStorage.getItem('agent_token') || localStorage.getItem('agent_token') || '';
+    const resp = await fetch('/api/surense/preview', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Session-Token': agentToken
+      },
+      body: JSON.stringify({ identity_number: identityNumber, month })
+    });
+    const data = await resp.json();
+
+    if (!resp.ok || data.error) {
+      document.getElementById('surensePreviewResult').innerHTML = `
+        <div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:16px;color:#ef4444;">
+          <i class="fa fa-exclamation-circle" style="margin-left:8px;"></i>
+          <strong>שגיאה:</strong> ${data.error || 'שגיאה לא ידועה'}
+          ${data.error && data.error.includes('not configured') ? `
+            <div style="margin-top:8px;font-size:0.82rem;color:var(--text-muted);">
+              יש להגדיר את פרטי ה-API של Surense (SURENSE_CLIENT_ID, SURENSE_CLIENT_SECRET) בהגדרות Cloudflare.
+            </div>` : ''}
+        </div>`;
+      document.getElementById('surenseStep1').style.display = 'none';
+      document.getElementById('surenseStep2').style.display = '';
+      document.getElementById('surenseSyncBtn').style.display = 'none';
+      return;
+    }
+
+    // Build preview table
+    const products = data.products || [];
+    let html = `
+      <div style="margin-bottom:12px;">
+        <div style="font-size:0.88rem;color:var(--text-muted);margin-bottom:8px;">
+          נמצאו <strong style="color:var(--text-primary);">${products.length}</strong> מוצרים עבור ת.ז. ${identityNumber} בחודש ${month}
+        </div>
+      </div>`;
+
+    if (products.length === 0) {
+      html += `<div style="text-align:center;padding:24px;color:var(--text-muted);">
+        <i class="fa fa-search" style="font-size:2rem;margin-bottom:8px;display:block;"></i>
+        לא נמצאו מוצרים עבור מספר הזהות הזה
+      </div>`;
+      document.getElementById('surenseSyncBtn').style.display = 'none';
+    } else {
+      html += `<div style="max-height:280px;overflow-y:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:0.84rem;">
+          <thead>
+            <tr style="background:var(--bg-card2);border-bottom:1px solid var(--border);">
+              <th style="padding:8px 10px;text-align:right;color:var(--text-muted);font-weight:600;">חברה</th>
+              <th style="padding:8px 10px;text-align:right;color:var(--text-muted);font-weight:600;">סוג מוצר</th>
+              <th style="padding:8px 10px;text-align:right;color:var(--text-muted);font-weight:600;">מספר פוליסה</th>
+              <th style="padding:8px 10px;text-align:left;color:var(--text-muted);font-weight:600;">צבירה</th>
+            </tr>
+          </thead>
+          <tbody>`;
+
+      products.forEach(p => {
+        const val = p.value ? p.value.toLocaleString('he-IL', {style:'currency',currency:'ILS',maximumFractionDigits:0}) : '—';
+        html += `<tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:8px 10px;">${p.company_name || p.institution}</td>
+          <td style="padding:8px 10px;color:var(--text-muted);">${p.product_type}</td>
+          <td style="padding:8px 10px;color:var(--text-muted);direction:ltr;text-align:right;">${p.policy_number || '—'}</td>
+          <td style="padding:8px 10px;text-align:left;font-weight:600;color:#10b981;">${val}</td>
+        </tr>`;
+      });
+
+      html += `</tbody></table></div>
+        <div style="margin-top:12px;padding:10px 14px;background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.2);border-radius:8px;font-size:0.82rem;color:var(--text-muted);">
+          <i class="fa fa-info-circle" style="color:#10b981;margin-left:6px;"></i>
+          אישור הסנכרון יעדכן ערכי צבירה חדשים ויצור מוצרים חסרים במידת הצורך.
+          ניתן לערוך ידנית לאחר הייבוא.
+        </div>`;
+      document.getElementById('surenseSyncBtn').style.display = '';
+    }
+
+    document.getElementById('surensePreviewResult').innerHTML = html;
+    document.getElementById('surenseStep1').style.display = 'none';
+    document.getElementById('surenseStep2').style.display = '';
+
+  } catch(e) {
+    alert('שגיאה בחיבור ל-Surense: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa fa-search"></i> תצוגה מקדימה';
+  }
+}
+
+async function surenseConfirmSync() {
+  const clientId = document.getElementById('surenseClientId').value;
+  const identityNumber = document.getElementById('surenseIdentityNumber').value.trim();
+  const month = document.getElementById('surenseMonth').value;
+
+  const btn = document.getElementById('surenseSyncBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> מסנכרן...';
+
+  try {
+    const agentToken = sessionStorage.getItem('agent_token') || localStorage.getItem('agent_token') || '';
+    const resp = await fetch('/api/surense/sync-client', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Session-Token': agentToken
+      },
+      body: JSON.stringify({ client_id: clientId, identity_number: identityNumber, month })
+    });
+    const data = await resp.json();
+
+    let html = '';
+    if (!resp.ok || data.error) {
+      html = `<div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:16px;color:#ef4444;">
+        <i class="fa fa-exclamation-circle" style="margin-left:8px;"></i>
+        <strong>שגיאה:</strong> ${data.error}
+      </div>`;
+    } else {
+      html = `<div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25);border-radius:10px;padding:20px;text-align:center;">
+        <i class="fa fa-check-circle" style="color:#10b981;font-size:2.5rem;display:block;margin-bottom:12px;"></i>
+        <div style="font-size:1.05rem;font-weight:600;margin-bottom:8px;">הסנכרון הצליח!</div>
+        <div style="font-size:0.88rem;color:var(--text-muted);">
+          ${data.synced} ערכי צבירה עודכנו לחודש ${month}
+          ${data.created_products && data.created_products.length > 0 ? 
+            `<br><span style="color:#018ef5;">${data.created_products.length} מוצרים חדשים נוספו</span>` : ''}
+        </div>
+      </div>`;
+
+      // Reload clients grid
+      setTimeout(() => { loadData && loadData(); }, 1500);
+    }
+
+    document.getElementById('surenseSyncResult').innerHTML = html;
+    document.getElementById('surenseStep2').style.display = 'none';
+    document.getElementById('surenseStep3').style.display = '';
+
+  } catch(e) {
+    alert('שגיאה בסנכרון: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa fa-check"></i> אישור וסנכרון';
   }
 }
 </script>

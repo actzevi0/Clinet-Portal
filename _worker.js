@@ -839,6 +839,284 @@ async function handleSettings(request, env, sess) {
   return jr({error:'Method not allowed'},405);
 }
 
+// ── Surense API Integration ────────────────────────────────────────
+/**
+ * Surense OAuth2 token (client_credentials flow)
+ * Credentials stored as Cloudflare secrets: SURENSE_CLIENT_ID, SURENSE_CLIENT_SECRET
+ */
+async function getSurenseToken(env) {
+  const clientId     = env.SURENSE_CLIENT_ID;
+  const clientSecret = env.SURENSE_CLIENT_SECRET;
+  if (!clientId || !clientSecret) throw new Error('Surense credentials not configured');
+
+  const resp = await fetch('https://api.surense.com/api/v1/oauth/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: clientId,
+      client_secret: clientSecret,
+    })
+  });
+  if (!resp.ok) {
+    const txt = await resp.text();
+    throw new Error(`Surense auth failed (${resp.status}): ${txt}`);
+  }
+  const data = await resp.json();
+  return data.access_token;
+}
+
+/**
+ * Fetch managed savings (מוצרים בניהול) from Surense for a given month
+ * providerId for מוצרים בניהול is not listed in docs - we call /reports with managed_savings scope
+ */
+async function fetchSurenseManagedSavings(token, month) {
+  // month format: YYYY-MM
+  const resp = await fetch('https://api.surense.com/api/v1/reports', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      providerId: 'managed_savings',  // scope: reports:managed_savings
+      params: { month }
+    })
+  });
+  if (!resp.ok) {
+    const txt = await resp.text();
+    throw new Error(`Surense reports failed (${resp.status}): ${txt}`);
+  }
+  return resp.json();
+}
+
+/**
+ * Fetch customers list from Surense
+ */
+async function fetchSurenseCustomers(token) {
+  const resp = await fetch('https://api.surense.com/api/v1/customers', {
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  if (!resp.ok) {
+    const txt = await resp.text();
+    throw new Error(`Surense customers failed (${resp.status}): ${txt}`);
+  }
+  return resp.json();
+}
+
+/**
+ * Map Surense company code/name → EasyFinance institution slug
+ * This mapping needs to be extended as we discover actual Surense company IDs
+ */
+function mapSurenseCompanyToInstitution(companyId, companyName) {
+  const name = (companyName || '').toLowerCase();
+  if (name.includes('מגדל') || name.includes('migdal'))    return 'magdal';
+  if (name.includes('מנורה') || name.includes('menora'))   return 'menora';
+  if (name.includes('הפניקס') || name.includes('phoenix')) return 'phoenix';
+  if (name.includes('כלל') || name.includes('clal'))       return 'clal';
+  if (name.includes('הראל') || name.includes('harel'))     return 'harel';
+  if (name.includes('ילין') || name.includes('yalin'))     return 'yalin';
+  if (name.includes('מיטב') || name.includes('meitav'))    return 'meitav';
+  if (name.includes('אנליסט') || name.includes('analyst')) return 'analyst';
+  if (name.includes('איילון') || name.includes('ayalon'))  return 'ayalon';
+  if (name.includes('הכשרה') || name.includes('hachshara'))return 'hachshara';
+  return companyId ? `company-${companyId}` : 'unknown';
+}
+
+/**
+ * Map Surense product type → EasyFinance product_type
+ */
+function mapSurenseProductType(productType) {
+  const t = (productType || '').toLowerCase();
+  if (t.includes('pension') || t.includes('פנסיה'))          return 'pension';
+  if (t.includes('gemul') || t.includes('גמל'))              return 'gemul';
+  if (t.includes('kranot') || t.includes('קרן השתלמות'))     return 'kranot';
+  if (t.includes('bituach') || t.includes('ביטוח מנהלים'))  return 'bituach';
+  if (t.includes('polisa') || t.includes('פוליסה'))          return 'polisa';
+  return productType || 'unknown';
+}
+
+/**
+ * Handle Surense sync request
+ * POST /api/surense/sync-client
+ * Body: { client_id: string, identity_number: string, month: string }
+ */
+async function handleSurenseSync(request, env, sess) {
+  // Require valid agent session
+  if (!sess) return jr({error:'Unauthorized'},401);
+  if (sess.is_readonly) return jr({error:'Read-only session'},403);
+
+  const body = await request.json().catch(() => ({}));
+  const { client_id, identity_number, month } = body;
+
+  if (!client_id)       return jr({error:'client_id required'},400);
+  if (!identity_number) return jr({error:'identity_number required'},400);
+
+  const syncMonth = month || (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  })();
+
+  try {
+    // 1. Get Surense access token
+    const surenseToken = await getSurenseToken(env);
+
+    // 2. Fetch managed savings report for this month
+    const report = await fetchSurenseManagedSavings(surenseToken, syncMonth);
+
+    // report is expected to be an array of product rows
+    // Each row contains: identity_number, company_id, company_name, product_type,
+    //                    policy_number/account_number, accumulation_value, month
+    const rows = Array.isArray(report) ? report :
+                 (report.data ? report.data : []);
+
+    // 3. Filter rows for this client (by identity number)
+    const clientRows = rows.filter(r =>
+      String(r.identity_number || r.identityNumber || r.id_number || '').replace(/-/g,'') ===
+      String(identity_number).replace(/-/g,'')
+    );
+
+    if (clientRows.length === 0) {
+      return jr({ ok: true, synced: 0, message: 'No products found for this identity number', raw_count: rows.length });
+    }
+
+    // 4. Upsert products and monthly values
+    const now = Date.now();
+    const results = { created_products: [], updated_mv: [], skipped: [] };
+
+    for (const row of clientRows) {
+      const institution = mapSurenseCompanyToInstitution(
+        row.company_id || row.companyId,
+        row.company_name || row.companyName || row.company
+      );
+      const productType  = mapSurenseProductType(row.product_type || row.productType || row.type);
+      const policyNumber = row.policy_number || row.policyNumber || row.account_number || row.accountNumber || '';
+      const accumValue   = parseFloat(row.accumulation || row.accumulation_value || row.accumulationValue || row.value || 0);
+
+      // Build a stable product ID from institution + policy number
+      const productId = `${institution}-${policyNumber}`.replace(/\s+/g,'-').toLowerCase();
+
+      // Month format for EasyFinance: MM/YY
+      const [year, mon] = syncMonth.split('-');
+      const efMonth = `${mon}/${year.slice(2)}`;
+
+      // Check if product exists for this client
+      const existingProduct = await env.DB.prepare(
+        `SELECT id FROM products WHERE id=? AND client_id=? AND deleted=0`
+      ).bind(productId, client_id).first();
+
+      if (!existingProduct) {
+        // Create new product
+        const productName = `${row.company_name || row.companyName || institution} – ${productType}`;
+        await env.DB.prepare(
+          `INSERT OR IGNORE INTO products (id, client_id, agent_id, name, institution, product_type,
+            account_number, status, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`
+        ).bind(productId, client_id, sess.agent_id, productName, institution, productType,
+               policyNumber, now, now).run();
+        results.created_products.push(productId);
+      }
+
+      // Upsert monthly value
+      if (accumValue > 0) {
+        const existingMV = await env.DB.prepare(
+          `SELECT id FROM monthly_values WHERE product_id=? AND client_id=? AND month=?`
+        ).bind(productId, client_id, efMonth).first();
+
+        if (existingMV) {
+          await env.DB.prepare(
+            `UPDATE monthly_values SET value=?, updated_at=? WHERE id=?`
+          ).bind(accumValue, now, existingMV.id).run();
+        } else {
+          await env.DB.prepare(
+            `INSERT INTO monthly_values (id, product_id, client_id, agent_id, month, value, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+          ).bind(mkid(), productId, client_id, sess.agent_id, efMonth, accumValue, now, now).run();
+        }
+        results.updated_mv.push({ product: productId, month: efMonth, value: accumValue });
+      } else {
+        results.skipped.push(productId);
+      }
+    }
+
+    await auditLog(env, sess.agent_id, 'surense_sync', 'monthly_values', client_id);
+
+    return jr({
+      ok: true,
+      month: syncMonth,
+      synced: results.updated_mv.length,
+      created_products: results.created_products,
+      updated_mv: results.updated_mv,
+      skipped: results.skipped,
+    });
+
+  } catch(e) {
+    return jr({ error: e.message }, 500);
+  }
+}
+
+/**
+ * Handle test connection to Surense API
+ * GET /api/surense/test
+ */
+async function handleSurenseTest(request, env, sess) {
+  if (!sess) return jr({error:'Unauthorized'},401);
+  try {
+    const token = await getSurenseToken(env);
+    // Try to fetch customers as a connectivity test
+    const customers = await fetchSurenseCustomers(token);
+    return jr({ ok: true, message: 'Connected to Surense API', count: Array.isArray(customers) ? customers.length : null });
+  } catch(e) {
+    return jr({ ok: false, error: e.message }, 500);
+  }
+}
+
+/**
+ * Preview Surense data without saving (for user review before import)
+ * POST /api/surense/preview
+ * Body: { identity_number: string, month: string }
+ */
+async function handleSurensePreview(request, env, sess) {
+  if (!sess) return jr({error:'Unauthorized'},401);
+
+  const body = await request.json().catch(() => ({}));
+  const { identity_number, month } = body;
+  if (!identity_number) return jr({error:'identity_number required'},400);
+
+  const syncMonth = month || (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()).padStart(2,'0')}`;  // prev month
+  })();
+
+  try {
+    const surenseToken = await getSurenseToken(env);
+    const report = await fetchSurenseManagedSavings(surenseToken, syncMonth);
+
+    const rows = Array.isArray(report) ? report : (report.data ? report.data : []);
+    const clientRows = rows.filter(r =>
+      String(r.identity_number || r.identityNumber || r.id_number || '').replace(/-/g,'') ===
+      String(identity_number).replace(/-/g,'')
+    );
+
+    return jr({
+      ok: true,
+      month: syncMonth,
+      total_in_report: rows.length,
+      found: clientRows.length,
+      products: clientRows.map(r => ({
+        institution: mapSurenseCompanyToInstitution(r.company_id || r.companyId, r.company_name || r.companyName),
+        product_type: mapSurenseProductType(r.product_type || r.productType || r.type),
+        policy_number: r.policy_number || r.policyNumber || r.account_number || r.accountNumber || '',
+        value: parseFloat(r.accumulation || r.accumulation_value || r.accumulationValue || r.value || 0),
+        company_name: r.company_name || r.companyName || r.company || '',
+        raw: r,
+      }))
+    });
+  } catch(e) {
+    return jr({ ok: false, error: e.message }, 500);
+  }
+}
+
 // ── Main Fetch Handler ─────────────────────────────────────────────
 export default {
   async fetch(request, env, ctx) {
@@ -850,6 +1128,20 @@ export default {
 
     // Auth routes (no session required)
     if (path.startsWith('/auth/')) return handleAuth(request, env);
+
+    // Surense API integration routes
+    if (path === '/api/surense/sync-client' && request.method === 'POST') {
+      const sess = env.DB ? await getSession(request, env) : null;
+      return handleSurenseSync(request, env, sess);
+    }
+    if (path === '/api/surense/preview' && request.method === 'POST') {
+      const sess = env.DB ? await getSession(request, env) : null;
+      return handleSurensePreview(request, env, sess);
+    }
+    if (path === '/api/surense/test' && request.method === 'GET') {
+      const sess = env.DB ? await getSession(request, env) : null;
+      return handleSurenseTest(request, env, sess);
+    }
 
     // Authenticated routes
     const sess = env.DB ? await getSession(request, env) : null;
