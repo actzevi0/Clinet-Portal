@@ -688,16 +688,53 @@ function getLastVal(prodId){
   return arr.length?arr[0].value:null;
 }
 
-// מחזיר את הערך הנוכחי של מוצר — null אם הוא נויד (יש לו transfer-out)
-// משמש לצבירה עדכנית כדי למנוע כפל ניוד
+// מחזיר את הערך הנוכחי של מוצר — null אם הוא נויד החוצה (transfer-out אמיתי)
+// קופת מקור = יש לה transfer event והיא אין לה נתונים לאחר חודש הניוד
+// קופת יעד = יש לה transfer event אך יש לה נתונים לאחריו → עדיין פעילה
 function getCurrentVal(prodId){
-  // בדוק אם יש transfer-out (הניוד יצא מהמוצר)
-  const hasTransferOut = EVENTS.some(e =>
+  const transferEv = EVENTS.find(e =>
     e.product_id === prodId &&
     e.event_type === 'transfer'
   );
-  if(hasTransferOut) return null; // נויד — לא מצרפים לצבירה עדכנית
-  return getLastVal(prodId);
+  if(!transferEv) return getLastVal(prodId); // אין ניוד — ערך רגיל
+
+  // בדוק האם יש נתונים לאחר חודש הניוד
+  // אם כן — זו קופת יעד (קיבלה ניוד) ועדיין פעילה
+  const tDate = transferEv.event_date; // YYYY-MM-DD או YYYY-MM
+  const tYear = parseInt(tDate.slice(0,4));
+  const tMonth = parseInt(tDate.slice(5,7)) || 1;
+  const tNum = tYear * 100 + tMonth;
+
+  const hasDataAfter = (MV[prodId]||[]).some(r => {
+    if(!r.month || r.value == null) return false;
+    const [mm, yy] = r.month.split('/');
+    const rNum = parseInt('20'+yy) * 100 + parseInt(mm);
+    return rNum > tNum;
+  });
+
+  if(hasDataAfter) return getLastVal(prodId); // קופת יעד — פעילה, מחזירים ערך
+  return null; // קופת מקור — נויידה והסתיימה
+}
+
+// האם מוצר הוא קופת מקור אמיתית (transfer-out) בשנה נתונה?
+// קופת מקור = יש transfer event בשנה זו ואין נתונים לאחר חודש הניוד
+// קופת יעד = יש transfer event אך יש נתונים לאחריו → לא "מקור"
+function isTransferSource(prod, year){
+  const transferEv = EVENTS.find(e =>
+    e.product_id === prod.id &&
+    e.event_type === 'transfer' &&
+    e.event_date && parseInt(e.event_date.slice(0,4)) === year
+  );
+  if(!transferEv) return false;
+  const tYear = parseInt(transferEv.event_date.slice(0,4));
+  const tMonth = parseInt(transferEv.event_date.slice(5,7)) || 1;
+  const tNum = tYear * 100 + tMonth;
+  const hasDataAfter = (MV[prod.id]||[]).some(r => {
+    if(!r.month || r.value == null) return false;
+    const [mm, yy] = r.month.split('/');
+    return parseInt('20'+yy) * 100 + parseInt(mm) > tNum;
+  });
+  return !hasDataAfter; // אם אין נתונים אחרי → מקור אמיתי
 }
 
 function getOpeningVal(prod){return prod.ytd_start_value??null;}
