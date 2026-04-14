@@ -505,27 +505,22 @@ async function openDashboard(clientId) {
   }
 }
 
-// פתח דשבורד עם הרשאות עריכה (edit-token) — לסוכן בלבד
-async function openDashboardEdit(clientId) {
-  try {
-    const agentToken = sessionStorage.getItem('agent_token') || localStorage.getItem('agent_token') || '';
-    if (!agentToken) {
-      alert('יש להתחבר תחילה כסוכן כדי לערוך אירועים');
-      return;
-    }
-    const resp = await fetch('/auth/edit-token', {
-      method: 'POST',
-      headers: { 'X-Session-Token': agentToken }
-    });
-    if (!resp.ok) throw new Error('שגיאה ביצירת edit-token');
-    const data = await resp.json();
-    const editToken = data.edit_token || '';
-    const base = `${window.location.origin}${window.location.pathname.replace('admin/index.html', '')}dashboard.html`;
-    const url  = `${base}?client=${clientId}${editToken ? '&_st=' + encodeURIComponent(editToken) : ''}&tab=events`;
+// פתח דשבורד עם הרשאות עריכה — לסוכן בלבד
+// שולחים את ה-agent_token עצמו כ-_st (הוא read-write, is_readonly=0)
+function openDashboardEdit(clientId) {
+  const agentToken = sessionStorage.getItem('agent_token') || localStorage.getItem('agent_token') || '';
+  const base = `${window.location.origin}${window.location.pathname.replace('admin/index.html', '')}dashboard.html`;
+
+  if (!agentToken || agentToken === 'demo-token') {
+    // Demo mode or no token — פתח ללא token (עריכה לא תהיה זמינה)
+    const url = `${base}?client=${clientId}&tab=events`;
     window.open(url, '_blank');
-  } catch(e) {
-    alert('שגיאה בפתיחת מצב עריכה: ' + e.message);
+    return;
   }
+
+  // שלח את ה-agent_token עצמו — הוא כבר read-write (is_readonly=0)
+  const url = `${base}?client=${clientId}&_st=${encodeURIComponent(agentToken)}&tab=events`;
+  window.open(url, '_blank');
 }
 
 function copyClientLink(clientId) {

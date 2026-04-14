@@ -1275,8 +1275,11 @@ async function fetchAll(url){
 
   const all=[];let page=1,total=Infinity;
   const base=url.startsWith('http')?'':API_BASE;
+  // שלח agent_token אם קיים (כשנפתח מהאיזור היועצים עם edit-token)
+  const _agentTok = sessionStorage.getItem('agent_token') || '';
+  const _fetchHdrs = _agentTok ? {'X-Session-Token': _agentTok} : {};
   while(all.length<total){
-    const r=await fetch(`${base}${url}${url.includes('?')?'&':'?'}page=${page}&limit=100`);
+    const r=await fetch(`${base}${url}${url.includes('?')?'&':'?'}page=${page}&limit=100`, {headers: _fetchHdrs});
     if(!r.ok) { console.error('[fetchAll] HTTP',r.status,'for',url); break; }
     const d=await r.json();
     if(d.error) { console.error('[fetchAll] API error:',d.error,'for',url); break; }
