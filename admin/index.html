@@ -224,6 +224,7 @@ function toggleTheme() {
 let CLIENTS=[];
 let PRODUCTS_ALL=[];
 let MV_ALL={};
+let EVENTS_ALL=[];  // כל אירועי הטיימליין (לסינון ניודים)
 let IS_DEMO_MODE = false;
 
 // ── Demo data (מופעל כשה-DB לא מחובר בסביבת פיתוח) ─────────────
@@ -338,17 +339,28 @@ async function loadClients() {
       MV_ALL[mv.client_id].push(mv);
     }
 
+    // Load all timeline events (לסינון קופות שנויידו)
+    EVENTS_ALL = await fetchAll('/tables/timeline_events');
+
     const activeCount = CLIENTS.filter(c=>c.active).length;
     document.getElementById('statTotalClients').textContent = activeCount;
 
-    // Compute total AUM
+    // Compute total AUM — מסנן קופות שנויידו, ממיין לפי חודש
     let totalAUM=0;
     for(const c of CLIENTS){
       const prods=PRODUCTS_ALL.filter(p=>p.client_id===c.id&&p.status==='active');
       const mvs=MV_ALL[c.id]||[];
+      const tOutIds = new Set(
+        EVENTS_ALL
+          .filter(e => e.client_id===c.id && e.event_type==='transfer')
+          .map(e => e.product_id)
+      );
       for(const p of prods){
-        const pMvs=mvs.filter(m=>m.product_id===p.id).map(m=>m.value).filter(v=>v!=null);
-        if(pMvs.length) totalAUM+=pMvs[pMvs.length-1];
+        if(tOutIds.has(p.id)) continue;
+        const pMvs=mvs
+          .filter(m=>m.product_id===p.id && m.value!=null)
+          .sort((a,b)=>{ const [mA,yA]=a.month.split('/'); const [mB,yB]=b.month.split('/'); return (parseInt(yA)*100+parseInt(mA))-(parseInt(yB)*100+parseInt(mB)); });
+        if(pMvs.length) totalAUM+=pMvs[pMvs.length-1].value;
       }
     }
     document.getElementById('statTotalAUM').textContent = formatILS(totalAUM);
@@ -379,10 +391,23 @@ function renderClientsGrid() {
     const mvs=MV_ALL[c.id]||[];
     let totalVal=0;
     const institutions=new Set();
+    // מזהים קופות שנויידו החוצה (transfer-out) — לא נספרות בצבירה
+    const transferredOutIds = new Set(
+      EVENTS_ALL
+        .filter(e => e.client_id===c.id && e.event_type==='transfer')
+        .map(e => e.product_id)
+    );
     for(const p of prods){
       institutions.add(p.institution||'');
-      const pMvs=mvs.filter(m=>m.product_id===p.id).map(m=>m.value).filter(v=>v!=null);
-      if(pMvs.length) totalVal+=pMvs[pMvs.length-1];
+      if(transferredOutIds.has(p.id)) continue; // קופת מקור שנויידה — דלג
+      // מיין לפי חודש ולקח ערך אחרון
+      const pMvs=mvs
+        .filter(m=>m.product_id===p.id && m.value!=null)
+        .sort((a,b)=>{
+          const [mA,yA]=a.month.split('/'); const [mB,yB]=b.month.split('/');
+          return (parseInt(yA)*100+parseInt(mA))-(parseInt(yB)*100+parseInt(mB));
+        });
+      if(pMvs.length) totalVal+=pMvs[pMvs.length-1].value;
     }
     const instArr=[...institutions].filter(Boolean);
     return `
