@@ -133,3 +133,58 @@ pm2 start ecosystem.config.cjs
 - **PDF**: JavaScript → Browser Print API
 
 **Last Updated**: 2026-04-11 | Version: 6.0
+
+---
+
+## 🔗 Make Webhook Integration (Surense)
+
+### אופן פעולה
+Make (לשעבר Integromat) שולח נתונים מ-Surense אל EasyFinance דרך webhook.
+
+### URL
+```
+POST https://easyfinance-dashboard.pages.dev/api/webhook/surense
+```
+
+### Headers
+```
+Content-Type: application/json
+```
+
+### Body (JSON)
+```json
+{
+  "webhook_secret": "FQiM3AF7G3R1RwhlVWu2it8P7xZikRQA9ujEjaQ7",
+  "client_id": "menachem-gilor",
+  "month": "2026-03",
+  "products": [
+    {
+      "company_name": "מגדל",
+      "product_type": "ביטוח מנהלים",
+      "policy_number": "987654",
+      "value": 220000
+    }
+  ]
+}
+```
+
+### שמות חברות נתמכים
+מגדל, הפניקס, מנורה, הכשרה, מיטב, אנליסט, איילון, הראל, כלל, מור
+
+### סוגי מוצרים נתמכים
+גמל, גמל להשקעה, קרן השתלמות, פוליסת חיסכון, ביטוח מנהלים
+
+### הגדרת Make – שלבים
+1. צור scenario חדש ב-Make
+2. הוסף trigger מ-Surense (HTTP module / Surense module)
+3. הוסף פעולת "HTTP → Make an API Key Auth request" או "HTTP → Make a request":
+   - URL: `https://easyfinance-dashboard.pages.dev/api/webhook/surense`
+   - Method: POST
+   - Body type: Raw (JSON)
+   - Body: הכנס את ה-JSON עם webhook_secret, client_id, month, products
+4. בדוק את התגובה: `{"ok":true, ...}`
+
+### אירועי שגיאה אפשריים
+- `401 Invalid webhook secret` – סוד שגוי
+- `404 Client not found` – client_id לא קיים
+- `400 products array required` – חסר מערך מוצרים
