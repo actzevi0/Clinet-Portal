@@ -920,9 +920,15 @@ async function handleMakeWebhook(request, env) {
     return jr({ error: 'products array required' }, 400);
 
   // 3. Look up the client to get agent_id
-  const client = await env.DB.prepare(
-    `SELECT id, agent_id FROM clients WHERE id=? AND deleted=0`
-  ).bind(client_id).first();
+  if (!env.DB) return jr({ error: 'D1 not bound' }, 500);
+  let client;
+  try {
+    client = await env.DB.prepare(
+      `SELECT id, agent_id FROM clients WHERE id=? AND deleted=0`
+    ).bind(client_id).first();
+  } catch(e) {
+    return jr({ error: 'DB error: ' + e.message }, 500);
+  }
   if (!client) return jr({ error: `Client not found: ${client_id}` }, 404);
 
   const agentId = client.agent_id || bodyAgentId || 'system';
