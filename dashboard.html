@@ -689,8 +689,9 @@ function getLastVal(prodId){
 }
 
 // מחזיר את הערך הנוכחי של מוצר — null אם הוא נויד החוצה (transfer-out אמיתי)
-// קופת מקור = יש לה transfer event והיא אין לה נתונים לאחר חודש הניוד
-// קופת יעד = יש לה transfer event אך יש לה נתונים לאחריו → עדיין פעילה
+// קופת מקור (transfer-out) = יש לה transfer event ללא נתונים אחרי הניוד
+// קופת יעד  (transfer-in)  = יש לה transfer event עם direction='in' → תמיד פעילה
+// אם direction לא מוגדר — fallback לבדיקת נתונים לאחר חודש הניוד
 function getCurrentVal(prodId){
   const transferEv = EVENTS.find(e =>
     e.product_id === prodId &&
@@ -698,7 +699,12 @@ function getCurrentVal(prodId){
   );
   if(!transferEv) return getLastVal(prodId); // אין ניוד — ערך רגיל
 
-  // בדוק האם יש נתונים לאחר חודש הניוד
+  // אם הניוד מסומן במפורש כ-transfer-in → המוצר קיבל ניוד ועדיין פעיל
+  if(transferEv.transfer_direction === 'in') return getLastVal(prodId);
+  // אם הניוד מסומן במפורש כ-transfer-out → המוצר נויד החוצה
+  if(transferEv.transfer_direction === 'out') return null;
+
+  // fallback (אין direction): בדוק האם יש נתונים לאחר חודש הניוד
   // אם כן — זו קופת יעד (קיבלה ניוד) ועדיין פעילה
   const tDate = transferEv.event_date; // YYYY-MM-DD או YYYY-MM
   const tYear = parseInt(tDate.slice(0,4));
@@ -719,6 +725,7 @@ function getCurrentVal(prodId){
 // האם מוצר הוא קופת מקור אמיתית (transfer-out) בשנה נתונה?
 // קופת מקור = יש transfer event בשנה זו ואין נתונים לאחר חודש הניוד
 // קופת יעד = יש transfer event אך יש נתונים לאחריו → לא "מקור"
+// אם direction='in' → ודאית לא מקור; אם direction='out' → ודאית מקור
 function isTransferSource(prod, year){
   const transferEv = EVENTS.find(e =>
     e.product_id === prod.id &&
@@ -726,6 +733,10 @@ function isTransferSource(prod, year){
     e.event_date && parseInt(e.event_date.slice(0,4)) === year
   );
   if(!transferEv) return false;
+  // בדיקת direction מפורשת
+  if(transferEv.transfer_direction === 'in') return false; // קיבל ניוד → לא מקור
+  if(transferEv.transfer_direction === 'out') return true;  // שלח ניוד → מקור
+  // fallback: בדוק לפי קיום נתונים לאחר הניוד
   const tYear = parseInt(transferEv.event_date.slice(0,4));
   const tMonth = parseInt(transferEv.event_date.slice(5,7)) || 1;
   const tNum = tYear * 100 + tMonth;
@@ -3355,6 +3366,16 @@ loadData();
         <input id="evTitle" type="text" placeholder="לדוגמה: הפקדה ראשונה – הכשרה" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:0.88rem;box-sizing:border-box;" />
       </div>
 
+      <!-- כיוון ניוד (מוצג רק עבור transfer) -->
+      <div id="evTransferDirectionRow" style="display:none;">
+        <label style="font-size:0.8rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:5px;">כיוון הניוד *</label>
+        <select id="evTransferDirection" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:0.88rem;">
+          <option value="in">📥 ניוד נכנס (המוצר קיבל כסף מניוד)</option>
+          <option value="out">📤 ניוד יוצא (המוצר נויד לחשבון אחר)</option>
+        </select>
+        <div style="margin-top:5px;font-size:0.75rem;color:var(--text-muted);">⚠️ ניוד יוצא: המוצר יוסר מחישוב הצבירה הנוכחית</div>
+      </div>
+
       <!-- סכום -->
       <div id="evAmountRow">
         <label style="font-size:0.8rem;font-weight:600;color:var(--text-muted);display:block;margin-bottom:5px;">סכום (₪)</label>
@@ -3452,6 +3473,9 @@ function onEvTypeChange(){
   const t = document.getElementById('evType').value;
   const amountRow = document.getElementById('evAmountRow');
   if(amountRow) amountRow.style.display = EV_AMOUNT_TYPES.has(t) ? '' : 'none';
+  // הצג שדה כיוון ניוד רק עבור transfer
+  const dirRow = document.getElementById('evTransferDirectionRow');
+  if(dirRow) dirRow.style.display = t === 'transfer' ? '' : 'none';
 }
 
 // פתח מודל — חדש
@@ -3479,6 +3503,7 @@ function openEventModal(evId){
     document.getElementById('evTitle').value   = ev.title || '';
     document.getElementById('evAmount').value  = ev.amount || '';
     document.getElementById('evDesc').value    = ev.description || '';
+    document.getElementById('evTransferDirection').value = ev.transfer_direction || 'in';
   } else {
     // מצב חדש — נקה שדות
     title.textContent = 'הוסף אירוע חדש';
@@ -3515,6 +3540,12 @@ async function saveEvent(){
   if(!evDate)  { _evShowErr('יש לבחור תאריך'); return; }
   if(!evTitle) { _evShowErr('יש להזין כותרת'); return; }
 
+  // עבור transfer — וודא שיש כיוון ניוד
+  if(evType === 'transfer'){
+    const dir = document.getElementById('evTransferDirection').value;
+    if(!dir){ _evShowErr('יש לבחור כיוון ניוד (נכנס/יוצא)'); return; }
+  }
+
   const body = {
     client_id:   CLIENT.id,
     product_id:  evProd || null,
@@ -3522,7 +3553,8 @@ async function saveEvent(){
     event_type:  evType,
     title:       evTitle,
     description: evDesc || null,
-    amount:      EV_AMOUNT_TYPES.has(evType) && evAmt ? parseFloat(evAmt) : null
+    amount:      EV_AMOUNT_TYPES.has(evType) && evAmt ? parseFloat(evAmt) : null,
+    transfer_direction: evType === 'transfer' ? (document.getElementById('evTransferDirection').value || null) : null
   };
 
   btn.disabled = true;

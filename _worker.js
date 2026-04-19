@@ -839,11 +839,201 @@ async function handleSettings(request, env, sess) {
   return jr({error:'Method not allowed'},405);
 }
 
-// ── Surense API Integration ────────────────────────────────────────
+// ── Surense / Make Webhook Integration ────────────────────────────
 /**
- * Surense OAuth2 token (client_credentials flow)
- * Credentials stored as Cloudflare secrets: SURENSE_CLIENT_ID, SURENSE_CLIENT_SECRET
+ * ארכיטקטורה: Surense → Make Scenario → POST /api/webhook/surense → EasyFinance DB
+ *
+ * Make שולח POST עם:
+ * {
+ *   "webhook_secret": "...",        ← סוד משותף לאימות
+ *   "client_id": "menachem-gilor",  ← ID הלקוח ב-EasyFinance
+ *   "month": "2025-12",             ← חודש בפורמט YYYY-MM
+ *   "products": [
+ *     {
+ *       "company_name": "מגדל",
+ *       "product_type": "קופת גמל",
+ *       "policy_number": "12345678",
+ *       "value": 157371
+ *     }, ...
+ *   ]
+ * }
  */
+
+/**
+ * Map company name → EasyFinance institution slug
+ */
+function mapCompanyToInstitution(companyName) {
+  const name = (companyName || '').toLowerCase();
+  if (name.includes('מגדל') || name.includes('migdal'))         return 'magdal';
+  if (name.includes('מנורה') || name.includes('menora'))        return 'menora';
+  if (name.includes('הפניקס') || name.includes('phoenix'))      return 'phoenix';
+  if (name.includes('כלל') || name.includes('clal'))            return 'clal';
+  if (name.includes('הראל') || name.includes('harel'))          return 'harel';
+  if (name.includes('ילין') || name.includes('yalin'))          return 'yalin';
+  if (name.includes('מיטב') || name.includes('meitav'))         return 'meitav';
+  if (name.includes('אנליסט') || name.includes('analyst'))      return 'analyst';
+  if (name.includes('איילון') || name.includes('ayalon'))       return 'ayalon';
+  if (name.includes('הכשרה') || name.includes('hachshara'))     return 'hachshara';
+  if (name.includes('אלטשולר') || name.includes('altshuler'))   return 'altshuler';
+  if (name.includes('מור') || name.includes('more'))            return 'more';
+  if (name.includes('פסגות') || name.includes('psagot'))        return 'psagot';
+  if (name.includes('בית') || name.includes('beit'))            return 'beit';
+  // fallback: generate slug from name
+  return (companyName || 'unknown').replace(/\s+/g,'-').replace(/[^a-z0-9\u0590-\u05ff-]/gi,'').toLowerCase() || 'unknown';
+}
+
+/**
+ * Map product type string → EasyFinance product_type slug
+ */
+function mapProductType(productType) {
+  const t = (productType || '').toLowerCase();
+  if (t.includes('פנסיה') || t.includes('pension'))             return 'pension';
+  if (t.includes('גמל') && !t.includes('השקעה'))               return 'gemul';
+  if (t.includes('גמל להשקעה') || t.includes('investment'))    return 'gemul-hashkaa';
+  if (t.includes('קרן השתלמות') || t.includes('kranot'))       return 'kranot';
+  if (t.includes('ביטוח מנהלים') || t.includes('bituach'))     return 'bituach';
+  if (t.includes('פוליסת חיסכון') || t.includes('polisa'))     return 'polisa';
+  if (t.includes('קרן פנסיה') || t.includes('keren pensia'))   return 'pension';
+  return (productType || 'other').replace(/\s+/g,'-').toLowerCase();
+}
+
+/**
+ * POST /api/webhook/surense
+ * מקבל נתונים מ-Make ומכניס לDB
+ */
+async function handleMakeWebhook(request, env) {
+  // 1. Parse body
+  const body = await request.json().catch(() => null);
+  if (!body) return jr({ error: 'Invalid JSON body' }, 400);
+
+  // 2. Verify webhook secret
+  const secret = env.WEBHOOK_SECRET || '';
+  if (secret && body.webhook_secret !== secret) {
+    return jr({ error: 'Invalid webhook secret' }, 401);
+  }
+
+  const { client_id, month, products, agent_id: bodyAgentId } = body;
+
+  if (!client_id)              return jr({ error: 'client_id required' }, 400);
+  if (!month)                  return jr({ error: 'month required (YYYY-MM)' }, 400);
+  if (!Array.isArray(products) || products.length === 0)
+    return jr({ error: 'products array required' }, 400);
+
+  // 3. Look up the client to get agent_id
+  const client = await env.DB.prepare(
+    `SELECT id, agent_id FROM clients WHERE id=? AND deleted=0`
+  ).bind(client_id).first();
+  if (!client) return jr({ error: `Client not found: ${client_id}` }, 404);
+
+  const agentId = client.agent_id || bodyAgentId || 'system';
+
+  // 4. Convert month YYYY-MM → MM/YY
+  const [year, mon] = month.split('-');
+  const efMonth = `${mon}/${year.slice(2)}`;  // e.g. "12/25"
+
+  const now = Date.now();
+  const results = { created_products: [], updated_products: [], updated_mv: [], skipped: [] };
+
+  // 5. Process each product
+  for (const p of products) {
+    const companyName  = p.company_name  || p.companyName  || '';
+    const productType  = p.product_type  || p.productType  || p.type || '';
+    const policyNumber = String(p.policy_number || p.policyNumber || p.account_number || '').trim();
+    const rawValue     = parseFloat(p.value || p.accumulation || p.accumulation_value || 0);
+
+    if (!policyNumber && !companyName) { results.skipped.push(p); continue; }
+
+    const institution = mapCompanyToInstitution(companyName);
+    const efType      = mapProductType(productType);
+
+    // Build stable product ID: institution-policyNumber
+    const slug = policyNumber
+      ? `${institution}-${policyNumber.replace(/\s+/g,'')}`
+      : `${institution}-${efType}-${client_id}`;
+    const productId = slug.toLowerCase();
+
+    // 5a. Upsert product
+    const existing = await env.DB.prepare(
+      `SELECT id FROM products WHERE id=? AND client_id=? AND deleted=0`
+    ).bind(productId, client_id).first();
+
+    if (!existing) {
+      const productName = `${companyName} – ${productType}`.trim().replace(/\s*–\s*$/, '');
+      await env.DB.prepare(
+        `INSERT OR IGNORE INTO products
+           (id, client_id, agent_id, name, institution, product_type, account_number, status, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`
+      ).bind(productId, client_id, agentId, productName, institution, efType, policyNumber, now, now).run();
+      results.created_products.push(productId);
+    }
+
+    // 5b. Upsert monthly value
+    if (rawValue > 0) {
+      const existMV = await env.DB.prepare(
+        `SELECT id FROM monthly_values WHERE product_id=? AND client_id=? AND month=?`
+      ).bind(productId, client_id, efMonth).first();
+
+      if (existMV) {
+        await env.DB.prepare(
+          `UPDATE monthly_values SET value=?, updated_at=? WHERE id=?`
+        ).bind(rawValue, now, existMV.id).run();
+      } else {
+        await env.DB.prepare(
+          `INSERT INTO monthly_values (id, product_id, client_id, agent_id, month, value, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        ).bind(mkid(), productId, client_id, agentId, efMonth, rawValue, now, now).run();
+      }
+      results.updated_mv.push({ product: productId, month: efMonth, value: rawValue });
+    } else {
+      results.skipped.push(productId);
+    }
+  }
+
+  // 6. Audit log
+  await env.DB.prepare(
+    `INSERT INTO audit_log (id, agent_id, action, table_name, record_id, created_at)
+     VALUES (?, ?, 'make_webhook_sync', 'monthly_values', ?, ?)`
+  ).bind(mkid(), agentId, client_id, now).run().catch(() => {});
+
+  return jr({
+    ok: true,
+    client_id,
+    month: efMonth,
+    created_products: results.created_products.length,
+    updated_mv: results.updated_mv.length,
+    skipped: results.skipped.length,
+    details: results,
+  });
+}
+
+/**
+ * GET /api/webhook/info  — מחזיר את ה-webhook URL + הוראות ל-Make
+ * דורש session סוכן
+ */
+async function handleWebhookInfo(request, env, sess) {
+  if (!sess) return jr({ error: 'Unauthorized' }, 401);
+  const origin = new URL(request.url).origin;
+  return jr({
+    webhook_url: `${origin}/api/webhook/surense`,
+    method: 'POST',
+    content_type: 'application/json',
+    secret_header: 'webhook_secret',
+    body_schema: {
+      webhook_secret: '<WEBHOOK_SECRET from Cloudflare>',
+      client_id: '<EasyFinance client ID>',
+      month: 'YYYY-MM',
+      products: [
+        {
+          company_name: 'שם החברה',
+          product_type: 'סוג מוצר',
+          policy_number: 'מספר פוליסה',
+          value: 12345.67,
+        }
+      ]
+    }
+  });
+}
+
 async function getSurenseToken(env) {
   const clientId     = env.SURENSE_CLIENT_ID;
   const clientSecret = env.SURENSE_CLIENT_SECRET;
@@ -1129,18 +1319,13 @@ export default {
     // Auth routes (no session required)
     if (path.startsWith('/auth/')) return handleAuth(request, env);
 
-    // Surense API integration routes
-    if (path === '/api/surense/sync-client' && request.method === 'POST') {
-      const sess = env.DB ? await getSession(request, env) : null;
-      return handleSurenseSync(request, env, sess);
+    // ── Make Webhook (no session – secret-based auth) ──
+    if (path === '/api/webhook/surense' && request.method === 'POST') {
+      return handleMakeWebhook(request, env);
     }
-    if (path === '/api/surense/preview' && request.method === 'POST') {
+    if (path === '/api/webhook/info' && request.method === 'GET') {
       const sess = env.DB ? await getSession(request, env) : null;
-      return handleSurensePreview(request, env, sess);
-    }
-    if (path === '/api/surense/test' && request.method === 'GET') {
-      const sess = env.DB ? await getSession(request, env) : null;
-      return handleSurenseTest(request, env, sess);
+      return handleWebhookInfo(request, env, sess);
     }
 
     // Authenticated routes

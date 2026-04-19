@@ -951,15 +951,15 @@ async function refreshAll() {
 <!-- PDF Generator Modal                                        -->
 <!-- ══════════════════════════════════════════════════════════ -->
 <!-- ══════════════════════════════════════════════
-     Surense Sync Modal
+     Surense / Make Webhook Modal
 ═══════════════════════════════════════════════ -->
 <div class="modal-overlay" id="surenseSyncModal" onclick="if(event.target.id==='surenseSyncModal')closeSurenseModal()">
-  <div class="modal" style="max-width:640px;">
+  <div class="modal" style="max-width:660px;">
     <div class="modal-header">
       <div>
         <h3 style="margin:0;font-size:1.1rem;">
           <i class="fa fa-sync-alt" style="margin-left:8px;color:#018ef5;"></i>
-          סנכרון נתוני Surense
+          סנכרון Surense דרך Make
         </h3>
         <div style="font-size:0.78rem;color:var(--text-muted);margin-top:3px;" id="surenseClientName"></div>
       </div>
@@ -967,52 +967,120 @@ async function refreshAll() {
     </div>
     <input type="hidden" id="surenseClientId">
 
-    <!-- Step 1: Input -->
-    <div id="surenseStep1">
-      <div style="background:rgba(1,142,245,0.07);border:1px solid rgba(1,142,245,0.2);border-radius:10px;padding:16px;margin-bottom:18px;">
-        <p style="margin:0 0 4px;font-size:0.88rem;color:var(--text-muted);">
-          <i class="fa fa-info-circle" style="color:#018ef5;margin-left:6px;"></i>
-          מערכת Surense מתממשקת למסלקה הפנסיונית ומשיגה נתוני צבירה עדכניים לכל המוצרים הפנסיוניים של הלקוח לפי מספר זהות.
-        </p>
+    <!-- לשוניות -->
+    <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:18px;">
+      <button onclick="surenseTab('setup')" id="surenseTabSetup"
+        style="padding:8px 18px;background:none;border:none;border-bottom:2px solid #018ef5;color:#018ef5;font-weight:600;cursor:pointer;font-size:0.88rem;">
+        <i class="fa fa-cog" style="margin-left:5px;"></i>הגדרת Make
+      </button>
+      <button onclick="surenseTab('test')" id="surenseTabTest"
+        style="padding:8px 18px;background:none;border:none;border-bottom:2px solid transparent;color:var(--text-muted);cursor:pointer;font-size:0.88rem;">
+        <i class="fa fa-vial" style="margin-left:5px;"></i>בדיקת חיבור
+      </button>
+    </div>
+
+    <!-- לשונית הגדרת Make -->
+    <div id="surensePanelSetup">
+      <!-- שלב 1 -->
+      <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px;">
+        <div style="min-width:28px;height:28px;border-radius:50%;background:#018ef5;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.9rem;">1</div>
+        <div>
+          <div style="font-weight:600;margin-bottom:4px;">העתק את Webhook URL</div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <code id="webhookUrlDisplay" style="background:var(--bg-card2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:0.8rem;direction:ltr;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">טוען...</code>
+            <button onclick="copyWebhookUrl()" class="btn btn-secondary btn-sm" title="העתק">
+              <i class="fa fa-copy"></i>
+            </button>
+          </div>
+          <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">
+            ה-URL הייחודי שיש להגדיר ב-Make כ-HTTP Module
+          </div>
+        </div>
       </div>
 
-      <div class="form-group">
-        <label class="form-label">מספר זהות לקוח *</label>
-        <input type="text" id="surenseIdentityNumber" class="form-input" placeholder="לדוגמה: 123456789" maxlength="9" dir="ltr">
-        <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">9 ספרות, ללא מקפים</div>
+      <!-- שלב 2 -->
+      <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px;">
+        <div style="min-width:28px;height:28px;border-radius:50%;background:#018ef5;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.9rem;">2</div>
+        <div style="flex:1;">
+          <div style="font-weight:600;margin-bottom:4px;">ב-Make: צור Scenario חדש</div>
+          <div style="font-size:0.83rem;color:var(--text-muted);line-height:1.6;">
+            <b>Trigger:</b> Surense → "מוצרים בניהול" (Schedule: ראשון לחודש)<br>
+            <b>Action:</b> HTTP → Make a request → POST ל-URL למעלה<br>
+            <b>Body (JSON):</b>
+          </div>
+          <pre id="makeBodyTemplate" style="background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:0.75rem;direction:ltr;overflow-x:auto;margin-top:8px;white-space:pre-wrap;">טוען...</pre>
+          <button onclick="copyMakeBody()" class="btn btn-secondary btn-sm" style="margin-top:6px;">
+            <i class="fa fa-copy" style="margin-left:5px;"></i>העתק JSON
+          </button>
+        </div>
       </div>
 
-      <div class="form-group">
-        <label class="form-label">חודש נתונים</label>
-        <input type="month" id="surenseMonth" class="form-input" dir="ltr">
-        <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px;">ברירת מחדל: החודש הקודם</div>
+      <!-- שלב 3 -->
+      <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px;">
+        <div style="min-width:28px;height:28px;border-radius:50%;background:#018ef5;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.9rem;">3</div>
+        <div>
+          <div style="font-weight:600;margin-bottom:4px;">הגדר WEBHOOK_SECRET</div>
+          <div style="font-size:0.83rem;color:var(--text-muted);line-height:1.6;">
+            סוד משותף שמאמת שהבקשה מגיעה מ-Make בלבד.<br>
+            הגדר אותו ב-Cloudflare Pages → Settings → Environment Variables:<br>
+            <code style="background:var(--bg-card2);padding:2px 6px;border-radius:4px;">WEBHOOK_SECRET = &lt;בחר מחרוזת ארוכה וסודית&gt;</code><br>
+            ואת <b>אותו</b> ערך הכנס ב-Make בשדה <code>webhook_secret</code>.
+          </div>
+        </div>
       </div>
 
-      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;">
-        <button class="btn btn-secondary" onclick="closeSurenseModal()">ביטול</button>
-        <button class="btn btn-primary" onclick="surensePreview()" id="surensePreviewBtn">
-          <i class="fa fa-search"></i> תצוגה מקדימה
-        </button>
+      <!-- מספר זהות -->
+      <div style="background:rgba(1,142,245,0.06);border:1px solid rgba(1,142,245,0.18);border-radius:10px;padding:14px;margin-bottom:4px;">
+        <div style="font-weight:600;margin-bottom:8px;font-size:0.88rem;">
+          <i class="fa fa-id-card" style="margin-left:6px;color:#018ef5;"></i>
+          מספר זהות לקוח (ל-Make)
+        </div>
+        <div style="font-size:0.83rem;color:var(--text-muted);margin-bottom:8px;">
+          ב-Make יש לסנן את תוצאות Surense לפי מספר הזהות של הלקוח הזה:
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="text" id="surenseIdentityNumber" class="form-input"
+            placeholder="מספר זהות (9 ספרות)" maxlength="9" dir="ltr"
+            style="max-width:200px;"
+            oninput="updateMakeBodyTemplate()">
+          <button onclick="saveIdentityNumber()" class="btn btn-primary btn-sm">
+            <i class="fa fa-save" style="margin-left:4px;"></i>שמור
+          </button>
+        </div>
       </div>
     </div>
 
-    <!-- Step 2: Preview -->
-    <div id="surenseStep2" style="display:none;">
-      <div id="surensePreviewResult" style="margin-bottom:16px;"></div>
-      <div style="display:flex;gap:10px;justify-content:flex-end;">
-        <button class="btn btn-secondary" onclick="surenseBack()"><i class="fa fa-arrow-right"></i> חזרה</button>
-        <button class="btn btn-primary" onclick="surenseConfirmSync()" id="surenseSyncBtn" style="background:#018ef5;border-color:#018ef5;">
-          <i class="fa fa-check"></i> אישור וסנכרון
+    <!-- לשונית בדיקת חיבור -->
+    <div id="surensePanelTest" style="display:none;">
+      <div style="margin-bottom:16px;font-size:0.88rem;color:var(--text-muted);">
+        שלח בקשת בדיקה ידנית ל-Webhook כדי לוודא שהכל עובד.
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">חודש (YYYY-MM)</label>
+        <input type="month" id="surenseTestMonth" class="form-input" dir="ltr" style="max-width:200px;">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Webhook Secret</label>
+        <input type="text" id="surenseTestSecret" class="form-input" placeholder="הכנס את ה-WEBHOOK_SECRET שהגדרת" dir="ltr">
+      </div>
+
+      <div style="background:var(--bg-card2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:14px;">
+        <div style="font-size:0.8rem;color:var(--text-muted);margin-bottom:6px;">דוגמת מוצר לבדיקה (ניתן לערוך):</div>
+        <textarea id="surenseTestPayload" rows="8" style="width:100%;background:transparent;border:none;color:var(--text-primary);font-size:0.78rem;font-family:monospace;resize:vertical;direction:ltr;" spellcheck="false"></textarea>
+      </div>
+
+      <div style="display:flex;gap:10px;align-items:center;">
+        <button onclick="sendTestWebhook()" class="btn btn-primary" id="surenseTestBtn">
+          <i class="fa fa-paper-plane" style="margin-left:5px;"></i>שלח בדיקה
         </button>
+        <div id="surenseTestResult" style="font-size:0.83rem;"></div>
       </div>
     </div>
 
-    <!-- Step 3: Result -->
-    <div id="surenseStep3" style="display:none;">
-      <div id="surenseSyncResult"></div>
-      <div style="display:flex;justify-content:flex-end;margin-top:16px;">
-        <button class="btn btn-primary" onclick="closeSurenseModal()">סגור</button>
-      </div>
+    <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+      <button class="btn btn-secondary" onclick="closeSurenseModal()">סגור</button>
     </div>
   </div>
 </div>
