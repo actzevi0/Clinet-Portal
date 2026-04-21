@@ -1405,15 +1405,45 @@ async function handleSurenseExcelImport(request, env, sess) {
   }
   if (!reportMonth) return jr({error:'לא נמצא תאריך "נכון ליום" בדוח'}, 400);
 
+  // ── Helper: המרת תאריך Excel serial / string / Date → YYYY-MM-DD ──
+  const parseExcelDate = (val) => {
+    if (!val) return null;
+    // Excel serial number (e.g. 46850)
+    if (typeof val === 'number') {
+      // Excel epoch: Jan 1 1900 = serial 1, but Excel wrongly counts 1900 as leap year
+      const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+      const ms = excelEpoch.getTime() + val * 86400000;
+      const d = new Date(ms);
+      if (!isNaN(d)) return d.toISOString().split('T')[0];
+    }
+    // Israeli DD/MM/YYYY
+    if (typeof val === 'string') {
+      const s = val.trim();
+      const dmy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (dmy) return `${dmy[3]}-${dmy[2].padStart(2,'0')}-${dmy[1].padStart(2,'0')}`;
+      // Already ISO YYYY-MM-DD
+      if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+      // MM/YYYY  
+      const my = s.match(/^(\d{1,2})\/(\d{4})$/);
+      if (my) return `${my[2]}-${my[1].padStart(2,'0')}-01`;
+    }
+    if (val instanceof Date) return val.toISOString().split('T')[0];
+    // Generic parse
+    const d = new Date(val);
+    if (!isNaN(d)) return d.toISOString().split('T')[0];
+    return null;
+  };
+
   // ── Helper: האם תאריך ההפקדה שייך לאותו חודש של הדוח? ──
-  // reportMonth פורמט MM/YY, depDate יכול להיות Date / string / מספר Excel
+  // reportMonth פורמט MM/YY, depDate יכול להיות Date / string ISO / מספר Excel
   const depMatchesReportMonth = (depDate) => {
     if (!depDate) return false;
     try {
-      const dt = depDate instanceof Date ? depDate : new Date(depDate);
-      if (isNaN(dt)) return false;
-      const depMM = String(dt.getMonth() + 1).padStart(2, '0');
-      const depYY = String(dt.getFullYear()).slice(2);
+      const iso = parseExcelDate(depDate);
+      if (!iso) return false;
+      const [y, m] = iso.split('-');
+      const depMM = m.padStart(2,'0');
+      const depYY = String(y).slice(2);
       return `${depMM}/${depYY}` === reportMonth;
     } catch { return false; }
   };
@@ -1535,7 +1565,7 @@ async function handleSurenseExcelImport(request, env, sess) {
 
       // ── 7. Add deposit to timeline_events — רק אם ההפקדה היא של חודש הדוח ולקוח אינו protected ──
       if (!clientIsProtected && lastDeposit > 0 && lastDepDate && depMatchesReportMonth(lastDepDate)) {
-        const depDate = fmtDate(lastDepDate);
+        const depDate = parseExcelDate(lastDepDate);
         if (depDate) {
           // מחק deposits ישנים לאותו מוצר שנוצרו מדוח אותו חודש אבל עם תאריך שגוי
           await env.DB.prepare(`
@@ -1639,11 +1669,13 @@ async function handleSurenseJsonImport(request, env, sess) {
   const depMatchesRM = (depDate) => {
     if (!depDate) return false;
     try {
-      const dt = depDate instanceof Date ? depDate : new Date(depDate);
-      if (isNaN(dt)) return false;
-      const depMM = String(dt.getMonth() + 1).padStart(2, '0');
-      const depYY = String(dt.getFullYear()).slice(2);
-      return `${depMM}/${depYY}` === reportMonth;
+      // depDate here comes from import-excel as ISO string "YYYY-MM-DD"
+      const iso = typeof depDate === 'string' && /^\d{4}-\d{2}-\d{2}/.test(depDate)
+        ? depDate.slice(0,10)
+        : (() => { const d = new Date(depDate); return isNaN(d) ? null : d.toISOString().split('T')[0]; })();
+      if (!iso) return false;
+      const [y, m] = iso.split('-');
+      return `${m.padStart(2,'0')}/${String(y).slice(2)}` === reportMonth;
     } catch { return false; }
   };
 
