@@ -364,12 +364,14 @@ async function loadClients() {
       } catch(e) { IS_DEMO_MODE = true; }
     }
 
-    // ── טעינה מקבילית: clients + products + monthly_values (ללא timeline_events שלא נצרך כאן) ──
-    const [clientsRaw, productsRaw, mvAll] = await Promise.all([
+    // ── טעינה מקבילית: clients + products + monthly_values + transfer events (לסינון ניודים בצבירה) ──
+    const [clientsRaw, productsRaw, mvAll, eventsRaw] = await Promise.all([
       fetchAll('/tables/clients'),
       fetchAll('/tables/products?sort=sort_order'),
       fetchAll('/tables/monthly_values'),
+      fetchAll('/tables/timeline_events'),
     ]);
+    EVENTS_ALL = eventsRaw.filter(e => e.event_type === 'transfer');
 
     CLIENTS = clientsRaw.sort((a,b) => a.name.localeCompare(b.name, 'he'));
 
@@ -394,7 +396,7 @@ async function loadClients() {
       MV_ALL[mv.client_id].push(mv);
     }
 
-    // EVENTS_ALL לא נטען כאן (נטען לפי דרישה בכל לקוח בנפרד)
+    // EVENTS_ALL נטען עם רשומות transfer בלבד לסינון ניודים בחישוב צבירה
 
     const activeCount = CLIENTS.filter(c => c.active).length;
     document.getElementById('statTotalClients').textContent = activeCount;
@@ -445,14 +447,38 @@ function calcClientTotalVal(c) {
     }
   }
 
+  // בנה סט של קופות שנויידו החוצה — לא לסכום (הכסף עבר לקופת יעד)
+  const transferOutProds = new Set(
+    EVENTS_ALL
+      .filter(e => e.event_type === 'transfer' && e.transfer_direction === 'out')
+      .map(e => e.product_id)
+  );
+  // fallback: ניודים ללא direction שאין להם נתונים אחרי הניוד
+  for (const e of EVENTS_ALL) {
+    if (e.event_type !== 'transfer' || e.transfer_direction) continue;
+    const tDate = e.event_date;
+    const tYear = parseInt(tDate.slice(0,4));
+    const tMonth = parseInt(tDate.slice(5,7)) || 1;
+    const tNum = tYear * 100 + tMonth;
+    const mvProd = mvs.filter(r => r.product_id === e.product_id && r.value != null);
+    const hasDataAfter = mvProd.some(r => {
+      const [mm, yy] = r.month.split('/');
+      return parseInt('20'+yy) * 100 + parseInt(mm) > tNum;
+    });
+    if (!hasDataAfter) transferOutProds.add(e.product_id);
+  }
+
   // Sum ALL products with value > 0 (inactive with money still counts)
+  // למעט קופות שנויידו החוצה
   const allProdIds = new Set(
     PRODUCTS_ALL.filter(p => p.client_id === c.id).map(p => p.id)
   );
 
   let total = 0;
   for (const [prodId, mv] of Object.entries(latestByProd)) {
-    if (allProdIds.has(prodId) && mv.value > 0) total += mv.value;
+    if (allProdIds.has(prodId) && mv.value > 0 && !transferOutProds.has(prodId)) {
+      total += mv.value;
+    }
   }
   return total;
 }

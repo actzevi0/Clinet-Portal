@@ -1423,10 +1423,34 @@ function getAvailableYears(){
 }
 
 function renderKPIs(){
+  // בנה סט של קופות שנויידו החוצה (transfer-out) — לא לסכום אותן בצבירה הכוללת
+  // כי הכסף עבר לקופת יעד שנספרת
+  const transferOutProds = new Set(
+    EVENTS
+      .filter(e => e.event_type === 'transfer' && e.transfer_direction === 'out')
+      .map(e => e.product_id)
+  );
+  // קופות ללא direction שאין להן נתונים אחרי הניוד (קופת מקור לפי fallback)
+  for(const e of EVENTS){
+    if(e.event_type !== 'transfer' || e.transfer_direction) continue;
+    const tDate = e.event_date;
+    const tYear = parseInt(tDate.slice(0,4));
+    const tMonth = parseInt(tDate.slice(5,7)) || 1;
+    const tNum = tYear * 100 + tMonth;
+    const hasDataAfter = (MV[e.product_id]||[]).some(r => {
+      if(!r.month || r.value == null) return false;
+      const [mm, yy] = r.month.split('/');
+      const rNum = parseInt('20'+yy) * 100 + parseInt(mm);
+      return rNum > tNum;
+    });
+    if(!hasDataAfter) transferOutProds.add(e.product_id);
+  }
+
   // צבירה עדכנית — כל מוצר עם ערך אחרון > 0, אקטיבי וגם אינאקטיבי עם צבירה קיימת
+  // למעט קופות שנויידו החוצה (הכסף עבר לקופת יעד שנספרת)
   const totalVal=PRODUCTS.reduce((s,p)=>{
+    if(transferOutProds.has(p.id)) return s; // נויד החוצה — לא לסכום
     const v=getLastVal(p.id);
-    // מוצר inactive עם ערך > 0 = עדיין יש שם כסף, סופר בצבירה
     return s+(v!=null && v>0 ? v : 0);
   },0);
   const portYTD=calcPortfolioYTD(ACTIVE_YEAR);
@@ -1469,9 +1493,10 @@ function renderKPIs(){
       .map(e => e.product_id)
   );
 
-  // צבירה לסוף השנה: כל מוצר עם ערך > 0 (בלי סינון סטטוס), ללא ניודים השנה
+  // צבירה לסוף השנה: כל מוצר עם ערך > 0 (בלי סינון סטטוס)
+  // ללא ניודים שנויידו (בכל שנה) — transferOutProds כולל גם ניודים משנים קודמות
   const yearCloseVal = PRODUCTS
-    .filter(p => !transferredOutThisYear.has(p.id))
+    .filter(p => !transferOutProds.has(p.id))
     .reduce((s,p)=>{
       let c = getYearClose(p, ACTIVE_YEAR);
       if (c == null && isPartialYear) c = getLastVal(p.id);
@@ -1481,7 +1506,7 @@ function renderKPIs(){
   document.getElementById('kpiGrid').innerHTML=
     yearSelector+
     [
-      {label:'צבירה עדכנית',val:ILS(totalVal),sub:`נכון ל-${getLastDataDate()} | ${PRODUCTS.filter(p=>(getLastVal(p.id)||0)>0).length} מוצרים פעילים`,cls:'blue',badge:null},
+      {label:'צבירה עדכנית',val:ILS(totalVal),sub:`נכון ל-${getLastDataDate()} | ${PRODUCTS.filter(p=>!transferOutProds.has(p.id)&&(getLastVal(p.id)||0)>0).length} מוצרים פעילים`,cls:'blue',badge:null},
       {label:`צבירה לסוף ${ACTIVE_YEAR}${isPartialYear?' (חלקית)':''}`,val:ILS(yearCloseVal),sub:yearValSub,cls:'blue',badge:null},
       {label:`תשואה ${ACTIVE_YEAR}${isPartialYear?' (חלקית)':''}`,val:FMT_PCT(portYTD),sub:ytdSub,cls:portYTD!=null&&portYTD>=0?'green':'red',badge:portYTD!=null?{dir:portYTD>=0?'up':'down',txt:FMT_PCT(portYTD)}:null},
       {label:'מוצר מוביל',val:best?best.p.name_short:'—',sub:best?best.p.institution:'',cls:'green',badge:best?{dir:'up',txt:FMT_PCT(best.r)}:null},
@@ -1639,8 +1664,11 @@ const PCOLORS=['#1a56db','#8b5cf6','#06b6d4','#0ea5e9','#f97316','#ef4444','#84c
 function renderPieChart(){
   destroyChart('pie');
   const d=cd();
+  // בנה סט של קופות שנויידו החוצה
+  const txOut = new Set(EVENTS.filter(e=>e.event_type==='transfer'&&e.transfer_direction==='out').map(e=>e.product_id));
   const groups={};
   for(const p of PRODUCTS){
+    if(txOut.has(p.id)) continue; // דלג קופות שנויידו החוצה
     const v=getLastVal(p.id)||0;
     if(v===0) continue; // דלג על מוצרים עם ערך 0
     const k=PIE_MODE==='institution'?p.institution:PIE_MODE==='product_type'?p.product_type:p.name_short;
