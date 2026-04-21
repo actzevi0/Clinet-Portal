@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-eval' 'unsafe-inline' https: data: blob:;">
+<title>ייבוא דוח סורנס – EasyFinance</title>
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+<script>
+  const _t = localStorage.getItem('theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', _t);
+</script>
+<script src="../js/agent-auth.js"></script>
+<!-- SheetJS for Excel parsing in browser -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  .import-header { background: linear-gradient(135deg, #1a56db 0%, #0ea5e9 100%); color:#fff; padding:40px 0 28px; margin-bottom:32px; }
+  .import-header h1 { color:#fff; margin-bottom:8px; }
+  .import-header p { color:rgba(255,255,255,0.8); font-size:0.9rem; }
+
+  .step-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:28px; margin-bottom:20px; }
+  .step-title { font-size:1.05rem; font-weight:700; margin-bottom:16px; display:flex; align-items:center; gap:10px; }
+  .step-num { background:var(--primary); color:#fff; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.85rem; font-weight:700; flex-shrink:0; }
+
+  .drop-zone { border:2px dashed var(--border); border-radius:var(--radius); padding:48px 24px; text-align:center; cursor:pointer; transition:all 0.2s; }
+  .drop-zone:hover, .drop-zone.drag-over { border-color:var(--primary); background:rgba(26,86,219,0.05); }
+  .drop-zone i { font-size:2.5rem; color:var(--text-muted); margin-bottom:12px; display:block; }
+  .drop-zone p { color:var(--text-muted); margin:0; }
+  .drop-zone .file-name { color:var(--primary); font-weight:600; margin-top:8px; font-size:0.9rem; }
+
+  .preview-table { width:100%; border-collapse:collapse; font-size:0.8rem; }
+  .preview-table th { background:var(--bg-hover); padding:8px 12px; text-align:right; border-bottom:2px solid var(--border); font-weight:600; white-space:nowrap; }
+  .preview-table td { padding:7px 12px; border-bottom:1px solid var(--border); }
+  .preview-table tr:hover td { background:var(--bg-hover); }
+  .table-scroll { overflow-x:auto; max-height:350px; overflow-y:auto; }
+
+  .stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:14px; margin-bottom:20px; }
+  .stat-box { background:var(--bg-hover); border-radius:10px; padding:16px; text-align:center; }
+  .stat-val { font-size:1.6rem; font-weight:800; color:var(--primary); }
+  .stat-lbl { font-size:0.75rem; color:var(--text-muted); margin-top:4px; }
+
+  .result-section { margin-top:12px; }
+  .result-section h4 { font-size:0.85rem; font-weight:700; margin-bottom:8px; color:var(--text-dim); }
+  .result-list { list-style:none; padding:0; margin:0; font-size:0.8rem; }
+  .result-list li { padding:4px 0; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; }
+  .result-list li:last-child { border:none; }
+  .tag { padding:2px 8px; border-radius:20px; font-size:0.7rem; font-weight:600; }
+  .tag-new { background:rgba(16,185,129,0.15); color:#10b981; }
+  .tag-upd { background:rgba(59,130,246,0.15); color:#3b82f6; }
+  .tag-skip { background:rgba(156,163,175,0.15); color:#9ca3af; }
+  .tag-err { background:rgba(239,68,68,0.15); color:#ef4444; }
+
+  .progress-bar-wrap { background:var(--bg-hover); border-radius:8px; height:8px; margin:10px 0; overflow:hidden; }
+  .progress-bar { height:100%; background:var(--primary); border-radius:8px; transition:width 0.3s; }
+</style>
+</head>
+<body>
+
+<header class="import-header">
+  <div class="container">
+    <a href="index.html" style="color:rgba(255,255,255,0.7);text-decoration:none;font-size:0.85rem;"><i class="fa fa-arrow-right ml-2"></i> חזרה לפאנל</a>
+    <h1 style="margin-top:12px;"><i class="fa fa-file-excel" style="margin-left:10px;"></i>ייבוא דוח מוצרים – סורנס</h1>
+    <p>העלה את קובץ ה-Excel החודשי מסורנס לעדכון אוטומטי של כל לקוחותיך</p>
+  </div>
+</header>
+
+<main class="container" style="max-width:900px;padding-bottom:60px;">
+
+  <!-- Step 1: Upload -->
+  <div class="step-card" id="stepUpload">
+    <div class="step-title">
+      <span class="step-num">1</span>
+      העלה את קובץ ה-Excel מסורנס
+    </div>
+    <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+      <i class="fa fa-cloud-upload-alt"></i>
+      <p>לחץ לבחירת קובץ או גרור לכאן</p>
+      <p style="font-size:0.78rem;margin-top:6px;">פורמט: <strong>דוח_מוצרים_בניהול_XX_XXXX.xlsx</strong></p>
+      <div class="file-name" id="fileName"></div>
+    </div>
+    <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none" onchange="handleFileSelect(this.files[0])">
+  </div>
+
+  <!-- Step 2: Preview -->
+  <div class="step-card" id="stepPreview" style="display:none;">
+    <div class="step-title">
+      <span class="step-num">2</span>
+      תצוגה מקדימה – <span id="previewMonth"></span>
+    </div>
+
+    <div class="stats-grid" id="previewStats"></div>
+
+    <div style="margin-bottom:12px;">
+      <strong style="font-size:0.88rem;">מוצרי חיסכון – 5 שורות ראשונות:</strong>
+    </div>
+    <div class="table-scroll">
+      <table class="preview-table" id="previewTable"></table>
+    </div>
+
+    <div style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="startImport()" id="importBtn">
+        <i class="fa fa-upload ml-2"></i>
+        ייבא לפורטל
+      </button>
+      <button class="btn btn-secondary" onclick="resetImport()">
+        <i class="fa fa-redo ml-2"></i>
+        בחר קובץ אחר
+      </button>
+    </div>
+  </div>
+
+  <!-- Step 3: Progress -->
+  <div class="step-card" id="stepProgress" style="display:none;">
+    <div class="step-title">
+      <span class="step-num">3</span>
+      מייבא נתונים...
+    </div>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar" id="progressBar" style="width:0%"></div>
+    </div>
+    <p id="progressText" style="font-size:0.85rem;color:var(--text-muted);margin:8px 0 0;"></p>
+  </div>
+
+  <!-- Step 4: Results -->
+  <div class="step-card" id="stepResults" style="display:none;">
+    <div class="step-title">
+      <span class="step-num" style="background:#10b981;">✓</span>
+      ייבוא הושלם!
+    </div>
+
+    <div class="stats-grid" id="resultStats"></div>
+
+    <div id="resultDetails"></div>
+
+    <div style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap;">
+      <a href="index.html" class="btn btn-primary"><i class="fa fa-users ml-2"></i>צפה בלקוחות</a>
+      <button class="btn btn-secondary" onclick="resetImport()"><i class="fa fa-plus ml-2"></i>ייבא חודש נוסף</button>
+    </div>
+  </div>
+
+</main>
+
+<script>
+let parsedData = null;
+
+// ── Drag & Drop ──────────────────────────────────
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f) handleFileSelect(f);
+});
+
+// ── File Select ──────────────────────────────────
+function handleFileSelect(file) {
+  if (!file) return;
+  document.getElementById('fileName').textContent = file.name;
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data  = new Uint8Array(e.target.result);
+      const wb    = XLSX.read(data, { type:'array', cellDates:true });
+
+      const savingsSheet = wb.Sheets['מוצרי חיסכון'];
+      const tracksSheet  = wb.Sheets['מסלולי השקעה'];
+
+      if (!savingsSheet) {
+        alert('שגיאה: לא נמצא גיליון "מוצרי חיסכון" בקובץ!');
+        return;
+      }
+
+      const savingsRaw = XLSX.utils.sheet_to_json(savingsSheet, { defval: null, raw: true, dateNF: 'yyyy-mm-dd' });
+      const tracksRaw  = tracksSheet ? XLSX.utils.sheet_to_json(tracksSheet, { defval: null, raw: true, dateNF: 'yyyy-mm-dd' }) : [];
+
+      // Map Hebrew column names to English keys
+      const savings = savingsRaw.map(r => ({
+        institution:       xlsxNumToStr(r['יצרן'])                    || '',
+        product_type:      xlsxNumToStr(r['סוג מוצר'])               || '',
+        product_sub:       xlsxNumToStr(r['מוצר'])                    || '',
+        policy:            xlsxNumToStr(r["מס' חשבון/פוליסה"])       || '',
+        first_name:        xlsxNumToStr(r['שם פרטי לקוח'])           || '',
+        last_name:         xlsxNumToStr(r['שם משפחה לקוח'])          || '',
+        tz:                String(r['מספר ת.ז']  || '').replace(/-/g,'').trim(),
+        tzvira:            parseFloat(r['צבירה'] || 0) || 0,
+        last_deposit:      parseFloat(r['הפקדה אחרונה'] || 0) || 0,
+        last_deposit_date: fmtDate(r['תאריך הפקדה אחרונה']),
+        agent_appointment: fmtDate(r['תאריך מינוי סוכן']),
+        status:            xlsxNumToStr(r['סטטוס מוצר'])              || 'פעיל',
+        report_date:       fmtDate(r['נכון ליום']),
+      }));
+
+      const tracks = tracksRaw.map(r => ({
+        tz:         String(r['מספר ת.ז'] || '').replace(/-/g,'').trim(),
+        policy:     String(r["מס' חשבון/פוליסה"] || '').trim(),
+        track_name: xlsxNumToStr(r['שם מסלול'])           || '',
+        track_code: String(r['קוד מסלול']   || '').trim(),
+        tzvira:     parseFloat(r['צבירה במסלול'] || 0) || 0,
+      }));
+
+      // Determine report month
+      const reportDate = savings.find(r => r.report_date)?.report_date;
+      let reportMonth = null;
+      if (reportDate) {
+        // reportDate is already "YYYY-MM-DD"
+        const parts = reportDate.split('-');
+        if (parts.length >= 2) {
+          reportMonth = `${parts[1].padStart(2,'0')}/${String(parts[0]).slice(2)}`;
+        }
+      }
+      console.log('reportDate sample:', reportDate, '→ reportMonth:', reportMonth);
+
+      parsedData = { savings, tracks, month: reportMonth };
+      showPreview(savings, tracks, reportMonth);
+
+    } catch(err) {
+      alert('שגיאה בקריאת הקובץ: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function fmtDate(val) {
+  if (!val) return null;
+  if (val instanceof Date) return val.toISOString().split('T')[0];
+  // Excel serial number (raw)
+  if (typeof val === 'number') {
+    const d = XLSX.SSF.parse_date_code(val);
+    if (d) {
+      const mm = String(d.m).padStart(2,'0');
+      const dd = String(d.d).padStart(2,'0');
+      return `${d.y}-${mm}-${dd}`;
+    }
+  }
+  const s = String(val).trim();
+  if (!s || s === 'null' || s === '0') return null;
+  // Already ISO format
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+  // MM/YYYY format (e.g. "03/2026") → use last day of that month
+  const myMatch = s.match(/^(\d{1,2})\/(\d{4})$/);
+  if (myMatch) {
+    const m = myMatch[1].padStart(2,'0');
+    const y = myMatch[2];
+    // Last day of month
+    const lastDay = new Date(parseInt(y), parseInt(myMatch[1]), 0).getDate();
+    return `${y}-${m}-${String(lastDay).padStart(2,'0')}`;
+  }
+  // US format M/D/YYYY
+  const usMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (usMatch) {
+    return `${usMatch[3]}-${usMatch[1].padStart(2,'0')}-${usMatch[2].padStart(2,'0')}`;
+  }
+  // Try generic parse
+  const d = new Date(s);
+  if (!isNaN(d)) return d.toISOString().split('T')[0];
+  return null;
+}
+
+function xlsxNumToStr(val) {
+  // For non-date fields that might be numbers from Excel
+  if (val === null || val === undefined) return '';
+  return String(val).trim();
+}
+
+// ── Show Preview ─────────────────────────────────
+function showPreview(savings, tracks, month) {
+  document.getElementById('previewMonth').textContent = month ? `חודש ${month}` : '';
+
+  // Count unique clients
+  const uniqueTz = new Set(savings.map(r => r.tz).filter(Boolean));
+
+  document.getElementById('previewStats').innerHTML = `
+    <div class="stat-box">
+      <div class="stat-val">${savings.length}</div>
+      <div class="stat-lbl">מוצרי חיסכון</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-val">${uniqueTz.size}</div>
+      <div class="stat-lbl">לקוחות ייחודיים</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-val">${tracks.length}</div>
+      <div class="stat-lbl">מסלולי השקעה</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-val">${month || '?'}</div>
+      <div class="stat-lbl">חודש דיווח</div>
+    </div>
+  `;
+
+  // Preview table (first 5 rows)
+  const cols = ['tz','first_name','last_name','institution','product_type','policy','tzvira'];
+  const hdrs = ['ת"ז','שם פרטי','שם משפחה','יצרן','סוג מוצר','פוליסה','צבירה'];
+  const preview5 = savings.slice(0, 5);
+
+  let html = '<thead><tr>' + hdrs.map(h => `<th>${h}</th>`).join('') + '</tr></thead><tbody>';
+  for (const row of preview5) {
+    html += '<tr>' + cols.map(c => {
+      const v = row[c];
+      if (c === 'tzvira') return `<td>${Number(v||0).toLocaleString('he-IL')} ₪</td>`;
+      return `<td>${v || '–'}</td>`;
+    }).join('') + '</tr>';
+  }
+  html += '</tbody>';
+  document.getElementById('previewTable').innerHTML = html;
+
+  document.getElementById('stepPreview').style.display = '';
+  document.getElementById('stepPreview').scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+// ── Start Import (batched) ────────────────────────
+const BATCH_SIZE = 50; // rows per batch
+
+async function startImport() {
+  if (!parsedData) return;
+  document.getElementById('importBtn').disabled = true;
+  document.getElementById('stepProgress').style.display = '';
+  document.getElementById('stepProgress').scrollIntoView({ behavior:'smooth' });
+
+  const token = sessionStorage.getItem('agent_token') || localStorage.getItem('agent_token');
+  if (!token) {
+    alert('אינך מחובר! אנא התחבר מחדש.');
+    window.location.href = 'login.html';
+    return;
+  }
+
+  const { savings, tracks, month } = parsedData;
+  const total = savings.length;
+  const batches = Math.ceil(total / BATCH_SIZE);
+
+  // Accumulate totals across batches
+  const totals = {
+    clients_created: 0, products_created: 0, products_updated: 0,
+    mv_updated: 0, deposits_added: 0, skipped: 0, errors: 0,
+    details: { clients_created: [], errors: [], skipped: [] }
+  };
+
+  try {
+    for (let i = 0; i < batches; i++) {
+      const batchSavings = savings.slice(i * BATCH_SIZE, (i + 1) * BATCH_SIZE);
+      const pct = Math.round(10 + (i / batches) * 85);
+      updateProgress(pct, `מעבד ${Math.min((i+1)*BATCH_SIZE, total)} מתוך ${total} מוצרים...`);
+
+      const resp = await fetch('/api/import/surense-json', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Session-Token': token
+        },
+        body: JSON.stringify({ savings: batchSavings, tracks, month })
+      });
+
+      if (!resp.ok) {
+        const errText = await resp.text();
+        throw new Error(`שגיאת שרת (${resp.status}): ${errText}`);
+      }
+
+      const result = await resp.json();
+      if (!result.ok) throw new Error(result.error || 'שגיאה לא ידועה');
+
+      // Accumulate
+      totals.clients_created  += result.clients_created  || 0;
+      totals.products_created += result.products_created || 0;
+      totals.products_updated += result.products_updated || 0;
+      totals.mv_updated       += result.mv_updated       || 0;
+      totals.deposits_added   += result.deposits_added   || 0;
+      totals.skipped          += result.skipped          || 0;
+      totals.errors           += result.errors           || 0;
+      if (result.details?.clients_created?.length)
+        totals.details.clients_created.push(...result.details.clients_created);
+      if (result.details?.errors?.length)
+        totals.details.errors.push(...result.details.errors);
+      if (result.details?.skipped?.length)
+        totals.details.skipped.push(...result.details.skipped);
+    }
+
+    updateProgress(100, 'הושלם!');
+    totals.ok = true;
+    totals.month = month;
+    setTimeout(() => showResults(totals), 500);
+
+  } catch(err) {
+    document.getElementById('progressText').textContent = 'שגיאה: ' + err.message;
+    document.getElementById('progressText').style.color = '#ef4444';
+    document.getElementById('importBtn').disabled = false;
+  }
+}
+
+function updateProgress(pct, text) {
+  document.getElementById('progressBar').style.width = pct + '%';
+  document.getElementById('progressText').textContent = text;
+}
+
+// ── Show Results ─────────────────────────────────
+function showResults(r) {
+  document.getElementById('stepResults').style.display = '';
+  document.getElementById('stepResults').scrollIntoView({ behavior:'smooth' });
+
+  if (!r.ok) {
+    document.getElementById('resultStats').innerHTML = `<div class="stat-box"><div class="stat-val" style="color:#ef4444;">שגיאה</div><div class="stat-lbl">${r.error||'unknown'}</div></div>`;
+    return;
+  }
+
+  document.getElementById('resultStats').innerHTML = `
+    <div class="stat-box">
+      <div class="stat-val" style="color:#10b981;">${r.clients_created}</div>
+      <div class="stat-lbl">לקוחות חדשים</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-val" style="color:#10b981;">${r.products_created}</div>
+      <div class="stat-lbl">מוצרים חדשים</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-val" style="color:#3b82f6;">${r.products_updated}</div>
+      <div class="stat-lbl">מוצרים עודכנו</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-val" style="color:#3b82f6;">${r.mv_updated}</div>
+      <div class="stat-lbl">ערכי צבירה</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-val" style="color:#f59e0b;">${r.deposits_added}</div>
+      <div class="stat-lbl">הפקדות נרשמו</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-val" style="color:#9ca3af;">${r.skipped}</div>
+      <div class="stat-lbl">דולגו</div>
+    </div>
+  `;
+
+  let detailsHtml = '';
+
+  // Clients created
+  if (r.details?.clients_created?.length > 0) {
+    detailsHtml += `<div class="result-section">
+      <h4><i class="fa fa-user-plus ml-2" style="color:#10b981;"></i>לקוחות חדשים שנוצרו:</h4>
+      <ul class="result-list">
+        ${r.details.clients_created.map(c => `
+          <li><span class="tag tag-new">חדש</span> ${c.name} <span style="color:var(--text-muted);font-size:0.75rem;">(ת"ז: ${c.tz})</span></li>
+        `).join('')}
+      </ul>
+    </div>`;
+  }
+
+  // Errors
+  if (r.details?.errors?.length > 0) {
+    detailsHtml += `<div class="result-section">
+      <h4><i class="fa fa-exclamation-triangle ml-2" style="color:#ef4444;"></i>שגיאות (${r.details.errors.length}):</h4>
+      <ul class="result-list">
+        ${r.details.errors.slice(0,10).map(e => `
+          <li><span class="tag tag-err">שגיאה</span> פוליסה ${e.policy}: ${e.error}</li>
+        `).join('')}
+      </ul>
+    </div>`;
+  }
+
+  // Skipped
+  if (r.details?.skipped?.length > 0) {
+    detailsHtml += `<div class="result-section">
+      <h4><i class="fa fa-forward ml-2" style="color:#9ca3af;"></i>דולגו (${r.details.skipped.length}):</h4>
+      <ul class="result-list">
+        ${r.details.skipped.slice(0,5).map(s => `
+          <li><span class="tag tag-skip">דולג</span> ${s.policy || s.tz || '?'}: ${s.reason}</li>
+        `).join('')}
+      </ul>
+    </div>`;
+  }
+
+  document.getElementById('resultDetails').innerHTML = detailsHtml;
+}
+
+// ── Reset ────────────────────────────────────────
+function resetImport() {
+  parsedData = null;
+  document.getElementById('fileName').textContent = '';
+  document.getElementById('fileInput').value = '';
+  document.getElementById('stepPreview').style.display = 'none';
+  document.getElementById('stepProgress').style.display = 'none';
+  document.getElementById('stepResults').style.display = 'none';
+  document.getElementById('importBtn').disabled = false;
+  window.scrollTo(0, 0);
+}
+</script>
+</body>
+</html>

@@ -2186,6 +2186,25 @@ function renderTimeline(){
     const d=ev.event_date.replace(/-/g,'/');
     const p=PRODUCTS.find(x=>x.id===ev.product_id);
     const prodBadge=p?`<span style="font-size:0.72rem;color:var(--text-muted);margin-right:6px;">${p.name_short||p.name}</span>`:'';
+
+    // Build display title: for deposit/withdrawal/track_change events, use product data if available
+    let displayTitle = ev.title || '';
+    if (p && (ev.event_type === 'deposit' || ev.event_type === 'withdrawal' || ev.event_type === 'track_change' || ev.event_type === 'agent_appointment')) {
+      // nickname > track > name_short (=name in DB) -- then add institution + type
+      const nickname   = p.name_short || '';
+      const trackPart  = p.track || '';
+      const instPart   = p.institution || '';
+      const typePart   = p.product_type || '';
+      // Build: "הפקדה – <nickname/track> <inst> <type>"  or fall back to ev.title
+      const coreName   = nickname || trackPart || '';
+      const suffix     = [instPart, typePart].filter(Boolean).join(' ');
+      const fullLabel  = coreName ? `${coreName}${suffix ? ' · ' + suffix : ''}` : (suffix || '');
+      if (fullLabel) {
+        const prefix = labels[ev.event_type] || ev.event_type;
+        displayTitle = `${prefix} – ${fullLabel}`;
+      }
+    }
+
     const editBtns=canEdit?`
       <div style="display:flex;gap:6px;margin-top:8px;">
         <button onclick="openEventModal('${ev.id}')" style="padding:3px 10px;font-size:0.73rem;border:1.5px solid var(--border);border-radius:6px;background:transparent;color:var(--text-muted);cursor:pointer;font-family:Heebo,sans-serif;display:flex;align-items:center;gap:4px;"><i class="fa fa-pen" style="font-size:0.65rem;"></i>ערוך</button>
@@ -2194,8 +2213,8 @@ function renderTimeline(){
     return`<div class="tl-item">
       <div class="tl-dot" style="background:${c};"></div>
       <div style="padding:10px 12px;border-radius:8px;background:var(--bg-card2);">
-        <div class="tl-date"><span class="badge" style="background:${c}22;color:${c};font-size:0.7rem;padding:2px 7px;"><i class="fa ${icons[ev.event_type]||'fa-circle'}" style="margin-left:3px;"></i>${labels[ev.event_type]||ev.event_type}</span><span style="margin-right:8px;">${d}</span>${prodBadge}</div>
-        <div class="tl-title" style="margin-top:5px;">${ev.title||''}</div>
+        <div class="tl-date"><span class="badge" style="background:${c}22;color:${c};font-size:0.7rem;padding:2px 7px;"><i class="fa ${icons[ev.event_type]||'fa-circle'}" style="margin-right:3px;"></i>${labels[ev.event_type]||ev.event_type}</span><span style="margin-right:8px;">${d}</span>${prodBadge}</div>
+        <div class="tl-title" style="margin-top:5px;">${displayTitle}</div>
         ${ev.description?`<div class="tl-desc">${ev.description}</div>`:''}
         ${ev.amount?`<div style="font-size:0.78rem;font-weight:700;color:${c};margin-top:4px;">${ILS(ev.amount)}</div>`:''}
         ${editBtns}

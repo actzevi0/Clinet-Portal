@@ -920,16 +920,26 @@ async function handleMakeWebhook(request, env) {
     return jr({ error: 'products array required' }, 400);
 
   // 3. Look up the client to get agent_id
+  // Support client_id as either the internal ID or the identity_number (ת"ז)
   if (!env.DB) return jr({ error: 'D1 not bound' }, 500);
   let client;
   try {
+    // First try by internal ID
     client = await env.DB.prepare(
       `SELECT id, agent_id FROM clients WHERE id=? AND deleted=0`
     ).bind(client_id).first();
+    // If not found, try by identity_number (ת"ז)
+    if (!client) {
+      client = await env.DB.prepare(
+        `SELECT id, agent_id FROM clients WHERE identity_number=? AND deleted=0`
+      ).bind(client_id).first();
+    }
   } catch(e) {
     return jr({ error: 'DB error: ' + e.message }, 500);
   }
   if (!client) return jr({ error: `Client not found: ${client_id}` }, 404);
+  // Use the internal client ID for all DB operations
+  const internalClientId = client.id;
 
   const agentId = client.agent_id || bodyAgentId || 'system';
 
@@ -941,6 +951,7 @@ async function handleMakeWebhook(request, env) {
   const results = { created_products: [], updated_products: [], updated_mv: [], skipped: [] };
 
   // 5. Process each product
+  try {
   for (const p of products) {
     const companyName  = p.company_name  || p.companyName  || '';
     const productType  = p.product_type  || p.productType  || p.type || '';
@@ -955,13 +966,13 @@ async function handleMakeWebhook(request, env) {
     // Build stable product ID: institution-policyNumber
     const slug = policyNumber
       ? `${institution}-${policyNumber.replace(/\s+/g,'')}`
-      : `${institution}-${efType}-${client_id}`;
+      : `${institution}-${efType}-${internalClientId}`;
     const productId = slug.toLowerCase();
 
     // 5a. Upsert product
     const existing = await env.DB.prepare(
       `SELECT id FROM products WHERE id=? AND client_id=? AND deleted=0`
-    ).bind(productId, client_id).first();
+    ).bind(productId, internalClientId).first();
 
     if (!existing) {
       const productName = `${companyName} – ${productType}`.trim().replace(/\s*–\s*$/, '');
@@ -969,7 +980,7 @@ async function handleMakeWebhook(request, env) {
         `INSERT OR IGNORE INTO products
            (id, client_id, agent_id, name, institution, product_type, account_number, status, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`
-      ).bind(productId, client_id, agentId, productName, institution, efType, policyNumber, now, now).run();
+      ).bind(productId, internalClientId, agentId, productName, institution, efType, policyNumber, now, now).run();
       results.created_products.push(productId);
     }
 
@@ -977,7 +988,7 @@ async function handleMakeWebhook(request, env) {
     if (rawValue > 0) {
       const existMV = await env.DB.prepare(
         `SELECT id FROM monthly_values WHERE product_id=? AND client_id=? AND month=?`
-      ).bind(productId, client_id, efMonth).first();
+      ).bind(productId, internalClientId, efMonth).first();
 
       if (existMV) {
         await env.DB.prepare(
@@ -987,12 +998,15 @@ async function handleMakeWebhook(request, env) {
         await env.DB.prepare(
           `INSERT INTO monthly_values (id, product_id, client_id, agent_id, month, value, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-        ).bind(mkid(), productId, client_id, agentId, efMonth, rawValue, now, now).run();
+        ).bind(mkid(), productId, internalClientId, agentId, efMonth, rawValue, now, now).run();
       }
       results.updated_mv.push({ product: productId, month: efMonth, value: rawValue });
     } else {
       results.skipped.push(productId);
     }
+  }
+  } catch(loopErr) {
+    return jr({ error: 'Processing error: ' + loopErr.message, partial: results }, 500);
   }
 
   // 6. Audit log
@@ -1313,6 +1327,501 @@ async function handleSurensePreview(request, env, sess) {
   }
 }
 
+// ── Excel Import Handler ───────────────────────────────────────────
+// POST /api/import/surense-excel
+// multipart/form-data: file=<xlsx>, agent_id=<optional>
+async function handleSurenseExcelImport(request, env, sess) {
+  if (!sess) return jr({error:'Unauthorized'}, 401);
+  if (sess.is_readonly) return jr({error:'Read-only session'}, 403);
+  if (!env.DB) return jr({error:'D1 not bound'}, 500);
+
+  // Parse multipart form
+  let formData;
+  try { formData = await request.formData(); }
+  catch(e) { return jr({error:'Invalid form data: ' + e.message}, 400); }
+
+  const file = formData.get('file');
+  if (!file) return jr({error:'file field required'}, 400);
+
+  // Read Excel bytes
+  let xlsxBytes;
+  try { xlsxBytes = await file.arrayBuffer(); }
+  catch(e) { return jr({error:'Cannot read file: ' + e.message}, 400); }
+
+  // Parse Excel using a simple binary parser (XLSX format)
+  // We'll parse it manually since we can't use Node.js modules
+  let savingsRows = [];
+  let tracksRows  = [];
+  try {
+    const parsed = parseXlsxBuffer(xlsxBytes);
+    savingsRows  = parsed['מוצרי חיסכון']  || [];
+    tracksRows   = parsed['מסלולי השקעה'] || [];
+  } catch(e) {
+    return jr({error:'Excel parse error: ' + e.message}, 400);
+  }
+
+  if (savingsRows.length === 0) return jr({error:'גיליון "מוצרי חיסכון" ריק או לא נמצא'}, 400);
+
+  const agentId = sess.agent_id || 'system';
+  const now     = Date.now();
+
+  // Build tracks lookup: key = tz+"|"+policy → [{ track_name, track_code }]
+  const tracksMap = {};
+  for (const t of tracksRows) {
+    const tz     = String(t['מספר ת.ז'] || '').trim().replace(/-/g,'');
+    const policy = String(t["מס' חשבון/פוליסה"] || '').trim();
+    const key    = `${tz}|${policy}`;
+    if (!tracksMap[key]) tracksMap[key] = [];
+    tracksMap[key].push({
+      track_name:  String(t['שם מסלול'] || '').trim(),
+      track_code:  String(t['קוד מסלול'] || '').trim(),
+      tzvira:      parseFloat(t['צבירה במסלול'] || 0) || 0,
+    });
+  }
+
+  const results = {
+    clients_created: [],
+    products_created: [],
+    products_updated: [],
+    mv_updated: [],
+    deposits_added: [],
+    skipped: [],
+    errors: []
+  };
+
+  // ── Determine report month from first row ──
+  let reportMonth = null; // MM/YY format
+  for (const row of savingsRows) {
+    const d = row['נכון ליום'];
+    if (d) {
+      const dt = d instanceof Date ? d : new Date(d);
+      if (!isNaN(dt)) {
+        const mm = String(dt.getMonth()+1).padStart(2,'0');
+        const yy = String(dt.getFullYear()).slice(2);
+        reportMonth = `${mm}/${yy}`;
+        break;
+      }
+    }
+  }
+  if (!reportMonth) return jr({error:'לא נמצא תאריך "נכון ליום" בדוח'}, 400);
+
+  // ── Process each savings row ──
+  for (const row of savingsRows) {
+    try {
+      const tz          = String(row['מספר ת.ז'] || '').trim().replace(/-/g,'');
+      const firstName   = String(row['שם פרטי לקוח']    || '').trim();
+      const lastName    = String(row['שם משפחה לקוח']   || '').trim();
+      const institution = String(row['יצרן']             || '').trim();
+      const productType = String(row['סוג מוצר']        || '').trim();
+      const productSub  = String(row['מוצר']             || '').trim();
+      const policy      = String(row["מס' חשבון/פוליסה"] || '').trim();
+      const tzvira      = parseFloat(row['צבירה'] || 0) || 0;
+      const lastDeposit = parseFloat(row['הפקדה אחרונה'] || 0) || 0;
+      const lastDepDate = row['תאריך הפקדה אחרונה'] || row['תאריך הצטרפות למוצר'];
+      const agentAppt   = row['תאריך מינוי סוכן'];
+      const statusProd  = String(row['סטטוס מוצר'] || 'פעיל').trim();
+
+      if (!tz && !firstName) { results.skipped.push({row: policy, reason: 'ללא ת"ז ושם'}); continue; }
+      if (!policy && !institution) { results.skipped.push({row: tz, reason: 'ללא פוליסה ויצרן'}); continue; }
+
+      // ── 1. Find or create client by identity_number ──
+      let client = await env.DB.prepare(
+        `SELECT id, agent_id FROM clients WHERE identity_number=? AND deleted=0`
+      ).bind(tz).first();
+
+      let clientId;
+      if (!client) {
+        // Create new client
+        clientId = `client-${tz || mkid()}`;
+        const clientName = `${firstName} ${lastName}`.trim();
+        await env.DB.prepare(`
+          INSERT OR IGNORE INTO clients
+            (id, agent_id, name, identity_number, active, created_at, updated_at, deleted)
+          VALUES (?, ?, ?, ?, 1, ?, ?, 0)
+        `).bind(clientId, agentId, clientName, tz, now, now).run();
+        results.clients_created.push({id: clientId, name: clientName, tz});
+      } else {
+        clientId = client.id;
+      }
+
+      // ── 2. Build stable product ID ──
+      const instSlug = institution
+        .replace(/\s+/g,'-')
+        .replace(/['"]/g,'')
+        .replace(/בע.מ/g,'')
+        .trim()
+        .slice(0,20)
+        .toLowerCase();
+      const productId = `${instSlug}-${policy}`.replace(/\s+/g,'').toLowerCase();
+
+      // ── 3. Get track info for this product ──
+      const trackKey   = `${tz}|${policy}`;
+      const tracks     = tracksMap[trackKey] || [];
+      const trackName  = tracks.map(t => t.track_name).filter(Boolean).join(' / ') || null;
+      const tracksJson = tracks.length > 0 ? JSON.stringify(tracks) : null;
+
+      // ── 4. Format dates ──
+      const fmtDate = (d) => {
+        if (!d) return null;
+        const dt = d instanceof Date ? d : new Date(d);
+        if (isNaN(dt)) return null;
+        return dt.toISOString().split('T')[0];
+      };
+
+      // ── 5. Upsert product ──
+      const existProd = await env.DB.prepare(
+        `SELECT id FROM products WHERE id=? AND client_id=? AND deleted=0`
+      ).bind(productId, clientId).first();
+
+      const productName = `${institution} – ${productType}`.replace(/\s*–\s*$/, '').trim();
+      const isActive    = statusProd === 'פעיל' ? 'active' : 'inactive';
+
+      if (!existProd) {
+        await env.DB.prepare(`
+          INSERT OR IGNORE INTO products
+            (id, client_id, agent_id, name, product_subname, institution, product_type,
+             account_number, track, tracks_json, status,
+             agent_appointment_date, created_at, updated_at, deleted)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+        `).bind(
+          productId, clientId, agentId, productName, productSub,
+          institution, productType, policy, trackName, tracksJson,
+          isActive, fmtDate(agentAppt), now, now
+        ).run();
+        results.products_created.push(productId);
+      } else {
+        // Update track info if we have it
+        if (trackName || tracksJson) {
+          await env.DB.prepare(`
+            UPDATE products SET track=?, tracks_json=?, updated_at=?
+            WHERE id=? AND client_id=?
+          `).bind(trackName, tracksJson, now, productId, clientId).run();
+        }
+        results.products_updated.push(productId);
+      }
+
+      // ── 6. Upsert monthly value ──
+      if (tzvira > 0) {
+        const existMV = await env.DB.prepare(
+          `SELECT id FROM monthly_values WHERE product_id=? AND client_id=? AND month=?`
+        ).bind(productId, clientId, reportMonth).first();
+
+        if (existMV) {
+          await env.DB.prepare(
+            `UPDATE monthly_values SET value=?, updated_at=? WHERE id=?`
+          ).bind(tzvira, now, existMV.id).run();
+        } else {
+          await env.DB.prepare(`
+            INSERT INTO monthly_values (id, product_id, client_id, agent_id, month, value, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `).bind(mkid(), productId, clientId, agentId, reportMonth, tzvira, now, now).run();
+        }
+        results.mv_updated.push({product: productId, month: reportMonth, value: tzvira});
+      }
+
+      // ── 7. Add deposit to timeline_events if exists ──
+      if (lastDeposit > 0 && lastDepDate) {
+        const depDate = fmtDate(lastDepDate);
+        if (depDate) {
+          // Check if deposit already recorded for same product+date
+          const existDep = await env.DB.prepare(
+            `SELECT id FROM timeline_events WHERE product_id=? AND client_id=? AND event_date=? AND event_type='deposit'`
+          ).bind(productId, clientId, depDate).first();
+
+          if (!existDep) {
+            await env.DB.prepare(`
+              INSERT INTO timeline_events
+                (id, client_id, product_id, event_date, event_type, title, description, amount, created_at, updated_at, deleted)
+              VALUES (?, ?, ?, ?, 'deposit', ?, ?, ?, ?, ?, 0)
+            `).bind(
+              mkid(), clientId, productId, depDate,
+              `הפקדה – ${productName}`,
+              `הפקדה חודשית מדוח סורנס ${reportMonth}`,
+              lastDeposit, now, now
+            ).run();
+            results.deposits_added.push({product: productId, date: depDate, amount: lastDeposit});
+          }
+        }
+      }
+
+    } catch(rowErr) {
+      results.errors.push({row: row["מס' חשבון/פוליסה"] || '?', error: rowErr.message});
+    }
+  }
+
+  // Audit log
+  await env.DB.prepare(`
+    INSERT INTO audit_log (id, agent_id, action, table_name, record_id, created_at)
+    VALUES (?, ?, 'surense_excel_import', 'products', ?, ?)
+  `).bind(mkid(), agentId, `month:${reportMonth}`, now).run().catch(()=>{});
+
+  return jr({
+    ok: true,
+    month: reportMonth,
+    clients_created:  results.clients_created.length,
+    products_created: results.products_created.length,
+    products_updated: results.products_updated.length,
+    mv_updated:       results.mv_updated.length,
+    deposits_added:   results.deposits_added.length,
+    skipped:          results.skipped.length,
+    errors:           results.errors.length,
+    details: results
+  });
+}
+
+// ── Surense JSON Import (called from browser after XLSX parsing) ───
+// POST /api/import/surense-json
+// Body: { savings: [...rows], tracks: [...rows] }
+async function handleSurenseJsonImport(request, env, sess) {
+  if (!sess) return jr({error:'Unauthorized'}, 401);
+  if (sess.is_readonly) return jr({error:'Read-only session'}, 403);
+  if (!env.DB) return jr({error:'D1 not bound'}, 500);
+
+  const body = await request.json().catch(() => null);
+  if (!body || !Array.isArray(body.savings)) return jr({error:'savings array required'}, 400);
+
+  const savingsRows = body.savings;
+  const tracksRows  = Array.isArray(body.tracks) ? body.tracks : [];
+  const agentId     = sess.agent_id || 'system';
+  const now         = Date.now();
+
+  // Build tracks lookup: key = tz+"|"+policy
+  const tracksMap = {};
+  for (const t of tracksRows) {
+    const tz     = String(t.tz || '').trim().replace(/-/g,'');
+    const policy = String(t.policy || '').trim();
+    const key    = `${tz}|${policy}`;
+    if (!tracksMap[key]) tracksMap[key] = [];
+    tracksMap[key].push({
+      track_name: String(t.track_name || '').trim(),
+      track_code: String(t.track_code || '').trim(),
+      tzvira:     parseFloat(t.tzvira || 0) || 0,
+    });
+  }
+
+  const results = {
+    clients_created: [], products_created: [], products_updated: [],
+    mv_updated: [], deposits_added: [], skipped: [], errors: []
+  };
+
+  // Determine report month from first row
+  let reportMonth = body.month || null;
+  if (!reportMonth && savingsRows[0]?.report_date) {
+    const dt = new Date(savingsRows[0].report_date);
+    if (!isNaN(dt)) {
+      reportMonth = `${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getFullYear()).slice(2)}`;
+    }
+  }
+  if (!reportMonth) return jr({error:'month required (MM/YY)'}, 400);
+
+  for (const row of savingsRows) {
+    try {
+      const tz          = String(row.tz || '').trim().replace(/-/g,'');
+      const firstName   = String(row.first_name   || '').trim();
+      const lastName    = String(row.last_name    || '').trim();
+      const institution = String(row.institution  || '').trim();
+      const productType = String(row.product_type || '').trim();
+      const productSub  = String(row.product_sub  || '').trim();
+      const policy      = String(row.policy       || '').trim();
+      const tzvira      = parseFloat(row.tzvira   || 0) || 0;
+      const lastDeposit = parseFloat(row.last_deposit || 0) || 0;
+      const lastDepDate = row.last_deposit_date   || null;
+      const agentAppt   = row.agent_appointment   || null;
+      const statusProd  = String(row.status       || 'פעיל').trim();
+
+      if (!tz && !firstName) { results.skipped.push({policy, reason:'ללא ת"ז ושם'}); continue; }
+      if (!policy && !institution) { results.skipped.push({tz, reason:'ללא פוליסה ויצרן'}); continue; }
+
+      // 1. Find or create client
+      let client = tz ? await env.DB.prepare(
+        `SELECT id, identity_number, import_protected FROM clients WHERE identity_number=? AND deleted=0`
+      ).bind(tz).first() : null;
+
+      let clientId;
+      const isProtected = !!(client && client.import_protected);
+
+      if (!client) {
+        // New client — create
+        clientId = `client-${tz || mkid()}`;
+        const clientName = `${firstName} ${lastName}`.trim();
+        await env.DB.prepare(`
+          INSERT OR IGNORE INTO clients
+            (id, agent_id, name, identity_number, active, created_at, updated_at, deleted)
+          VALUES (?, ?, ?, ?, 1, ?, ?, 0)
+        `).bind(clientId, agentId, clientName, tz, now, now).run();
+        results.clients_created.push({id: clientId, name: clientName, tz});
+      } else {
+        clientId = client.id;
+      }
+
+      // For protected clients: match product by account_number, add ONLY new months
+      if (isProtected) {
+        // Try to find existing product by account_number (policy)
+        if (!policy) { results.skipped.push({policy, tz, reason: 'מוגן — אין פוליסה'}); continue; }
+        const existingProd = await env.DB.prepare(
+          `SELECT id, name, name_short, track FROM products WHERE client_id=? AND account_number=? AND deleted=0`
+        ).bind(clientId, policy).first();
+
+        if (!existingProd) {
+          // Product with this policy doesn't exist yet — skip (user must add manually)
+          results.skipped.push({policy, tz, reason: 'מוגן — פוליסה לא קיימת במערכת'});
+          continue;
+        }
+
+        // Add monthly value only if month doesn't already exist
+        if (tzvira > 0) {
+          const existMV = await env.DB.prepare(
+            `SELECT id FROM monthly_values WHERE product_id=? AND client_id=? AND month=?`
+          ).bind(existingProd.id, clientId, reportMonth).first();
+          if (!existMV) {
+            await env.DB.prepare(`
+              INSERT INTO monthly_values (id, product_id, client_id, agent_id, month, value, created_at, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `).bind(mkid(), existingProd.id, clientId, agentId, reportMonth, tzvira, now, now).run();
+            results.mv_updated.push({product: existingProd.id, month: reportMonth, value: tzvira});
+          }
+          // If month already exists — don't touch (preserve manual data)
+        }
+
+        // Add deposit to timeline for protected client (only new entries)
+        if (lastDeposit > 0 && lastDepDate) {
+          const existDepP = await env.DB.prepare(
+            `SELECT id FROM timeline_events WHERE product_id=? AND client_id=? AND event_date=? AND event_type='deposit'`
+          ).bind(existingProd.id, clientId, lastDepDate).first();
+          if (!existDepP) {
+            // Use name_short > track > name for display
+            const displayName = existingProd.name_short || existingProd.track || existingProd.name || institution;
+            await env.DB.prepare(`
+              INSERT INTO timeline_events
+                (id, client_id, product_id, event_date, event_type, title, description, amount, created_at, updated_at, deleted)
+              VALUES (?, ?, ?, ?, 'deposit', ?, ?, ?, ?, ?, 0)
+            `).bind(
+              mkid(), clientId, existingProd.id, lastDepDate,
+              `הפקדה – ${displayName}`,
+              `הפקדה מדוח סורנס ${reportMonth}`,
+              lastDeposit, now, now
+            ).run();
+            results.deposits_added.push({product: existingProd.id, date: lastDepDate, amount: lastDeposit});
+          }
+        }
+
+        continue; // Done for this protected client row
+      }
+
+      // 2. Build product ID — use full type to avoid collision (e.g. קרן פנסיה מקיפה vs כללית)
+      const instSlug  = institution.replace(/\s+/g,'-').replace(/['"״]/g,'').replace(/בע.מ\.?/g,'').trim().slice(0,20).toLowerCase();
+      const typeSlug  = productType.replace(/\s+/g,'-').replace(/['"״]/g,'').trim().toLowerCase();
+      const productId = `${instSlug}-${policy}-${typeSlug}`.replace(/\s+/g,'').toLowerCase().slice(0, 80);
+
+      // 3. Track info
+      const trackKey   = `${tz}|${policy}`;
+      const tracks     = tracksMap[trackKey] || [];
+      const trackName  = tracks.map(t=>t.track_name).filter(Boolean).join(' / ') || null;
+      const tracksJson = tracks.length > 0 ? JSON.stringify(tracks) : null;
+
+      // 4. Upsert product
+      const existProd = await env.DB.prepare(
+        `SELECT id FROM products WHERE id=? AND client_id=? AND deleted=0`
+      ).bind(productId, clientId).first();
+
+      const productName = `${institution} – ${productType}`.replace(/\s*–\s*$/,'').trim();
+      const isActive    = statusProd === 'פעיל' ? 'active' : 'inactive';
+
+      if (!existProd) {
+        await env.DB.prepare(`
+          INSERT OR IGNORE INTO products
+            (id, client_id, agent_id, name, product_subname, institution, product_type,
+             account_number, track, tracks_json, status,
+             agent_appointment_date, created_at, updated_at, deleted)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+        `).bind(
+          productId, clientId, agentId, productName, productSub,
+          institution, productType, policy, trackName, tracksJson,
+          isActive, agentAppt, now, now
+        ).run();
+        results.products_created.push(productId);
+      } else {
+        if (trackName || tracksJson) {
+          await env.DB.prepare(
+            `UPDATE products SET track=?, tracks_json=?, updated_at=? WHERE id=? AND client_id=?`
+          ).bind(trackName, tracksJson, now, productId, clientId).run();
+        }
+        results.products_updated.push(productId);
+      }
+
+      // 5. Upsert monthly value
+      if (tzvira > 0) {
+        const existMV = await env.DB.prepare(
+          `SELECT id FROM monthly_values WHERE product_id=? AND client_id=? AND month=?`
+        ).bind(productId, clientId, reportMonth).first();
+        if (existMV) {
+          await env.DB.prepare(`UPDATE monthly_values SET value=?, updated_at=? WHERE id=?`)
+            .bind(tzvira, now, existMV.id).run();
+        } else {
+          await env.DB.prepare(`
+            INSERT INTO monthly_values (id, product_id, client_id, agent_id, month, value, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `).bind(mkid(), productId, clientId, agentId, reportMonth, tzvira, now, now).run();
+        }
+        results.mv_updated.push({product: productId, month: reportMonth, value: tzvira});
+      }
+
+      // 6. Add deposit to timeline — store last deposit date per product/month
+      if (lastDeposit > 0 && lastDepDate) {
+        // Use month+product as unique key so reimporting same month doesn't duplicate
+        const existDep = await env.DB.prepare(
+          `SELECT id FROM timeline_events WHERE product_id=? AND client_id=? AND event_date=? AND event_type='deposit'`
+        ).bind(productId, clientId, lastDepDate).first();
+        if (!existDep) {
+          // Fetch name_short from newly created/existing product for display title
+          const prodForTitle = await env.DB.prepare(
+            `SELECT name_short, track FROM products WHERE id=? LIMIT 1`
+          ).bind(productId).first();
+          // Priority: name_short > trackName > productSub > productName
+          const displayName = (prodForTitle && prodForTitle.name_short) || trackName || productSub || productName;
+          const eventTitle  = `הפקדה – ${displayName}`;
+          await env.DB.prepare(`
+            INSERT INTO timeline_events
+              (id, client_id, product_id, event_date, event_type, title, description, amount, created_at, updated_at, deleted)
+            VALUES (?, ?, ?, ?, 'deposit', ?, ?, ?, ?, ?, 0)
+          `).bind(
+            mkid(), clientId, productId, lastDepDate,
+            eventTitle,
+            `הפקדה מדוח סורנס ${reportMonth}`,
+            lastDeposit, now, now
+          ).run();
+          results.deposits_added.push({product: productId, date: lastDepDate, amount: lastDeposit});
+        }
+      }
+
+    } catch(e) {
+      results.errors.push({policy: row.policy || '?', error: e.message});
+    }
+  }
+
+  await env.DB.prepare(`
+    INSERT INTO audit_log (id, agent_id, action, table_name, record_id, created_at)
+    VALUES (?, ?, 'surense_excel_import', 'products', ?, ?)
+  `).bind(mkid(), agentId, `month:${reportMonth}`, now).run().catch(()=>{});
+
+  return jr({
+    ok: true, month: reportMonth,
+    clients_created:  results.clients_created.length,
+    products_created: results.products_created.length,
+    products_updated: results.products_updated.length,
+    mv_updated:       results.mv_updated.length,
+    deposits_added:   results.deposits_added.length,
+    skipped:          results.skipped.length,
+    errors:           results.errors.length,
+    details: results
+  });
+}
+
+// ── Simple XLSX parser placeholder ────────────────────────────────
+function parseXlsxBuffer(buffer) {
+  throw new Error('Use /api/import/surense-json instead');
+}
+
 // ── Main Fetch Handler ─────────────────────────────────────────────
 export default {
   async fetch(request, env, ctx) {
@@ -1332,6 +1841,12 @@ export default {
     if (path === '/api/webhook/info' && request.method === 'GET') {
       const sess = env.DB ? await getSession(request, env) : null;
       return handleWebhookInfo(request, env, sess);
+    }
+
+    // ── Surense Excel Import ──
+    if (path === '/api/import/surense-json' && request.method === 'POST') {
+      const sess = env.DB ? await getSession(request, env) : null;
+      return handleSurenseJsonImport(request, env, sess);
     }
 
     // Authenticated routes
