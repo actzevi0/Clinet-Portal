@@ -1813,8 +1813,13 @@ async function handleSurenseJsonImport(request, env, sess) {
       }
 
       // 6. Add deposit to timeline — רק אם ההפקדה היא של חודש הדוח ולקוח אינו protected
+      const _depDbg = {tz, policy, lastDeposit, lastDepDate, reportMonth, isProtected, matches: depMatchesRM(lastDepDate)};
+      if (lastDeposit > 0) results.errors.push({_deposit_debug: _depDbg}); // temp debug
       if (!isProtected && lastDeposit > 0 && lastDepDate && depMatchesRM(lastDepDate)) {
-        const depDateJ = typeof lastDepDate === 'string' ? lastDepDate : fmtDate ? fmtDate(lastDepDate) : lastDepDate;
+        // depDate is ISO string "YYYY-MM-DD" sent from import-excel.html
+        const depDateJ = (typeof lastDepDate === 'string' && /^\d{4}-\d{2}-\d{2}/.test(lastDepDate))
+          ? lastDepDate.slice(0,10)
+          : (() => { const d = new Date(lastDepDate); return isNaN(d) ? null : d.toISOString().split('T')[0]; })();
         if (depDateJ) {
           // מחק deposits ישנים לאותו מוצר שנוצרו מדוח אותו חודש אבל עם תאריך שגוי
           await env.DB.prepare(`

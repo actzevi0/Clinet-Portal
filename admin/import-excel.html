@@ -214,6 +214,15 @@ function handleFileSelect(file) {
       }
       console.log('reportDate sample:', reportDate, '→ reportMonth:', reportMonth);
 
+      // 🔍 DEBUG: show deposit info for first 5 rows
+      const depRows = savings.filter(r => r.last_deposit > 0);
+      console.log(`[DEPOSIT DEBUG] ${depRows.length} rows with deposit > 0 out of ${savings.length}`);
+      depRows.slice(0,5).forEach(r => console.log(
+        `  tz=${r.tz} policy=${r.policy} deposit=${r.last_deposit} dep_date=${r.last_deposit_date} report=${r.report_date}`
+      ));
+      // Show ALL unique column names from first raw row (to detect naming issues)
+      if (savingsRaw[0]) console.log('[COL NAMES]', Object.keys(savingsRaw[0]));
+
       parsedData = { savings, tracks, month: reportMonth };
       showPreview(savings, tracks, reportMonth);
 

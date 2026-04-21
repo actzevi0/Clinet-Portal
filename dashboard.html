@@ -123,6 +123,13 @@ tbody tr:last-child td{border-bottom:none;}
 .modal-close{background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--text-muted);padding:4px;}
 /* Comparison toggles */
 .toggles{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px;}
+.toggles-scroll{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:10px;scrollbar-width:thin;scrollbar-color:var(--border) transparent;flex-wrap:nowrap;}
+.toggles-scroll::-webkit-scrollbar{height:4px;}
+.toggles-scroll::-webkit-scrollbar-track{background:transparent;}
+.toggles-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+.comp-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;}
+.comp-toolbar .tog-ctrl{padding:3px 10px;font-size:0.74rem;border:1px solid var(--border);border-radius:5px;background:var(--bg-card2);color:var(--text-muted);cursor:pointer;transition:all 0.15s;white-space:nowrap;}
+.comp-toolbar .tog-ctrl:hover{background:var(--primary);color:#fff;border-color:var(--primary);}
 .tog{padding:5px 12px;border-radius:20px;border:1.5px solid;font-size:0.76rem;font-weight:600;cursor:pointer;background:transparent;transition:all .2s;}
 .tog.on{color:#fff;}
 /* Stat rows */
@@ -417,7 +424,12 @@ tbody tr:last-child td{border-bottom:none;}
         <div><div class="card-title">השוואת מוצרים</div></div>
         <div id="perfYearBtns" style="display:flex;gap:4px;flex-wrap:wrap;"></div>
       </div>
-      <div class="toggles" id="compToggles"></div>
+      <div class="comp-toolbar">
+        <button class="tog-ctrl" onclick="compSelectAll()">✓ בחר הכל</button>
+        <button class="tog-ctrl" onclick="compClearAll()">✕ בטל הכל</button>
+        <span id="compCount" style="font-size:0.75rem;color:var(--text-muted);margin-right:4px;"></span>
+      </div>
+      <div class="toggles-scroll" id="compToggles"></div>
       <div class="ch-tall"><canvas id="compChart"></canvas></div>
     </div>
     <div class="card mb22">
@@ -1843,13 +1855,30 @@ function renderCompToggles(){
     const isInactive=p.status!=='active';
     const opacityStyle=isInactive&&!isOn?'opacity:0.5;':'';
     return `<button class="tog ${isOn?'on':''}" id="tog-${p.id}"
-      style="border-color:${p.color};${isOn?`background:${p.color};color:#fff;`:''}${opacityStyle}${isInactive?'border-style:dashed;':''}"
+      style="border-color:${p.color};${isOn?`background:${p.color};color:#fff;`:''}${opacityStyle}${isInactive?'border-style:dashed;':''}white-space:nowrap;flex-shrink:0;"
       onclick="toggleComp('${p.id}','${p.color}',this)">${isInactive?'⬜ ':''}${p.name_short}</button>`;
   }).join('');
+  _updateCompCount();
+}
+function _updateCompCount(){
+  const el=document.getElementById('compCount');
+  if(el) el.textContent=`${COMP_ON.length} מתוך ${PRODUCTS.length} מוצרים נבחרו`;
+}
+function compSelectAll(){
+  COMP_ON=PRODUCTS.map(p=>p.id);
+  renderCompToggles();
+  renderCompChart();renderNormChart();
+}
+function compClearAll(){
+  // השאר לפחות 1
+  if(PRODUCTS.length>0) COMP_ON=[PRODUCTS[0].id];
+  renderCompToggles();
+  renderCompChart();renderNormChart();
 }
 function toggleComp(id,color,btn){
   if(COMP_ON.includes(id)){if(COMP_ON.length===1)return;COMP_ON=COMP_ON.filter(x=>x!==id);btn.classList.remove('on');btn.style.background='transparent';btn.style.color='var(--text)';}
   else{COMP_ON.push(id);btn.classList.add('on');btn.style.background=color;btn.style.color='#fff';}
+  _updateCompCount();
   renderCompChart();renderNormChart();
 }
 
