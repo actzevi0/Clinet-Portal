@@ -161,6 +161,43 @@
     <a href="settings.html" class="btn btn-secondary btn-sm" style="text-decoration:none;background:rgba(139,92,246,0.1);color:#8b5cf6;border:1px solid rgba(139,92,246,0.3);"><i class="fa fa-palette"></i> הגדרות סוכן</a>
   </div>
 
+  <!-- Search & Filter Bar -->
+  <div id="clientsToolbar" style="display:none;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;margin-bottom:18px;gap:12px;flex-wrap:wrap;align-items:center;">
+    <!-- Search -->
+    <div style="flex:1;min-width:200px;position:relative;">
+      <i class="fa fa-search" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:0.82rem;pointer-events:none;"></i>
+      <input type="text" id="clientSearchInput" placeholder="חפש לקוח לפי שם..." oninput="filterAndRenderClients()"
+        style="width:100%;padding:8px 34px 8px 12px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-family:Heebo,sans-serif;font-size:0.88rem;box-sizing:border-box;">
+    </div>
+    <!-- Sort -->
+    <div style="display:flex;align-items:center;gap:7px;white-space:nowrap;">
+      <label style="font-size:0.8rem;color:var(--text-muted);font-weight:600;">מיון:</label>
+      <select id="clientSortSelect" onchange="filterAndRenderClients()"
+        style="padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-family:Heebo,sans-serif;font-size:0.84rem;cursor:pointer;">
+        <option value="total_desc">צבירה — גבוה לנמוך</option>
+        <option value="total_asc">צבירה — נמוך לגבוה</option>
+        <option value="name_asc">שם — א׳ עד ת׳</option>
+        <option value="name_desc">שם — ת׳ עד א׳</option>
+        <option value="products_desc">מוצרים — הכי הרבה</option>
+      </select>
+    </div>
+    <!-- Filter active -->
+    <div style="display:flex;align-items:center;gap:7px;white-space:nowrap;">
+      <label style="font-size:0.8rem;color:var(--text-muted);font-weight:600;">הצג:</label>
+      <select id="clientFilterSelect" onchange="filterAndRenderClients()"
+        style="padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-family:Heebo,sans-serif;font-size:0.84rem;cursor:pointer;">
+        <option value="all">כל הלקוחות</option>
+        <option value="active">פעילים בלבד</option>
+        <option value="inactive">לא פעילים</option>
+        <option value="above1m">צבירה מעל ₪1M</option>
+        <option value="above500k">צבירה מעל ₪500K</option>
+        <option value="below500k">צבירה מתחת ₪500K</option>
+      </select>
+    </div>
+    <!-- Results count -->
+    <div id="clientsCount" style="font-size:0.8rem;color:var(--text-muted);white-space:nowrap;"></div>
+  </div>
+
   <!-- Clients Grid -->
   <div class="clients-grid" id="clientsGrid">
     <div class="loading"><div class="spinner"></div></div>
@@ -331,6 +368,10 @@ async function loadClients() {
     }
     // Load all products
     PRODUCTS_ALL = await fetchAll('/tables/products?sort=sort_order');
+    // נרמל name_short — אם null השתמש ב-name
+    PRODUCTS_ALL.forEach(p => {
+      if (!p.name_short || p.name_short === 'null') p.name_short = p.name || '';
+    });
 
     // Load all monthly values
     const mvAll = await fetchAll('/tables/monthly_values');
@@ -366,7 +407,10 @@ async function loadClients() {
     document.getElementById('statTotalAUM').textContent = formatILS(totalAUM);
     document.getElementById('statLastUpdate').textContent = new Date().toLocaleDateString('he-IL');
 
-    renderClientsGrid();
+    // Show search/filter toolbar and render with default sort (total desc)
+    const toolbar = document.getElementById('clientsToolbar');
+    if (toolbar) toolbar.style.display = 'flex';
+    filterAndRenderClients();
   } catch(e) {
     document.getElementById('clientsGrid').innerHTML = `
       <div class="alert alert-danger">
@@ -383,47 +427,92 @@ function formatILS(v) {
   return `₪${v.toLocaleString('he-IL')}`;
 }
 
-function renderClientsGrid() {
+// Helper: calculate total value for a client
+function calcClientTotalVal(c) {
+  const prods = PRODUCTS_ALL.filter(p => p.client_id === c.id && p.status === 'active');
+  const mvs   = MV_ALL[c.id] || [];
+  const transferSourceIds = new Set();
+  EVENTS_ALL
+    .filter(e => e.client_id === c.id && e.event_type === 'transfer')
+    .forEach(e => {
+      const tDate = e.event_date || '';
+      const tYear = parseInt(tDate.slice(0,4));
+      const tMonth = parseInt(tDate.slice(5,7)) || 1;
+      const tNum = tYear * 100 + tMonth;
+      const pMvs = mvs.filter(m => m.product_id === e.product_id);
+      const hasDataAfter = pMvs.some(m => {
+        if (!m.month || m.value == null) return false;
+        const [mm, yy] = m.month.split('/');
+        const rNum = parseInt('20'+yy)*100 + parseInt(mm);
+        return rNum > tNum;
+      });
+      if (!hasDataAfter) transferSourceIds.add(e.product_id);
+    });
+  let total = 0;
+  for (const p of prods) {
+    if (transferSourceIds.has(p.id)) continue;
+    const pMvs = mvs
+      .filter(m => m.product_id === p.id && m.value != null)
+      .sort((a,b) => {
+        const [mA,yA] = a.month.split('/'); const [mB,yB] = b.month.split('/');
+        return (parseInt(yA)*100+parseInt(mA)) - (parseInt(yB)*100+parseInt(mB));
+      });
+    if (pMvs.length) total += pMvs[pMvs.length-1].value;
+  }
+  return total;
+}
+
+function filterAndRenderClients() {
+  const searchVal   = (document.getElementById('clientSearchInput')?.value || '').trim().toLowerCase();
+  const sortVal     = document.getElementById('clientSortSelect')?.value || 'total_desc';
+  const filterVal   = document.getElementById('clientFilterSelect')?.value || 'all';
+
+  // Compute totals
+  let clientsWithTotals = CLIENTS.map(c => ({
+    client: c,
+    totalVal: calcClientTotalVal(c),
+    prods: PRODUCTS_ALL.filter(p => p.client_id === c.id && p.status === 'active')
+  }));
+
+  // Filter by search
+  if (searchVal) {
+    clientsWithTotals = clientsWithTotals.filter(({client}) =>
+      (client.name || '').toLowerCase().includes(searchVal) ||
+      (client.id || '').toLowerCase().includes(searchVal)
+    );
+  }
+
+  // Filter by status / amount
+  if (filterVal === 'active')      clientsWithTotals = clientsWithTotals.filter(({client}) => client.active);
+  if (filterVal === 'inactive')    clientsWithTotals = clientsWithTotals.filter(({client}) => !client.active);
+  if (filterVal === 'above1m')     clientsWithTotals = clientsWithTotals.filter(({totalVal}) => totalVal >= 1_000_000);
+  if (filterVal === 'above500k')   clientsWithTotals = clientsWithTotals.filter(({totalVal}) => totalVal >= 500_000);
+  if (filterVal === 'below500k')   clientsWithTotals = clientsWithTotals.filter(({totalVal}) => totalVal < 500_000);
+
+  // Sort
+  if (sortVal === 'total_desc')    clientsWithTotals.sort((a,b) => b.totalVal - a.totalVal);
+  if (sortVal === 'total_asc')     clientsWithTotals.sort((a,b) => a.totalVal - b.totalVal);
+  if (sortVal === 'name_asc')      clientsWithTotals.sort((a,b) => (a.client.name||'').localeCompare(b.client.name||'', 'he'));
+  if (sortVal === 'name_desc')     clientsWithTotals.sort((a,b) => (b.client.name||'').localeCompare(a.client.name||'', 'he'));
+  if (sortVal === 'products_desc') clientsWithTotals.sort((a,b) => b.prods.length - a.prods.length);
+
+  renderClientsGrid(clientsWithTotals);
+}
+
+function renderClientsGrid(precomputed) {
   const grid = document.getElementById('clientsGrid');
 
-  let html = CLIENTS.map(c => {
-    const prods=PRODUCTS_ALL.filter(p=>p.client_id===c.id&&p.status==='active');
-    const mvs=MV_ALL[c.id]||[];
-    let totalVal=0;
-    const institutions=new Set();
-    // מזהים קופות שנויידו החוצה (transfer-out אמיתי) — קופת מקור = אין נתונים אחרי חודש הניוד
-    // קופת יעד (קיבלה ניוד) = יש לה נתונים אחרי → עדיין נספרת
-    const transferSourceIds = new Set();
-    EVENTS_ALL
-      .filter(e => e.client_id===c.id && e.event_type==='transfer')
-      .forEach(e => {
-        const tDate = e.event_date || '';
-        const tYear = parseInt(tDate.slice(0,4));
-        const tMonth = parseInt(tDate.slice(5,7)) || 1;
-        const tNum = tYear * 100 + tMonth;
-        const pMvs = (MV_ALL[c.id]||[]).filter(m => m.product_id === e.product_id);
-        const hasDataAfter = pMvs.some(m => {
-          if(!m.month || m.value == null) return false;
-          const [mm, yy] = m.month.split('/');
-          const rNum = parseInt('20'+yy)*100 + parseInt(mm);
-          return rNum > tNum;
-        });
-        if(!hasDataAfter) transferSourceIds.add(e.product_id); // מקור אמיתי — נויד והסתיים
-      });
-    for(const p of prods){
-      institutions.add(p.institution||'');
-      if(transferSourceIds.has(p.id)) continue; // קופת מקור שנויידה — דלג
-      // מיין לפי חודש ולקח ערך אחרון
-      const pMvs=mvs
-        .filter(m=>m.product_id===p.id && m.value!=null)
-        .sort((a,b)=>{
-          const [mA,yA]=a.month.split('/'); const [mB,yB]=b.month.split('/');
-          return (parseInt(yA)*100+parseInt(mA))-(parseInt(yB)*100+parseInt(mB));
-        });
-      if(pMvs.length) totalVal+=pMvs[pMvs.length-1].value;
-    }
-    const instArr=[...institutions].filter(Boolean);
-    return `
+  // If called without precomputed data, run filter logic
+  if (!precomputed) {
+    filterAndRenderClients();
+    return;
+  }
+
+  // Update count badge
+  const countEl = document.getElementById('clientsCount');
+  if (countEl) countEl.textContent = `${precomputed.length} לקוחות`;
+
+  let html = precomputed.map(({client: c, totalVal, prods}) => {
       <div class="client-card">
         <div class="client-card-header">
           <div>
@@ -492,6 +581,17 @@ function renderClientsGrid() {
       <strong>לקוח חדש</strong>
       <p>לחץ להוספת לקוח חדש למערכת</p>
     </div>`;
+
+  // If search/filter is active and no results, show message
+  if (precomputed.length === 0) {
+    grid.innerHTML = `
+      <div style="grid-column:1/-1;text-align:center;padding:48px 20px;color:var(--text-muted);">
+        <i class="fa fa-search" style="font-size:2rem;margin-bottom:14px;display:block;opacity:0.4;"></i>
+        <div style="font-size:1rem;font-weight:600;margin-bottom:8px;">לא נמצאו לקוחות</div>
+        <div style="font-size:0.84rem;">נסה לשנות את מונחי החיפוש או הפילטר</div>
+      </div>`;
+    return;
+  }
 
   grid.innerHTML = html;
 }
@@ -626,7 +726,7 @@ async function createNewClient() {
     CLIENTS.sort((a,b)=>a.name.localeCompare(b.name,'he'));
     // שמור ב-localStorage כדי שדפים אחרים (עדכון חודשי) יוכלו לקרוא את הלקוח החדש
     try { localStorage.setItem('easyfinance_demo_clients', JSON.stringify(CLIENTS)); } catch(e) {}
-    renderClientsGrid();
+    filterAndRenderClients();
     alert(`✅ לקוח ${name} נוצר (Demo Mode)!\n\nהלקוח נוסף וזמין כעת גם בדף עדכון חודשי.`);
     document.getElementById('newClientModal').classList.remove('open');
     document.getElementById('newClientName').value='';
@@ -1626,7 +1726,7 @@ async function saveSettings() {
     saveMsg.innerHTML = '<i class="fa fa-flask" style="margin-left:6px;"></i> Demo Mode – ההגדרות נשמרו מקומית (לא נשמרות בDB)';
     saveMsg.style.display = 'flex';
     setTimeout(() => saveMsg.style.display = 'none', 4000);
-    renderClientsGrid();
+    filterAndRenderClients();
     return;
   }
 
@@ -1685,7 +1785,7 @@ async function saveSettings() {
 
     saveMsg.style.display = 'flex';
     setTimeout(() => saveMsg.style.display = 'none', 3000);
-    renderClientsGrid();
+    filterAndRenderClients();
   } catch(e) {
     saveErr.innerHTML = `<i class="fa fa-exclamation-triangle"></i> ${e.message}`;
     saveErr.style.display = 'flex';

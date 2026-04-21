@@ -1329,8 +1329,10 @@ async function loadData(){
     console.log('[loadData] products for', cid, ':', PRODUCTS.map(p=>p.id));
 
     // המר exclude_open מ-string ל-boolean (ה-API מחזיר לפעמים string)
+    // נרמל name_short — אם null/undefined השתמש ב-name
     PRODUCTS.forEach(p=>{
       if(typeof p.exclude_open==='string') p.exclude_open=(p.exclude_open==='true'||p.exclude_open==='1');
+      if(!p.name_short || p.name_short==='null') p.name_short = p.name || '';
     });
 
     // Load monthly values grouped by product
