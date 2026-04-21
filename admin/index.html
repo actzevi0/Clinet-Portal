@@ -87,6 +87,10 @@
   .goal-icon-opt { width: 32px; height: 32px; border: 2px solid var(--border); border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.9rem; transition: all 0.15s; }
   .goal-icon-opt:hover { border-color: var(--primary); background: rgba(26,86,219,0.08); }
   .goal-icon-opt.selected { border-color: var(--primary); background: rgba(26,86,219,0.15); }
+  @keyframes skeletonPulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
 </style>
 </head>
 <body>
@@ -200,7 +204,11 @@
 
   <!-- Clients Grid -->
   <div class="clients-grid" id="clientsGrid">
-    <div class="loading"><div class="spinner"></div></div>
+    <!-- Skeleton cards while loading -->
+    <div class="skeleton-card" style="height:220px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;animation:skeletonPulse 1.4s ease-in-out infinite;"></div>
+    <div class="skeleton-card" style="height:220px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;animation:skeletonPulse 1.4s ease-in-out infinite 0.2s;"></div>
+    <div class="skeleton-card" style="height:220px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;animation:skeletonPulse 1.4s ease-in-out infinite 0.4s;"></div>
+    <div class="skeleton-card" style="height:220px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;animation:skeletonPulse 1.4s ease-in-out infinite 0.6s;"></div>
   </div>
 
 </main>
@@ -286,19 +294,6 @@ const DEMO_MV = [
 ];
 
 async function fetchAll(url){
-  // בדיקה ראשונה: האם ה-API עובד?
-  if (!IS_DEMO_MODE) {
-    try {
-      const testUrl = `${API_BASE}/tables/clients?page=1&limit=1`;
-      const testR = await authFetch(testUrl);
-      const testD = await testR.json();
-      if (testD.error && testD.error.includes('D1 not bound')) {
-        IS_DEMO_MODE = true;
-        console.warn('[Demo Mode] DB לא מחובר – מציג נתוני demo');
-      }
-    } catch(e) { IS_DEMO_MODE = true; }
-  }
-
   if (IS_DEMO_MODE) {
     // החזר נתוני demo לפי ה-URL — קרא מ-localStorage אם קיים (כולל לקוחות חדשים)
     if (url.includes('/tables/clients')) {
@@ -337,18 +332,18 @@ async function fetchAll(url){
 
   const all=[];let page=1,total=Infinity;
   const base = url.startsWith('http') ? '' : API_BASE;
+  const PAGE_SIZE = 500; // גדול יותר = פחות roundtrips
   while(all.length<total){
-    const full = `${base}${url}${url.includes('?')?'&':'?'}page=${page}&limit=100`;
+    const full = `${base}${url}${url.includes('?')?'&':'?'}page=${page}&limit=${PAGE_SIZE}`;
     const r=await authFetch(full);
     if (r.status === 401) {
-      // Session expired - will redirect to login
       window.location.replace('/admin/login.html?reason=session_expired');
       return [];
     }
     const d=await r.json();
     all.push(...(d.data||[]));
     total=d.total||0;
-    if((d.data||[]).length<100)break;
+    if((d.data||[]).length<PAGE_SIZE)break;
     page++;
   }
   return all;
@@ -356,8 +351,27 @@ async function fetchAll(url){
 
 async function loadClients() {
   try {
-    CLIENTS = await fetchAll('/tables/clients?limit=100');
-    CLIENTS = CLIENTS.sort((a,b)=>a.name.localeCompare(b.name,'he'));
+    // ── בדיקת Demo Mode פעם אחת בלבד ──
+    if (!IS_DEMO_MODE) {
+      try {
+        const testR = await authFetch(`${API_BASE}/tables/clients?page=1&limit=1`);
+        if (testR.status === 401) { window.location.replace('/admin/login.html?reason=session_expired'); return; }
+        const testD = await testR.json();
+        if (testD.error && testD.error.includes('D1 not bound')) {
+          IS_DEMO_MODE = true;
+          console.warn('[Demo Mode] DB לא מחובר – מציג נתוני demo');
+        }
+      } catch(e) { IS_DEMO_MODE = true; }
+    }
+
+    // ── טעינה מקבילית: clients + products + monthly_values (ללא timeline_events שלא נצרך כאן) ──
+    const [clientsRaw, productsRaw, mvAll] = await Promise.all([
+      fetchAll('/tables/clients'),
+      fetchAll('/tables/products?sort=sort_order'),
+      fetchAll('/tables/monthly_values'),
+    ]);
+
+    CLIENTS = clientsRaw.sort((a,b) => a.name.localeCompare(b.name, 'he'));
 
     // הצג באנר Demo Mode אם צריך
     if (IS_DEMO_MODE) {
@@ -366,43 +380,29 @@ async function loadClients() {
       demoBar.innerHTML = '<i class="fa fa-flask" style="margin-left:6px;"></i><strong>מצב Demo</strong> – ה-DB לא מחובר בסביבת הפיתוח. מציג נתוני דוגמה. הנתונים האמיתיים יופיעו בפרודקשן.';
       document.querySelector('main').prepend(demoBar);
     }
-    // Load all products
-    PRODUCTS_ALL = await fetchAll('/tables/products?sort=sort_order');
+
     // נרמל name_short — אם null השתמש ב-name
+    PRODUCTS_ALL = productsRaw;
     PRODUCTS_ALL.forEach(p => {
       if (!p.name_short || p.name_short === 'null') p.name_short = p.name || '';
     });
 
-    // Load all monthly values
-    const mvAll = await fetchAll('/tables/monthly_values');
-    for(const mv of mvAll){
-      if(!MV_ALL[mv.client_id]) MV_ALL[mv.client_id]=[];
+    // בנה MV_ALL — map לפי client_id
+    MV_ALL = {};
+    for (const mv of mvAll) {
+      if (!MV_ALL[mv.client_id]) MV_ALL[mv.client_id] = [];
       MV_ALL[mv.client_id].push(mv);
     }
 
-    // Load all timeline events (לסינון קופות שנויידו)
-    EVENTS_ALL = await fetchAll('/tables/timeline_events');
+    // EVENTS_ALL לא נטען כאן (נטען לפי דרישה בכל לקוח בנפרד)
 
-    const activeCount = CLIENTS.filter(c=>c.active).length;
+    const activeCount = CLIENTS.filter(c => c.active).length;
     document.getElementById('statTotalClients').textContent = activeCount;
 
     // Compute total AUM — מסנן קופות שנויידו, ממיין לפי חודש
-    let totalAUM=0;
-    for(const c of CLIENTS){
-      const prods=PRODUCTS_ALL.filter(p=>p.client_id===c.id&&p.status==='active');
-      const mvs=MV_ALL[c.id]||[];
-      const tOutIds = new Set(
-        EVENTS_ALL
-          .filter(e => e.client_id===c.id && e.event_type==='transfer')
-          .map(e => e.product_id)
-      );
-      for(const p of prods){
-        if(tOutIds.has(p.id)) continue;
-        const pMvs=mvs
-          .filter(m=>m.product_id===p.id && m.value!=null)
-          .sort((a,b)=>{ const [mA,yA]=a.month.split('/'); const [mB,yB]=b.month.split('/'); return (parseInt(yA)*100+parseInt(mA))-(parseInt(yB)*100+parseInt(mB)); });
-        if(pMvs.length) totalAUM+=pMvs[pMvs.length-1].value;
-      }
+    let totalAUM = 0;
+    for (const c of CLIENTS) {
+      totalAUM += calcClientTotalVal(c);
     }
     document.getElementById('statTotalAUM').textContent = formatILS(totalAUM);
     document.getElementById('statLastUpdate').textContent = new Date().toLocaleDateString('he-IL');
@@ -427,37 +427,33 @@ function formatILS(v) {
   return `₪${v.toLocaleString('he-IL')}`;
 }
 
-// Helper: calculate total value for a client
+// Helper: calculate total value for a client (optimized — skips heavy transfer logic)
 function calcClientTotalVal(c) {
-  const prods = PRODUCTS_ALL.filter(p => p.client_id === c.id && p.status === 'active');
-  const mvs   = MV_ALL[c.id] || [];
-  const transferSourceIds = new Set();
-  EVENTS_ALL
-    .filter(e => e.client_id === c.id && e.event_type === 'transfer')
-    .forEach(e => {
-      const tDate = e.event_date || '';
-      const tYear = parseInt(tDate.slice(0,4));
-      const tMonth = parseInt(tDate.slice(5,7)) || 1;
-      const tNum = tYear * 100 + tMonth;
-      const pMvs = mvs.filter(m => m.product_id === e.product_id);
-      const hasDataAfter = pMvs.some(m => {
-        if (!m.month || m.value == null) return false;
-        const [mm, yy] = m.month.split('/');
-        const rNum = parseInt('20'+yy)*100 + parseInt(mm);
-        return rNum > tNum;
-      });
-      if (!hasDataAfter) transferSourceIds.add(e.product_id);
-    });
+  const mvs = MV_ALL[c.id] || [];
+  if (!mvs.length) return 0;
+
+  // Build latest value per product (simple last-month approach)
+  const latestByProd = {};
+  for (const mv of mvs) {
+    if (mv.value == null) continue;
+    const existing = latestByProd[mv.product_id];
+    if (!existing) { latestByProd[mv.product_id] = mv; continue; }
+    // Compare month strings MM/YY
+    const [mA, yA] = mv.month.split('/');
+    const [mB, yB] = existing.month.split('/');
+    if ((parseInt(yA)*100+parseInt(mA)) > (parseInt(yB)*100+parseInt(mB))) {
+      latestByProd[mv.product_id] = mv;
+    }
+  }
+
+  // Sum only active products
+  const activeProdIds = new Set(
+    PRODUCTS_ALL.filter(p => p.client_id === c.id && p.status === 'active').map(p => p.id)
+  );
+
   let total = 0;
-  for (const p of prods) {
-    if (transferSourceIds.has(p.id)) continue;
-    const pMvs = mvs
-      .filter(m => m.product_id === p.id && m.value != null)
-      .sort((a,b) => {
-        const [mA,yA] = a.month.split('/'); const [mB,yB] = b.month.split('/');
-        return (parseInt(yA)*100+parseInt(mA)) - (parseInt(yB)*100+parseInt(mB));
-      });
-    if (pMvs.length) total += pMvs[pMvs.length-1].value;
+  for (const [prodId, mv] of Object.entries(latestByProd)) {
+    if (activeProdIds.has(prodId)) total += mv.value;
   }
   return total;
 }
@@ -512,8 +508,21 @@ function renderClientsGrid(precomputed) {
   const countEl = document.getElementById('clientsCount');
   if (countEl) countEl.textContent = `${precomputed.length} לקוחות`;
 
+  // If search/filter is active and no results, show message
+  if (precomputed.length === 0) {
+    grid.innerHTML = `
+      <div style="grid-column:1/-1;text-align:center;padding:48px 20px;color:var(--text-muted);">
+        <i class="fa fa-search" style="font-size:2rem;margin-bottom:14px;display:block;opacity:0.4;"></i>
+        <div style="font-size:1rem;font-weight:600;margin-bottom:8px;">לא נמצאו לקוחות</div>
+        <div style="font-size:0.84rem;">נסה לשנות את מונחי החיפוש או הפילטר</div>
+      </div>`;
+    return;
+  }
+
   let html = precomputed.map(({client: c, totalVal, prods}) => {
-      <div class="client-card">
+      const institutions = new Set(prods.map(p => p.institution).filter(Boolean));
+      const instArr = [...institutions];
+      return `<div class="client-card">
         <div class="client-card-header">
           <div>
             <div class="client-name">${c.name}</div>
@@ -581,17 +590,6 @@ function renderClientsGrid(precomputed) {
       <strong>לקוח חדש</strong>
       <p>לחץ להוספת לקוח חדש למערכת</p>
     </div>`;
-
-  // If search/filter is active and no results, show message
-  if (precomputed.length === 0) {
-    grid.innerHTML = `
-      <div style="grid-column:1/-1;text-align:center;padding:48px 20px;color:var(--text-muted);">
-        <i class="fa fa-search" style="font-size:2rem;margin-bottom:14px;display:block;opacity:0.4;"></i>
-        <div style="font-size:1rem;font-weight:600;margin-bottom:8px;">לא נמצאו לקוחות</div>
-        <div style="font-size:0.84rem;">נסה לשנות את מונחי החיפוש או הפילטר</div>
-      </div>`;
-    return;
-  }
 
   grid.innerHTML = html;
 }

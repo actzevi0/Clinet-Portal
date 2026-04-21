@@ -1217,18 +1217,6 @@ const DEMO_DATA = {
 };
 
 async function fetchAll(url){
-  // בדיקה אם ה-API עובד (פעם אחת)
-  if (!IS_DEMO_MODE) {
-    try {
-      const testR = await fetch(`${API_BASE}/tables/clients?page=1&limit=1`);
-      const testD = await testR.json();
-      if (testD.error && testD.error.includes('D1 not bound')) {
-        IS_DEMO_MODE = true;
-        console.warn('[Demo Mode] אין חיבור DB – מציג נתוני demo');
-      }
-    } catch(e) { IS_DEMO_MODE = true; }
-  }
-
   if (IS_DEMO_MODE) {
     if (url.includes('/tables/clients')) {
       try {
