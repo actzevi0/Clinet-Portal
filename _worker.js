@@ -1405,6 +1405,19 @@ async function handleSurenseExcelImport(request, env, sess) {
   }
   if (!reportMonth) return jr({error:'לא נמצא תאריך "נכון ליום" בדוח'}, 400);
 
+  // ── Helper: האם תאריך ההפקדה שייך לאותו חודש של הדוח? ──
+  // reportMonth פורמט MM/YY, depDate יכול להיות Date / string / מספר Excel
+  const depMatchesReportMonth = (depDate) => {
+    if (!depDate) return false;
+    try {
+      const dt = depDate instanceof Date ? depDate : new Date(depDate);
+      if (isNaN(dt)) return false;
+      const depMM = String(dt.getMonth() + 1).padStart(2, '0');
+      const depYY = String(dt.getFullYear()).slice(2);
+      return `${depMM}/${depYY}` === reportMonth;
+    } catch { return false; }
+  };
+
   // ── Process each savings row ──
   for (const row of savingsRows) {
     try {
@@ -1518,8 +1531,8 @@ async function handleSurenseExcelImport(request, env, sess) {
         results.mv_updated.push({product: productId, month: reportMonth, value: tzvira});
       }
 
-      // ── 7. Add deposit to timeline_events if exists ──
-      if (lastDeposit > 0 && lastDepDate) {
+      // ── 7. Add deposit to timeline_events — רק אם ההפקדה היא של חודש הדוח ──
+      if (lastDeposit > 0 && lastDepDate && depMatchesReportMonth(lastDepDate)) {
         const depDate = fmtDate(lastDepDate);
         if (depDate) {
           // Check if deposit already recorded for same product+date
@@ -1613,6 +1626,18 @@ async function handleSurenseJsonImport(request, env, sess) {
   }
   if (!reportMonth) return jr({error:'month required (MM/YY)'}, 400);
 
+  // ── Helper: האם תאריך ההפקדה שייך לאותו חודש של הדוח? ──
+  const depMatchesRM = (depDate) => {
+    if (!depDate) return false;
+    try {
+      const dt = depDate instanceof Date ? depDate : new Date(depDate);
+      if (isNaN(dt)) return false;
+      const depMM = String(dt.getMonth() + 1).padStart(2, '0');
+      const depYY = String(dt.getFullYear()).slice(2);
+      return `${depMM}/${depYY}` === reportMonth;
+    } catch { return false; }
+  };
+
   for (const row of savingsRows) {
     try {
       const tz          = String(row.tz || '').trim().replace(/-/g,'');
@@ -1682,8 +1707,8 @@ async function handleSurenseJsonImport(request, env, sess) {
           // If month already exists — don't touch (preserve manual data)
         }
 
-        // Add deposit to timeline for protected client (only new entries)
-        if (lastDeposit > 0 && lastDepDate) {
+        // Add deposit to timeline for protected client — רק אם ההפקדה היא של חודש הדוח
+        if (lastDeposit > 0 && lastDepDate && depMatchesReportMonth(lastDepDate)) {
           const existDepP = await env.DB.prepare(
             `SELECT id FROM timeline_events WHERE product_id=? AND client_id=? AND event_date=? AND event_type='deposit'`
           ).bind(existingProd.id, clientId, lastDepDate).first();
@@ -1765,8 +1790,8 @@ async function handleSurenseJsonImport(request, env, sess) {
         results.mv_updated.push({product: productId, month: reportMonth, value: tzvira});
       }
 
-      // 6. Add deposit to timeline — store last deposit date per product/month
-      if (lastDeposit > 0 && lastDepDate) {
+      // 6. Add deposit to timeline — רק אם ההפקדה היא של חודש הדוח
+      if (lastDeposit > 0 && lastDepDate && depMatchesRM(lastDepDate)) {
         // Use month+product as unique key so reimporting same month doesn't duplicate
         const existDep = await env.DB.prepare(
           `SELECT id FROM timeline_events WHERE product_id=? AND client_id=? AND event_date=? AND event_type='deposit'`
