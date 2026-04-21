@@ -445,14 +445,14 @@ function calcClientTotalVal(c) {
     }
   }
 
-  // Sum only active products with value > 0 (0 = redeemed/transferred-out)
-  const activeProdIds = new Set(
-    PRODUCTS_ALL.filter(p => p.client_id === c.id && p.status === 'active').map(p => p.id)
+  // Sum ALL products with value > 0 (inactive with money still counts)
+  const allProdIds = new Set(
+    PRODUCTS_ALL.filter(p => p.client_id === c.id).map(p => p.id)
   );
 
   let total = 0;
   for (const [prodId, mv] of Object.entries(latestByProd)) {
-    if (activeProdIds.has(prodId) && mv.value > 0) total += mv.value;
+    if (allProdIds.has(prodId) && mv.value > 0) total += mv.value;
   }
   return total;
 }
