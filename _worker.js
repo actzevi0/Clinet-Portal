@@ -1490,13 +1490,12 @@ async function handleSurenseExcelImport(request, env, sess) {
         ).run();
         results.products_created.push(productId);
       } else {
-        // Update track info if we have it
-        if (trackName || tracksJson) {
-          await env.DB.prepare(`
-            UPDATE products SET track=?, tracks_json=?, updated_at=?
-            WHERE id=? AND client_id=?
-          `).bind(trackName, tracksJson, now, productId, clientId).run();
-        }
+        // Update track info and status on existing product
+        await env.DB.prepare(`
+          UPDATE products SET track=COALESCE(NULLIF(?,NULL),track), tracks_json=COALESCE(NULLIF(?,NULL),tracks_json),
+            status=?, updated_at=?
+          WHERE id=? AND client_id=?
+        `).bind(trackName, tracksJson, isActive, now, productId, clientId).run();
         results.products_updated.push(productId);
       }
 
@@ -1741,11 +1740,11 @@ async function handleSurenseJsonImport(request, env, sess) {
         ).run();
         results.products_created.push(productId);
       } else {
-        if (trackName || tracksJson) {
-          await env.DB.prepare(
-            `UPDATE products SET track=?, tracks_json=?, updated_at=? WHERE id=? AND client_id=?`
-          ).bind(trackName, tracksJson, now, productId, clientId).run();
-        }
+        // Update track info and status on existing product
+        await env.DB.prepare(
+          `UPDATE products SET track=COALESCE(NULLIF(?,NULL),track), tracks_json=COALESCE(NULLIF(?,NULL),tracks_json),
+            status=?, updated_at=? WHERE id=? AND client_id=?`
+        ).bind(trackName, tracksJson, isActive, now, productId, clientId).run();
         results.products_updated.push(productId);
       }
 

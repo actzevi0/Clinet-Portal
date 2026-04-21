@@ -392,7 +392,7 @@ tbody tr:last-child td{border-bottom:none;}
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <select id="fInst" onchange="renderTable()" style="padding:6px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:var(--font);font-size:0.8rem;"><option value="">כל המוסדות</option></select>
           <select id="fType" onchange="renderTable()" style="padding:6px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:var(--font);font-size:0.8rem;"><option value="">כל הסוגים</option></select>
-          <select id="fStatus" onchange="renderTable()" style="padding:6px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:var(--font);font-size:0.8rem;"><option value="">הכל</option><option value="active">פעיל</option><option value="redeemed">נפדה</option></select>
+          <select id="fStatus" onchange="renderTable()" style="padding:6px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:var(--font);font-size:0.8rem;"><option value="">הכל</option><option value="active">פעיל</option><option value="inactive">לא פעיל</option></select>
         </div>
       </div>
       <div class="tbl-wrap desktop-table">
@@ -435,7 +435,7 @@ tbody tr:last-child td{border-bottom:none;}
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;">
       <select id="pfInst" onchange="renderProdCards()" style="padding:8px 12px;border-radius:7px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:var(--font);font-size:0.84rem;"><option value="">כל המוסדות</option></select>
       <select id="pfType" onchange="renderProdCards()" style="padding:8px 12px;border-radius:7px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:var(--font);font-size:0.84rem;"><option value="">כל הסוגים</option></select>
-      <select id="pfStatus" onchange="renderProdCards()" style="padding:8px 12px;border-radius:7px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:var(--font);font-size:0.84rem;"><option value="">הכל</option><option value="active">פעיל</option><option value="redeemed">נפדה</option></select>
+      <select id="pfStatus" onchange="renderProdCards()" style="padding:8px 12px;border-radius:7px;border:1px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:var(--font);font-size:0.84rem;"><option value="">הכל</option><option value="active">פעיל</option><option value="inactive">לא פעיל</option></select>
     </div>
     <div class="prod-grid" id="prodGrid"></div>
   </div>
@@ -1691,7 +1691,7 @@ function renderTable(){
       <td class="num" style="font-weight:700;">${ILS(v)}</td>
       <td class="num" style="color:${COL_RET(ytd)};font-weight:700;">${FMT_PCT(ytd)}</td>
       <td class="num" style="color:${COL_RET(since)};font-weight:700;">${since!=null?FMT_PCT(since):'—'}</td>
-      <td>${p.status==='active'?'<span class="badge badge-green">פעיל</span>':'<span class="badge badge-gray">נפדה</span>'}</td>
+      <td>${p.status==='active'?'<span class="badge badge-green">פעיל</span>':'<span class="badge badge-gray">לא פעיל</span>'}</td>
     </tr>`;}).join('');
   // Mobile Cards
   const mobileEl=document.getElementById('tblMobileCards');
@@ -1701,7 +1701,7 @@ function renderTable(){
       return`<div class="m-card" onclick="openModal('${p.id}')" style="cursor:pointer;border-right:3px solid ${p.color};">
         <div class="m-card-head">
           <div><div class="m-card-name">${p.name}</div><div class="m-card-inst">${p.institution} · ${p.product_type}</div></div>
-          ${p.status==='active'?'<span class="badge badge-green" style="flex-shrink:0;">פעיל</span>':'<span class="badge badge-gray" style="flex-shrink:0;">נפדה</span>'}
+          ${p.status==='active'?'<span class="badge badge-green" style="flex-shrink:0;">פעיל</span>':'<span class="badge badge-gray" style="flex-shrink:0;">לא פעיל</span>'}
         </div>
         <div class="m-card-val">${ILS(v)}</div>
         <div class="m-card-grid">
@@ -1728,7 +1728,7 @@ function renderProdCards(){
     return`<div class="prod-card" style="border-right-color:${p.color};" onclick="openModal('${p.id}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;">
         <div><div class="prod-name">${p.name}</div><div class="prod-track">${p.track}</div></div>
-        ${p.status==='redeemed'?'<span class="badge badge-gray" style="flex-shrink:0;">נפדה</span>':''}
+        ${p.status==='inactive'?'<span class="badge badge-gray" style="flex-shrink:0;">לא פעיל</span>':''}
       </div>
       <div class="prod-val">${ILS(v)}</div>
       <canvas id="spark-${p.id}" height="36" style="display:block;margin-bottom:4px;"></canvas>
@@ -3290,7 +3290,7 @@ function exportExcel(){
       v != null ? v : '',
       ytd != null ? `${(ytd * 100).toFixed(2)}%` : '',
       since != null ? `${(since * 100).toFixed(2)}%` : '',
-      p.status === 'active' ? 'פעיל' : 'נפדה'
+      p.status === 'active' ? 'פעיל' : 'לא פעיל'
     ]);
   }
   rows.push([]);

@@ -432,13 +432,12 @@ function calcClientTotalVal(c) {
   const mvs = MV_ALL[c.id] || [];
   if (!mvs.length) return 0;
 
-  // Build latest value per product (simple last-month approach)
+  // Build latest value per product
   const latestByProd = {};
   for (const mv of mvs) {
     if (mv.value == null) continue;
     const existing = latestByProd[mv.product_id];
     if (!existing) { latestByProd[mv.product_id] = mv; continue; }
-    // Compare month strings MM/YY
     const [mA, yA] = mv.month.split('/');
     const [mB, yB] = existing.month.split('/');
     if ((parseInt(yA)*100+parseInt(mA)) > (parseInt(yB)*100+parseInt(mB))) {
@@ -446,14 +445,14 @@ function calcClientTotalVal(c) {
     }
   }
 
-  // Sum only active products
+  // Sum only active products with value > 0 (0 = redeemed/transferred-out)
   const activeProdIds = new Set(
     PRODUCTS_ALL.filter(p => p.client_id === c.id && p.status === 'active').map(p => p.id)
   );
 
   let total = 0;
   for (const [prodId, mv] of Object.entries(latestByProd)) {
-    if (activeProdIds.has(prodId)) total += mv.value;
+    if (activeProdIds.has(prodId) && mv.value > 0) total += mv.value;
   }
   return total;
 }
@@ -1990,12 +1989,16 @@ async function generatePDF() {
   const prods = PRODUCTS_ALL.filter(p => p.client_id === clientId && p.status === 'active');
   const mvs   = MV_ALL[clientId] || [];
 
-  // Compute totals
+  // Compute totals — sort by month to get latest, skip 0-value (transferred-out)
   let totalVal = 0;
   const prodRows = prods.map(p => {
-    const pMvs = mvs.filter(m => m.product_id === p.id).map(m => m.value).filter(v => v != null);
-    const val  = pMvs.length ? pMvs[pMvs.length-1] : 0;
-    totalVal += val;
+    const pMvs = mvs.filter(m => m.product_id === p.id && m.value != null)
+      .sort((a,b) => {
+        const [ma,ya]=a.month.split('/'); const [mb,yb]=b.month.split('/');
+        return (parseInt(ya)*100+parseInt(ma))-(parseInt(yb)*100+parseInt(mb));
+      });
+    const val  = pMvs.length ? pMvs[pMvs.length-1].value : 0;
+    if (val > 0) totalVal += val;
     return { ...p, lastVal: val };
   });
 

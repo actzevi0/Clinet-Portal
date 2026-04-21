@@ -320,7 +320,7 @@ body{font-family:'Heebo',sans-serif;background:var(--bg);color:var(--text);direc
           <label class="form-label">סטטוס</label>
           <select class="form-control" id="pStatus">
             <option value="active">פעיל</option>
-            <option value="inactive">נפדה / לא פעיל</option>
+            <option value="inactive">לא פעיל</option>
           </select>
         </div>
       </div>
@@ -636,7 +636,7 @@ function renderProducts(){
           <div class="card-title">${p.name||'—'}</div>
           <div class="card-sub">${p.institution||''} ${p.product_type?'· '+p.product_type:''}</div>
         </div>
-        <span class="badge ${p.status==='active'?'badge-active':'badge-inactive'}">${p.status==='active'?'פעיל':'נפדה'}</span>
+        <span class="badge ${p.status==='active'?'badge-active':'badge-inactive'}">${p.status==='active'?'פעיל':'לא פעיל'}</span>
       </div>
       <div class="card-body">
         <div class="card-row"><span class="card-label">לקוח</span><span class="card-value">${clientMap[p.client_id]||p.client_id||'—'}</span></div>
