@@ -527,8 +527,14 @@
     <div style="display:flex;gap:10px;margin-bottom:12px;">
       <div style="flex:1;">
         <label style="font-size:.82rem;color:var(--text-muted);font-weight:600;display:block;margin-bottom:6px;">צבע</label>
-        <input type="color" id="apColor" value="#1a56db"
-          style="width:100%;height:38px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg-card2);cursor:pointer;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <input type="color" id="apColor" value="#1a56db"
+            style="flex:1;height:38px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg-card2);cursor:pointer;">
+          <button type="button" onclick="setApDefaultColor()" title="ברירת מחדל לפי יצרן"
+            style="padding:4px 8px;font-size:0.72rem;border:1px solid var(--border);border-radius:6px;background:var(--bg-card2);color:var(--text-muted);cursor:pointer;white-space:nowrap;">
+            🎨
+          </button>
+        </div>
       </div>
       <div style="flex:1;">
         <label style="font-size:.82rem;color:var(--text-muted);font-weight:600;display:block;margin-bottom:6px;">תאריך פתיחה</label>
@@ -1725,6 +1731,30 @@ function openAddProductModal(){
   document.getElementById('apOpenValue').value='';
   updateApSum();
   document.getElementById('addProductModal').classList.add('open');
+}
+
+// ── צבעי ברירת מחדל לפי יצרן ──
+const INST_DEFAULT_COLORS_MU = {
+  'מיטב':           '#9900ff',
+  'הפניקס':         '#ff8000',
+  'מגדל':           '#ffff00',
+  'כלל':            '#3e76ff',
+  'הראל':           '#0033af',
+  'אלטשולר שחם':    '#009425',
+  'מנורה':          '#ff0000',
+  'ילין לפידות':    '#aa7100',
+  'אנליסט':         '#929a94',
+  'מור בית השקעות': '#64bca3',
+};
+function setApDefaultColor() {
+  const inst = (document.getElementById('apInstitution').value||'').trim();
+  let color = INST_DEFAULT_COLORS_MU[inst] || '#1a56db';
+  if (!INST_DEFAULT_COLORS_MU[inst]) {
+    for (const [k,v] of Object.entries(INST_DEFAULT_COLORS_MU)) {
+      if (inst.includes(k) || k.includes(inst)) { color = v; break; }
+    }
+  }
+  document.getElementById('apColor').value = color;
 }
 
 function closeAddProductModal(e){

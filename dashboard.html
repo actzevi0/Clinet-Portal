@@ -1290,6 +1290,45 @@ async function fetchAll(url){
   return all;
 }
 
+// ── צבעי ברירת מחדל לפי יצרן ──
+const INST_DEFAULT_COLORS = {
+  'מיטב':               '#9900ff',
+  'הפניקס':             '#ff8000',
+  'מגדל':               '#ffff00',
+  'כלל':                '#3e76ff',
+  'הראל':               '#0033af',
+  'אלטשולר שחם':        '#009425',
+  'מנורה':              '#ff0000',
+  'ילין לפידות':        '#aa7100',
+  'אנליסט':             '#929a94',
+  'מור בית השקעות':     '#64bca3',
+};
+
+// פלטת גיבוי לחברות שלא הוגדרו
+const FALLBACK_COLORS = [
+  '#1a56db','#8b5cf6','#06b6d4','#0ea5e9','#f97316',
+  '#ef4444','#84cc16','#a855f7','#f59e0b','#10b981',
+  '#e11d48','#0891b2','#65a30d','#7c3aed','#b45309',
+];
+const _instColorCache = {};
+let   _fallbackIdx    = 0;
+
+function getInstDefaultColor(institution) {
+  const inst = (institution || '').trim();
+  // בדיקה מדויקת
+  if (INST_DEFAULT_COLORS[inst]) return INST_DEFAULT_COLORS[inst];
+  // בדיקה חלקית — אם שם החברה מכיל מילת מפתח
+  for (const [key, color] of Object.entries(INST_DEFAULT_COLORS)) {
+    if (inst.includes(key) || key.includes(inst)) return color;
+  }
+  // חברה לא מוכרת — הקצה צבע קבוע מהפלטה (לפי שם, לא אקראי)
+  if (!_instColorCache[inst]) {
+    _instColorCache[inst] = FALLBACK_COLORS[_fallbackIdx % FALLBACK_COLORS.length];
+    _fallbackIdx++;
+  }
+  return _instColorCache[inst];
+}
+
 async function loadData(){
   const params=new URLSearchParams(window.location.search);
   const cid=params.get('client');
@@ -1321,6 +1360,10 @@ async function loadData(){
     PRODUCTS.forEach(p=>{
       if(typeof p.exclude_open==='string') p.exclude_open=(p.exclude_open==='true'||p.exclude_open==='1');
       if(!p.name_short || p.name_short==='null') p.name_short = p.name || '';
+      // ── צבע ברירת מחדל לפי יצרן (אם לא הוגדר צבע ידנית) ──
+      if(!p.color || p.color==='null' || p.color==='#000000' || p.color==='#000') {
+        p.color = getInstDefaultColor(p.institution || '');
+      }
     });
 
     // Load monthly values grouped by product

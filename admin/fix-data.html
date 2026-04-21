@@ -330,6 +330,10 @@ body{font-family:'Heebo',sans-serif;background:var(--bg);color:var(--text);direc
           <div class="color-row">
             <div class="color-preview" id="pColorPreview"></div>
             <input class="form-control" type="color" id="pColor" value="#3b82f6" oninput="updatePColorPreview()" style="height:38px;cursor:pointer;padding:2px;">
+            <button type="button" onclick="setDefaultInstColor()" title="אפס לצבע ברירת מחדל לפי יצרן"
+              style="padding:4px 10px;font-size:0.75rem;border:1px solid var(--border);border-radius:5px;background:var(--bg-card2);color:var(--text-muted);cursor:pointer;white-space:nowrap;margin-right:4px;">
+              🎨 ברירת מחדל
+            </button>
           </div>
         </div>
         <div class="form-group">
@@ -746,7 +750,7 @@ function openProductModal(id){
   document.getElementById('pProductType').value=p.product_type||'';
   document.getElementById('pAccountNumber').value=p.account_number||'';
   document.getElementById('pStatus').value=p.status||'active';
-  document.getElementById('pColor').value=p.color||'#3b82f6';
+  document.getElementById('pColor').value=p.color || getInstDefaultColor(p.institution||'') || '#3b82f6';
   document.getElementById('pSortOrder').value=p.sort_order||1;
   document.getElementById('pYtdStartValue').value=p.ytd_start_value||'';
   document.getElementById('pYtdStartMonth').value=p.ytd_start_month||'';
@@ -770,6 +774,34 @@ function openProductModal(id){
 }
 function closeProductModal(){ document.getElementById('productModal').classList.remove('open'); }
 function updatePColorPreview(){ document.getElementById('pColorPreview').style.background=document.getElementById('pColor').value; }
+
+// ── צבעי ברירת מחדל לפי יצרן ──
+const INST_DEFAULT_COLORS = {
+  'מיטב':           '#9900ff',
+  'הפניקס':         '#ff8000',
+  'מגדל':           '#ffff00',
+  'כלל':            '#3e76ff',
+  'הראל':           '#0033af',
+  'אלטשולר שחם':    '#009425',
+  'מנורה':          '#ff0000',
+  'ילין לפידות':    '#aa7100',
+  'אנליסט':         '#929a94',
+  'מור בית השקעות': '#64bca3',
+};
+function getInstDefaultColor(inst) {
+  const s = (inst||'').trim();
+  if (INST_DEFAULT_COLORS[s]) return INST_DEFAULT_COLORS[s];
+  for (const [k,v] of Object.entries(INST_DEFAULT_COLORS)) {
+    if (s.includes(k) || k.includes(s)) return v;
+  }
+  return '#3b82f6';
+}
+function setDefaultInstColor() {
+  const inst = document.getElementById('pInstitution').value.trim();
+  const color = getInstDefaultColor(inst);
+  document.getElementById('pColor').value = color;
+  updatePColorPreview();
+}
 
 async function saveProduct(){
   const name=document.getElementById('pName').value.trim();
