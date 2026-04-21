@@ -1535,7 +1535,14 @@ async function handleSurenseExcelImport(request, env, sess) {
       if (lastDeposit > 0 && lastDepDate && depMatchesReportMonth(lastDepDate)) {
         const depDate = fmtDate(lastDepDate);
         if (depDate) {
-          // Check if deposit already recorded for same product+date
+          // מחק deposits ישנים לאותו מוצר שנוצרו מדוח אותו חודש אבל עם תאריך שגוי
+          await env.DB.prepare(`
+            DELETE FROM timeline_events
+            WHERE product_id=? AND client_id=? AND event_type='deposit'
+              AND description LIKE ? AND event_date != ?
+          `).bind(productId, clientId, `%${reportMonth}%`, depDate).run();
+
+          // הכנס deposit חדש אם עדיין לא קיים
           const existDep = await env.DB.prepare(
             `SELECT id FROM timeline_events WHERE product_id=? AND client_id=? AND event_date=? AND event_type='deposit'`
           ).bind(productId, clientId, depDate).first();
@@ -1709,23 +1716,32 @@ async function handleSurenseJsonImport(request, env, sess) {
 
         // Add deposit to timeline for protected client — רק אם ההפקדה היא של חודש הדוח
         if (lastDeposit > 0 && lastDepDate && depMatchesReportMonth(lastDepDate)) {
-          const existDepP = await env.DB.prepare(
-            `SELECT id FROM timeline_events WHERE product_id=? AND client_id=? AND event_date=? AND event_type='deposit'`
-          ).bind(existingProd.id, clientId, lastDepDate).first();
-          if (!existDepP) {
-            // Use name_short > track > name for display
-            const displayName = existingProd.name_short || existingProd.track || existingProd.name || institution;
+          const depDateP = fmtDate(lastDepDate);
+          if (depDateP) {
+            // מחק deposits ישנים לאותו מוצר שנוצרו מדוח אותו חודש אבל עם תאריך שגוי
             await env.DB.prepare(`
-              INSERT INTO timeline_events
-                (id, client_id, product_id, event_date, event_type, title, description, amount, created_at, updated_at, deleted)
-              VALUES (?, ?, ?, ?, 'deposit', ?, ?, ?, ?, ?, 0)
-            `).bind(
-              mkid(), clientId, existingProd.id, lastDepDate,
-              `הפקדה – ${displayName}`,
-              `הפקדה מדוח סורנס ${reportMonth}`,
-              lastDeposit, now, now
-            ).run();
-            results.deposits_added.push({product: existingProd.id, date: lastDepDate, amount: lastDeposit});
+              DELETE FROM timeline_events
+              WHERE product_id=? AND client_id=? AND event_type='deposit'
+                AND description LIKE ? AND event_date != ?
+            `).bind(existingProd.id, clientId, `%${reportMonth}%`, depDateP).run();
+
+            const existDepP = await env.DB.prepare(
+              `SELECT id FROM timeline_events WHERE product_id=? AND client_id=? AND event_date=? AND event_type='deposit'`
+            ).bind(existingProd.id, clientId, depDateP).first();
+            if (!existDepP) {
+              const displayName = existingProd.name_short || existingProd.track || existingProd.name || institution;
+              await env.DB.prepare(`
+                INSERT INTO timeline_events
+                  (id, client_id, product_id, event_date, event_type, title, description, amount, created_at, updated_at, deleted)
+                VALUES (?, ?, ?, ?, 'deposit', ?, ?, ?, ?, ?, 0)
+              `).bind(
+                mkid(), clientId, existingProd.id, depDateP,
+                `הפקדה – ${displayName}`,
+                `הפקדה מדוח סורנס ${reportMonth}`,
+                lastDeposit, now, now
+              ).run();
+              results.deposits_added.push({product: existingProd.id, date: depDateP, amount: lastDeposit});
+            }
           }
         }
 
@@ -1792,29 +1808,36 @@ async function handleSurenseJsonImport(request, env, sess) {
 
       // 6. Add deposit to timeline — רק אם ההפקדה היא של חודש הדוח
       if (lastDeposit > 0 && lastDepDate && depMatchesRM(lastDepDate)) {
-        // Use month+product as unique key so reimporting same month doesn't duplicate
-        const existDep = await env.DB.prepare(
-          `SELECT id FROM timeline_events WHERE product_id=? AND client_id=? AND event_date=? AND event_type='deposit'`
-        ).bind(productId, clientId, lastDepDate).first();
-        if (!existDep) {
-          // Fetch name_short from newly created/existing product for display title
-          const prodForTitle = await env.DB.prepare(
-            `SELECT name_short, track FROM products WHERE id=? LIMIT 1`
-          ).bind(productId).first();
-          // Priority: name_short > trackName > productSub > productName
-          const displayName = (prodForTitle && prodForTitle.name_short) || trackName || productSub || productName;
-          const eventTitle  = `הפקדה – ${displayName}`;
+        const depDateJ = typeof lastDepDate === 'string' ? lastDepDate : fmtDate ? fmtDate(lastDepDate) : lastDepDate;
+        if (depDateJ) {
+          // מחק deposits ישנים לאותו מוצר שנוצרו מדוח אותו חודש אבל עם תאריך שגוי
           await env.DB.prepare(`
-            INSERT INTO timeline_events
-              (id, client_id, product_id, event_date, event_type, title, description, amount, created_at, updated_at, deleted)
-            VALUES (?, ?, ?, ?, 'deposit', ?, ?, ?, ?, ?, 0)
-          `).bind(
-            mkid(), clientId, productId, lastDepDate,
-            eventTitle,
-            `הפקדה מדוח סורנס ${reportMonth}`,
-            lastDeposit, now, now
-          ).run();
-          results.deposits_added.push({product: productId, date: lastDepDate, amount: lastDeposit});
+            DELETE FROM timeline_events
+            WHERE product_id=? AND client_id=? AND event_type='deposit'
+              AND description LIKE ? AND event_date != ?
+          `).bind(productId, clientId, `%${reportMonth}%`, depDateJ).run();
+
+          const existDep = await env.DB.prepare(
+            `SELECT id FROM timeline_events WHERE product_id=? AND client_id=? AND event_date=? AND event_type='deposit'`
+          ).bind(productId, clientId, depDateJ).first();
+          if (!existDep) {
+            const prodForTitle = await env.DB.prepare(
+              `SELECT name_short, track FROM products WHERE id=? LIMIT 1`
+            ).bind(productId).first();
+            const displayName = (prodForTitle && prodForTitle.name_short) || trackName || productSub || productName;
+            const eventTitle  = `הפקדה – ${displayName}`;
+            await env.DB.prepare(`
+              INSERT INTO timeline_events
+                (id, client_id, product_id, event_date, event_type, title, description, amount, created_at, updated_at, deleted)
+              VALUES (?, ?, ?, ?, 'deposit', ?, ?, ?, ?, ?, 0)
+            `).bind(
+              mkid(), clientId, productId, depDateJ,
+              eventTitle,
+              `הפקדה מדוח סורנס ${reportMonth}`,
+              lastDeposit, now, now
+            ).run();
+            results.deposits_added.push({product: productId, date: depDateJ, amount: lastDeposit});
+          }
         }
       }
 
@@ -1899,6 +1922,30 @@ export default {
 
     // Logo upload
     if (path === '/agent/logo') return handleLogoUpload(request, env, sess);
+
+    // ── Clean stale deposit events (deposit date ≠ report month in description) ──
+    if (path === '/api/admin/clean-deposits' && request.method === 'POST') {
+      if (!sess?.agent_id) return jr({error:'unauthorized'},401);
+      const body = await request.json().catch(()=>({}));
+      const reportMonth = body.month; // MM/YY format e.g. "03/26"
+      if (!reportMonth || !/^\d{2}\/\d{2}$/.test(reportMonth)) {
+        return jr({error:'month required in MM/YY format (e.g. 03/26)'},400);
+      }
+      const [mm, yy] = reportMonth.split('/');
+      const monthStart = `20${yy}-${mm}-01`;
+      const monthEnd   = `20${yy}-${mm}-31`;
+      // מחק deposit events שתאריכם לא שייך לחודש הדוח
+      // (כלומר אירועי הפקדה שנוצרו מייבוא ישן עם תאריך ישן)
+      const agentId = sess.agent_id;
+      const result = await env.DB.prepare(`
+        DELETE FROM timeline_events
+        WHERE event_type='deposit'
+          AND client_id IN (SELECT id FROM clients WHERE agent_id=? AND deleted=0)
+          AND (event_date < ? OR event_date > ?)
+          AND description LIKE ?
+      `).bind(agentId, monthStart, monthEnd, `%${reportMonth}%`).run();
+      return jr({deleted: result.meta?.changes || 0, month: reportMonth});
+    }
 
     // Static assets
     return env.ASSETS.fetch(request);
