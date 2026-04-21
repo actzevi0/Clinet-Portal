@@ -466,6 +466,15 @@ tbody tr:last-child td{border-bottom:none;}
             <i class="fa fa-plus"></i> הוסף אירוע
           </button>
         </div>
+        <!-- פילטר סוג אירוע -->
+        <div id="tlFilter" style="display:flex;flex-wrap:wrap;gap:5px;padding:8px 0 4px;border-bottom:1px solid var(--border);margin-bottom:8px;">
+          <button class="tl-filter-btn active" data-type="all" onclick="setTlFilter('all',this)" style="padding:3px 10px;font-size:0.73rem;border:1.5px solid var(--primary);border-radius:20px;background:var(--primary);color:#fff;cursor:pointer;font-family:Heebo,sans-serif;">הכל</button>
+          <button class="tl-filter-btn" data-type="deposit" onclick="setTlFilter('deposit',this)" style="padding:3px 10px;font-size:0.73rem;border:1.5px solid #10b981;border-radius:20px;background:transparent;color:#10b981;cursor:pointer;font-family:Heebo,sans-serif;">💰 הפקדות</button>
+          <button class="tl-filter-btn" data-type="withdrawal" onclick="setTlFilter('withdrawal',this)" style="padding:3px 10px;font-size:0.73rem;border:1.5px solid #ef4444;border-radius:20px;background:transparent;color:#ef4444;cursor:pointer;font-family:Heebo,sans-serif;">📤 פדיונות</button>
+          <button class="tl-filter-btn" data-type="transfer" onclick="setTlFilter('transfer',this)" style="padding:3px 10px;font-size:0.73rem;border:1.5px solid #1a56db;border-radius:20px;background:transparent;color:#1a56db;cursor:pointer;font-family:Heebo,sans-serif;">🔄 ניודים</button>
+          <button class="tl-filter-btn" data-type="track_change" onclick="setTlFilter('track_change',this)" style="padding:3px 10px;font-size:0.73rem;border:1.5px solid #f97316;border-radius:20px;background:transparent;color:#f97316;cursor:pointer;font-family:Heebo,sans-serif;">🔀 מסלול</button>
+          <button class="tl-filter-btn" data-type="other" onclick="setTlFilter('other',this)" style="padding:3px 10px;font-size:0.73rem;border:1.5px solid var(--text-muted);border-radius:20px;background:transparent;color:var(--text-muted);cursor:pointer;font-family:Heebo,sans-serif;">עוד</button>
+        </div>
         <div style="max-height:480px;overflow-y:auto;padding-left:4px;">
           <div class="tl" id="tlContainer"></div>
         </div>
@@ -2191,12 +2200,36 @@ function renderChgChart(){
 // ═══════════════════════════════════════════
 // TIMELINE
 // ═══════════════════════════════════════════
+let _tlFilterType = 'all';
+function setTlFilter(type, btn){
+  _tlFilterType = type;
+  // עדכן כפתורים
+  document.querySelectorAll('.tl-filter-btn').forEach(b => {
+    const isActive = b.dataset.type === type;
+    const colors = {deposit:'#10b981',withdrawal:'#ef4444',transfer:'#1a56db',track_change:'#f97316',other:'var(--text-muted)',all:'var(--primary)'};
+    const c = colors[b.dataset.type] || 'var(--primary)';
+    b.style.background = isActive ? c : 'transparent';
+    b.style.color = isActive ? '#fff' : c;
+    b.style.borderColor = c;
+  });
+  renderTimeline();
+}
+
 function renderTimeline(){
   const colors={deposit:'#10b981',withdrawal:'#ef4444',transfer:'#1a56db',management:'#f59e0b',track_change:'#f97316',agent_appointment:'#8b5cf6',new_product:'#06b6d4'};
   const icons={deposit:'fa-plus-circle',withdrawal:'fa-minus-circle',transfer:'fa-exchange-alt',management:'fa-cog',track_change:'fa-route',agent_appointment:'fa-handshake',new_product:'fa-folder-plus'};
   const labels={deposit:'הפקדה',withdrawal:'פדיון',transfer:'ניוד',management:'שינוי ניהול',track_change:'שינוי מסלול',agent_appointment:'מינוי סוכן',new_product:'פתיחת מוצר'};
+  const OTHER_TYPES = new Set(['management','agent_appointment','new_product']);
+
+  // סנן לפי filter
+  const filteredEvents = EVENTS.filter(ev => {
+    if(_tlFilterType === 'all') return true;
+    if(_tlFilterType === 'other') return OTHER_TYPES.has(ev.event_type);
+    return ev.event_type === _tlFilterType;
+  });
+
   const canEdit = _hasAgentToken();
-  document.getElementById('tlContainer').innerHTML=EVENTS.map(ev=>{
+  const html = filteredEvents.map(ev=>{
     const c=colors[ev.event_type]||'#94a3b8';
     const d=ev.event_date.replace(/-/g,'/');
     const p=PRODUCTS.find(x=>x.id===ev.product_id);
@@ -2235,6 +2268,12 @@ function renderTimeline(){
         ${editBtns}
       </div>
     </div>`;}).join('');
+
+  document.getElementById('tlContainer').innerHTML = html ||
+    `<div style="text-align:center;color:var(--text-muted);padding:32px 0;font-size:0.88rem;">
+       <i class="fa fa-calendar-check" style="font-size:1.8rem;opacity:0.4;display:block;margin-bottom:10px;"></i>
+       אין אירועים מסוג זה
+     </div>`;
   // הצג/הסתר כפתור הוסף
   _initEventMgmt();
 }
