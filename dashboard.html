@@ -1155,13 +1155,25 @@ function calcPortfolioTotals(){
     return `${String(m).padStart(2,'0')}/${String(y).padStart(2,'0')}`;
   }
 
+  // בנה carry-forward: הערך האחרון הידוע לכל מוצר לפי חודש
+  // כך גרף "שווי תיק" מציג ערכים גם לחודשים שלא עודכנו
+  const lastKnown = {}; // product_id → last known value
   for(const m of MONTHS){
     totals[m]=activeProds.reduce((s,p)=>{
       // קופת מקור: לא נספרת מהחודש שאחרי הניוד ואילך
       const tMonth = transferOutMonth[p.id];
-      if(tMonth && monthToNum(m) > monthToNum(tMonth)) return s;
+      if(tMonth && monthToNum(m) > monthToNum(tMonth)) {
+        delete lastKnown[p.id]; // ניוד — נקה carry-forward
+        return s;
+      }
       const v=getVal(p.id,m);
-      return s+(v!=null && v>0 ? v : 0);
+      if(v!=null && v>0) {
+        lastKnown[p.id] = v; // עדכן carry-forward
+        return s + v;
+      }
+      // אין נתון בחודש זה — השתמש בנתון האחרון (carry-forward)
+      const cf = lastKnown[p.id];
+      return s + (cf!=null && cf>0 ? cf : 0);
     },0);
   }
   return totals;
@@ -1478,8 +1490,10 @@ function renderKPIs(){
   const yearCloseVal = PRODUCTS
     .filter(p => p.status === 'active' && !transferredOutThisYear.has(p.id))  // רק קופות פעילות שלא נויידו השנה
     .reduce((s,p)=>{
-      const c = getYearClose(p, ACTIVE_YEAR);   // ערך 12/YY (או האחרון)
-      return s + (c ?? 0);
+      // לשנה חלקית: אם אין נתון בשנה הנוכחית — קח את הערך האחרון הזמין (מהשנה הקודמת)
+      let c = getYearClose(p, ACTIVE_YEAR);
+      if (c == null && isPartialYear) c = getLastVal(p.id);
+      return s + (c != null && c > 0 ? c : 0);
     },0);
 
   document.getElementById('kpiGrid').innerHTML=
