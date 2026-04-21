@@ -1429,8 +1429,8 @@ async function handleSurenseExcelImport(request, env, sess) {
       const productSub  = String(row['מוצר']             || '').trim();
       const policy      = String(row["מס' חשבון/פוליסה"] || '').trim();
       const tzvira      = parseFloat(row['צבירה'] || 0) || 0;
-      const lastDeposit = parseFloat(row['הפקדה אחרונה'] || 0) || 0;
-      const lastDepDate = row['תאריך הפקדה אחרונה'] || row['תאריך הצטרפות למוצר'];
+      const lastDeposit = parseFloat(row['הפקדה אחרונה'] || row['הפקדה'] || 0) || 0;
+      const lastDepDate = row['תאריך הפקדה אחרונה'] || row['תאריך הפקדה'] || row['תאריך הצטרפות למוצר'];
       const agentAppt   = row['תאריך מינוי סוכן'];
       const statusProd  = String(row['סטטוס מוצר'] || 'פעיל').trim();
 
@@ -1439,10 +1439,11 @@ async function handleSurenseExcelImport(request, env, sess) {
 
       // ── 1. Find or create client by identity_number ──
       let client = await env.DB.prepare(
-        `SELECT id, agent_id FROM clients WHERE identity_number=? AND deleted=0`
+        `SELECT id, agent_id, import_protected FROM clients WHERE identity_number=? AND deleted=0`
       ).bind(tz).first();
 
       let clientId;
+      let clientIsProtected = false;
       if (!client) {
         // Create new client
         clientId = `client-${tz || mkid()}`;
@@ -1455,6 +1456,7 @@ async function handleSurenseExcelImport(request, env, sess) {
         results.clients_created.push({id: clientId, name: clientName, tz});
       } else {
         clientId = client.id;
+        clientIsProtected = !!(client.import_protected);
       }
 
       // ── 2. Build stable product ID ──
@@ -1531,8 +1533,8 @@ async function handleSurenseExcelImport(request, env, sess) {
         results.mv_updated.push({product: productId, month: reportMonth, value: tzvira});
       }
 
-      // ── 7. Add deposit to timeline_events — רק אם ההפקדה היא של חודש הדוח ──
-      if (lastDeposit > 0 && lastDepDate && depMatchesReportMonth(lastDepDate)) {
+      // ── 7. Add deposit to timeline_events — רק אם ההפקדה היא של חודש הדוח ולקוח אינו protected ──
+      if (!clientIsProtected && lastDeposit > 0 && lastDepDate && depMatchesReportMonth(lastDepDate)) {
         const depDate = fmtDate(lastDepDate);
         if (depDate) {
           // מחק deposits ישנים לאותו מוצר שנוצרו מדוח אותו חודש אבל עם תאריך שגוי
@@ -1714,36 +1716,8 @@ async function handleSurenseJsonImport(request, env, sess) {
           // If month already exists — don't touch (preserve manual data)
         }
 
-        // Add deposit to timeline for protected client — רק אם ההפקדה היא של חודש הדוח
-        if (lastDeposit > 0 && lastDepDate && depMatchesReportMonth(lastDepDate)) {
-          const depDateP = fmtDate(lastDepDate);
-          if (depDateP) {
-            // מחק deposits ישנים לאותו מוצר שנוצרו מדוח אותו חודש אבל עם תאריך שגוי
-            await env.DB.prepare(`
-              DELETE FROM timeline_events
-              WHERE product_id=? AND client_id=? AND event_type='deposit'
-                AND description LIKE ? AND event_date != ?
-            `).bind(existingProd.id, clientId, `%${reportMonth}%`, depDateP).run();
-
-            const existDepP = await env.DB.prepare(
-              `SELECT id FROM timeline_events WHERE product_id=? AND client_id=? AND event_date=? AND event_type='deposit'`
-            ).bind(existingProd.id, clientId, depDateP).first();
-            if (!existDepP) {
-              const displayName = existingProd.name_short || existingProd.track || existingProd.name || institution;
-              await env.DB.prepare(`
-                INSERT INTO timeline_events
-                  (id, client_id, product_id, event_date, event_type, title, description, amount, created_at, updated_at, deleted)
-                VALUES (?, ?, ?, ?, 'deposit', ?, ?, ?, ?, ?, 0)
-              `).bind(
-                mkid(), clientId, existingProd.id, depDateP,
-                `הפקדה – ${displayName}`,
-                `הפקדה מדוח סורנס ${reportMonth}`,
-                lastDeposit, now, now
-              ).run();
-              results.deposits_added.push({product: existingProd.id, date: depDateP, amount: lastDeposit});
-            }
-          }
-        }
+        // Protected clients: deposit events are managed manually via the dashboard
+        // Do NOT auto-create deposit events from import for protected clients
 
         continue; // Done for this protected client row
       }
@@ -1806,8 +1780,8 @@ async function handleSurenseJsonImport(request, env, sess) {
         results.mv_updated.push({product: productId, month: reportMonth, value: tzvira});
       }
 
-      // 6. Add deposit to timeline — רק אם ההפקדה היא של חודש הדוח
-      if (lastDeposit > 0 && lastDepDate && depMatchesRM(lastDepDate)) {
+      // 6. Add deposit to timeline — רק אם ההפקדה היא של חודש הדוח ולקוח אינו protected
+      if (!isProtected && lastDeposit > 0 && lastDepDate && depMatchesRM(lastDepDate)) {
         const depDateJ = typeof lastDepDate === 'string' ? lastDepDate : fmtDate ? fmtDate(lastDepDate) : lastDepDate;
         if (depDateJ) {
           // מחק deposits ישנים לאותו מוצר שנוצרו מדוח אותו חודש אבל עם תאריך שגוי

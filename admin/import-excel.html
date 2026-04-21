@@ -187,8 +187,8 @@ function handleFileSelect(file) {
         last_name:         xlsxNumToStr(r['שם משפחה לקוח'])          || '',
         tz:                String(r['מספר ת.ז']  || '').replace(/-/g,'').trim(),
         tzvira:            parseFloat(r['צבירה'] || 0) || 0,
-        last_deposit:      parseFloat(r['הפקדה אחרונה'] || 0) || 0,
-        last_deposit_date: fmtDate(r['תאריך הפקדה אחרונה']),
+        last_deposit:      parseFloat(r['הפקדה אחרונה'] || r['הפקדה'] || 0) || 0,
+        last_deposit_date: fmtDate(r['תאריך הפקדה אחרונה'] || r['תאריך הפקדה']),
         agent_appointment: fmtDate(r['תאריך מינוי סוכן']),
         status:            xlsxNumToStr(r['סטטוס מוצר'])              || 'פעיל',
         report_date:       fmtDate(r['נכון ליום']),
@@ -249,7 +249,13 @@ function fmtDate(val) {
     const lastDay = new Date(parseInt(y), parseInt(myMatch[1]), 0).getDate();
     return `${y}-${m}-${String(lastDay).padStart(2,'0')}`;
   }
-  // US format M/D/YYYY
+  // DD/MM/YYYY format (Israeli date, e.g. "10/03/2026") — must check before US format
+  const dmyMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (dmyMatch) {
+    // Treat as DD/MM/YYYY (Israeli)
+    return `${dmyMatch[3]}-${dmyMatch[2].padStart(2,'0')}-${dmyMatch[1].padStart(2,'0')}`;
+  }
+  // US format M/D/YYYY (kept as fallback for non-Israeli dates)
   const usMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
   if (usMatch) {
     return `${usMatch[3]}-${usMatch[1].padStart(2,'0')}-${usMatch[2].padStart(2,'0')}`;
