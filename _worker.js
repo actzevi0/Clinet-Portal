@@ -1774,18 +1774,37 @@ async function handleSurenseJsonImport(request, env, sess) {
       const isActive    = statusProd === 'פעיל' ? 'active' : 'inactive';
 
       if (!existProd) {
-        await env.DB.prepare(`
-          INSERT OR IGNORE INTO products
-            (id, client_id, agent_id, name, product_subname, institution, product_type,
-             account_number, track, tracks_json, status,
-             agent_appointment_date, created_at, updated_at, deleted)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
-        `).bind(
-          productId, clientId, agentId, productName, productSub,
-          institution, productType, policy, trackName, tracksJson,
-          isActive, agentAppt, now, now
-        ).run();
-        results.products_created.push(productId);
+        // Check if product already exists by account_number (might have different id from previous import)
+        const existByPolicy = await env.DB.prepare(
+          `SELECT id FROM products WHERE account_number=? AND client_id=? AND deleted=0 LIMIT 1`
+        ).bind(policy, clientId).first();
+
+        if (existByPolicy) {
+          // Product exists with different id — update it and use its real id
+          await env.DB.prepare(
+            `UPDATE products SET track=COALESCE(NULLIF(?,NULL),track), tracks_json=COALESCE(NULLIF(?,NULL),tracks_json),
+              status=?, updated_at=? WHERE id=? AND client_id=?`
+          ).bind(trackName, tracksJson, isActive, now, existByPolicy.id, clientId).run();
+          results.products_updated.push(existByPolicy.id);
+          // Use the real product id for MV and deposit
+          Object.defineProperty(arguments[0] || {}, '_realProdId', {}); // dummy
+          // Override productId for this row
+          var realProductId = existByPolicy.id;
+        } else {
+          await env.DB.prepare(`
+            INSERT OR IGNORE INTO products
+              (id, client_id, agent_id, name, product_subname, institution, product_type,
+               account_number, track, tracks_json, status,
+               agent_appointment_date, created_at, updated_at, deleted)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+          `).bind(
+            productId, clientId, agentId, productName, productSub,
+            institution, productType, policy, trackName, tracksJson,
+            isActive, agentAppt, now, now
+          ).run();
+          results.products_created.push(productId);
+          var realProductId = productId;
+        }
       } else {
         // Update track info and status on existing product
         await env.DB.prepare(
@@ -1793,13 +1812,15 @@ async function handleSurenseJsonImport(request, env, sess) {
             status=?, updated_at=? WHERE id=? AND client_id=?`
         ).bind(trackName, tracksJson, isActive, now, productId, clientId).run();
         results.products_updated.push(productId);
+        var realProductId = productId;
       }
+      // Use realProductId from here on for MV and deposits
 
       // 5. Upsert monthly value
       if (tzvira > 0) {
         const existMV = await env.DB.prepare(
           `SELECT id FROM monthly_values WHERE product_id=? AND client_id=? AND month=?`
-        ).bind(productId, clientId, reportMonth).first();
+        ).bind(realProductId, clientId, reportMonth).first();
         if (existMV) {
           await env.DB.prepare(`UPDATE monthly_values SET value=?, updated_at=? WHERE id=?`)
             .bind(tzvira, now, existMV.id).run();
@@ -1807,14 +1828,12 @@ async function handleSurenseJsonImport(request, env, sess) {
           await env.DB.prepare(`
             INSERT INTO monthly_values (id, product_id, client_id, agent_id, month, value, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-          `).bind(mkid(), productId, clientId, agentId, reportMonth, tzvira, now, now).run();
+          `).bind(mkid(), realProductId, clientId, agentId, reportMonth, tzvira, now, now).run();
         }
-        results.mv_updated.push({product: productId, month: reportMonth, value: tzvira});
+        results.mv_updated.push({product: realProductId, month: reportMonth, value: tzvira});
       }
 
       // 6. Add deposit to timeline — רק אם ההפקדה היא של חודש הדוח ולקוח אינו protected
-      const _depDbg = {tz, policy, lastDeposit, lastDepDate, reportMonth, isProtected, matches: depMatchesRM(lastDepDate)};
-      if (lastDeposit > 0) results.errors.push({_deposit_debug: _depDbg}); // temp debug
       if (!isProtected && lastDeposit > 0 && lastDepDate && depMatchesRM(lastDepDate)) {
         // depDate is ISO string "YYYY-MM-DD" sent from import-excel.html
         const depDateJ = (typeof lastDepDate === 'string' && /^\d{4}-\d{2}-\d{2}/.test(lastDepDate))
@@ -1826,15 +1845,15 @@ async function handleSurenseJsonImport(request, env, sess) {
             DELETE FROM timeline_events
             WHERE product_id=? AND client_id=? AND event_type='deposit'
               AND description LIKE ? AND event_date != ?
-          `).bind(productId, clientId, `%${reportMonth}%`, depDateJ).run();
+          `).bind(realProductId, clientId, `%${reportMonth}%`, depDateJ).run();
 
           const existDep = await env.DB.prepare(
             `SELECT id FROM timeline_events WHERE product_id=? AND client_id=? AND event_date=? AND event_type='deposit'`
-          ).bind(productId, clientId, depDateJ).first();
+          ).bind(realProductId, clientId, depDateJ).first();
           if (!existDep) {
             const prodForTitle = await env.DB.prepare(
               `SELECT name_short, track FROM products WHERE id=? LIMIT 1`
-            ).bind(productId).first();
+            ).bind(realProductId).first();
             const displayName = (prodForTitle && prodForTitle.name_short) || trackName || productSub || productName;
             const eventTitle  = `הפקדה – ${displayName}`;
             await env.DB.prepare(`
@@ -1842,14 +1861,32 @@ async function handleSurenseJsonImport(request, env, sess) {
                 (id, client_id, product_id, event_date, event_type, title, description, amount, created_at, updated_at, deleted)
               VALUES (?, ?, ?, ?, 'deposit', ?, ?, ?, ?, ?, 0)
             `).bind(
-              mkid(), clientId, productId, depDateJ,
+              mkid(), clientId, realProductId, depDateJ,
               eventTitle,
               `הפקדה מדוח סורנס ${reportMonth}`,
               lastDeposit, now, now
             ).run();
-            results.deposits_added.push({product: productId, date: depDateJ, amount: lastDeposit});
+            results.deposits_added.push({product: realProductId, date: depDateJ, amount: lastDeposit});
+          } else {
+            // deposit already exists — record in debug
+            results.errors.push({_deposit_debug: {tz, policy, lastDeposit, depDateJ, realProductId, status:'already_exists', existDepId: existDep.id}});
           }
+        } else {
+          results.errors.push({_deposit_debug: {tz, policy, lastDeposit, lastDepDate, realProductId, status:'depDateJ_null'}});
         }
+      } else if (lastDeposit > 0) {
+        // Debug: explain why deposit was skipped
+        const depDateForDbg = (typeof lastDepDate === 'string' && /^\d{4}-\d{2}-\d{2}/.test(lastDepDate))
+          ? lastDepDate.slice(0,10) : lastDepDate;
+        results.errors.push({_deposit_debug: {
+          tz, policy, lastDeposit,
+          lastDepDate: depDateForDbg,
+          reportMonth,
+          isProtected,
+          realProductId,
+          matches: depMatchesRM(lastDepDate),
+          skip_reason: isProtected ? 'protected' : !lastDepDate ? 'no_date' : !depMatchesRM(lastDepDate) ? 'month_mismatch' : 'unknown'
+        }});
       }
 
     } catch(e) {

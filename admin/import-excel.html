@@ -493,8 +493,11 @@ function showResults(r) {
     const depDebugs  = r.details.errors.filter(e => e._deposit_debug).map(e => e._deposit_debug);
 
     if (depDebugs.length > 0) {
+      // Separate: inserted vs skipped/already_exist
+      const inserted = depDebugs.filter(d => !d.skip_reason && !d.status);
+      const skippedDeps = depDebugs.filter(d => d.skip_reason || d.status);
       detailsHtml += `<div class="result-section">
-        <h4>🔍 אבחון הפקדות (${depDebugs.length} שורות עם סכום > 0):</h4>
+        <h4>🔍 אבחון הפקדות (${depDebugs.length} שורות עם סכום > 0 | ✅ נרשמו: ${inserted.length} | ⚠️ דולגו: ${skippedDeps.length}):</h4>
         <div style="overflow-x:auto;font-size:0.72rem;">
         <table style="width:100%;border-collapse:collapse;font-family:monospace;">
           <tr style="background:var(--bg-card2);">
@@ -505,18 +508,28 @@ function showResults(r) {
             <th style="padding:4px 8px;text-align:right;border-bottom:1px solid var(--border);">חודש דוח</th>
             <th style="padding:4px 8px;text-align:right;border-bottom:1px solid var(--border);">protected</th>
             <th style="padding:4px 8px;text-align:right;border-bottom:1px solid var(--border);">תואם?</th>
+            <th style="padding:4px 8px;text-align:right;border-bottom:1px solid var(--border);">סטטוס</th>
           </tr>
-          ${depDebugs.slice(0,20).map(d => `
-            <tr style="border-bottom:1px solid var(--border);">
+          ${depDebugs.slice(0,30).map(d => {
+            const isSkipped = d.skip_reason || d.status;
+            const statusTxt = d.status === 'already_exists' ? '⚠️ קיים כבר' :
+                              d.status === 'depDateJ_null' ? '❌ תאריך null' :
+                              d.skip_reason === 'protected' ? '🔒 מוגן' :
+                              d.skip_reason === 'no_date' ? '❌ אין תאריך' :
+                              d.skip_reason === 'month_mismatch' ? '❌ חודש שונה' :
+                              isSkipped ? `⚠️ ${d.skip_reason||d.status}` : '✅ נרשם';
+            const rowBg = isSkipped ? '' : 'background:rgba(16,185,129,0.07);';
+            return `<tr style="border-bottom:1px solid var(--border);${rowBg}">
               <td style="padding:3px 8px;">${d.tz||'-'}</td>
               <td style="padding:3px 8px;">${d.policy||'-'}</td>
-              <td style="padding:3px 8px;color:#f59e0b;">₪${d.lastDeposit}</td>
-              <td style="padding:3px 8px;">${d.lastDepDate||'—'}</td>
+              <td style="padding:3px 8px;color:#f59e0b;">₪${d.lastDeposit||d.amount||0}</td>
+              <td style="padding:3px 8px;">${d.lastDepDate||d.depDateJ||'—'}</td>
               <td style="padding:3px 8px;">${d.reportMonth||'-'}</td>
-              <td style="padding:3px 8px;color:${d.isProtected?'#ef4444':'#10b981'};">${d.isProtected?'✗ כן':'✓ לא'}</td>
-              <td style="padding:3px 8px;color:${d.matches?'#10b981':'#ef4444'};font-weight:700;">${d.matches?'✓ כן':'✗ לא'}</td>
-            </tr>
-          `).join('')}
+              <td style="padding:3px 8px;color:${d.isProtected?'#ef4444':'#10b981'};">${d.isProtected!=null?(d.isProtected?'✗ כן':'✓ לא'):'-'}</td>
+              <td style="padding:3px 8px;color:${d.matches?'#10b981':'#ef4444'};font-weight:700;">${d.matches!=null?(d.matches?'✓ כן':'✗ לא'):'-'}</td>
+              <td style="padding:3px 8px;font-weight:600;">${statusTxt}</td>
+            </tr>`;
+          }).join('')}
         </table>
         </div>
       </div>`;
