@@ -1622,7 +1622,7 @@ function cd(){
 function destroyChart(k){if(CHARTS[k]){CHARTS[k].destroy();delete CHARTS[k];}}
 function lineOpts(d,yFmt){
   return{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
-    plugins:{legend:{display:true,position:'bottom',labels:{color:d.text,font:{family:'Heebo',size:11},padding:10}},
+    plugins:{legend:{display:false},
       tooltip:{backgroundColor:d.tooltipBg,borderColor:d.tooltipBorder,borderWidth:1,titleColor:d.text,bodyColor:d.text,padding:10,rtl:true,
         callbacks:{label:ctx=>` ${ctx.dataset.label}: ${ILS(ctx.parsed.y)}`}}},
     scales:{x:{grid:{color:d.grid},ticks:{color:d.text,font:{family:'Heebo',size:10}}},
@@ -2042,6 +2042,9 @@ function renderCompChart(){
   });
 
   const ctx=document.getElementById('compChart');if(!ctx)return;
+  // גובה דינמי לפי מספר מוצרים
+  const compH=Math.max(380, Math.min(600, 280 + COMP_ON.length * 8));
+  ctx.parentElement.style.height = compH + 'px';
   const opts={...lineOpts(d)};
   // עדכן tooltip להציג גם הפקדות
   opts.plugins.tooltip.callbacks={
@@ -2175,6 +2178,8 @@ function renderNormChart(){
     return{label:p.name_short,data:series,borderColor:p.color,backgroundColor:'transparent',tension:.4,pointRadius:3,borderWidth:2,spanGaps:false};
   });
   const ctx=document.getElementById('normChart');if(!ctx)return;
+  const normH=Math.max(380, Math.min(600, 280 + COMP_ON.length * 8));
+  ctx.parentElement.style.height = normH + 'px';
   CHARTS.norm=new Chart(ctx.getContext('2d'),{type:'line',data:{labels,datasets},options:{...lineOpts(d),scales:{x:{grid:{color:d.grid},ticks:{color:d.text,font:{family:'Heebo',size:10}}},y:{grid:{color:d.grid},ticks:{color:d.text,callback:v=>v.toFixed(0)},title:{display:true,text:'אינדקס (בסיס 100)',color:d.text,font:{family:'Heebo',size:10}}}}}});
 }
 
