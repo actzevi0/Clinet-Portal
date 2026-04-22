@@ -214,12 +214,23 @@ function handleFileSelect(file) {
       }
       console.log('reportDate sample:', reportDate, '→ reportMonth:', reportMonth);
 
-      // 🔍 DEBUG: show deposit info for first 5 rows
+      // 🔍 DEBUG: show deposit info + date matching
       const depRows = savings.filter(r => r.last_deposit > 0);
       console.log(`[DEPOSIT DEBUG] ${depRows.length} rows with deposit > 0 out of ${savings.length}`);
-      depRows.slice(0,5).forEach(r => console.log(
-        `  tz=${r.tz} policy=${r.policy} deposit=${r.last_deposit} dep_date=${r.last_deposit_date} report=${r.report_date}`
-      ));
+      depRows.slice(0,8).forEach(r => {
+        // Check if dep_date matches reportMonth
+        const depIso = r.last_deposit_date;
+        let matches = false;
+        if (depIso && reportMonth) {
+          const parts = depIso.split('-'); // YYYY-MM-DD
+          if (parts.length >= 2) {
+            matches = `${parts[1]}/${parts[0].slice(2)}` === reportMonth;
+          }
+        }
+        console.log(
+          `  tz=${r.tz} deposit=${r.last_deposit} dep_date=${r.last_deposit_date} report=${r.report_date} → matches:${matches}`
+        );
+      });
       // Show ALL unique column names from first raw row (to detect naming issues)
       if (savingsRaw[0]) console.log('[COL NAMES]', Object.keys(savingsRaw[0]));
 
@@ -391,6 +402,8 @@ async function startImport() {
         totals.details.errors.push(...result.details.errors);
       if (result.details?.skipped?.length)
         totals.details.skipped.push(...result.details.skipped);
+      if (result.details?.deposits_added?.length)
+        totals.details.deposits_added = (totals.details.deposits_added||[]).concat(result.details.deposits_added);
     }
 
     updateProgress(100, 'הושלם!');
@@ -449,6 +462,18 @@ function showResults(r) {
 
   let detailsHtml = '';
 
+  // Deposits added
+  if (r.details?.deposits_added?.length > 0) {
+    detailsHtml += `<div class="result-section">
+      <h4>💰 הפקדות שנרשמו (${r.details.deposits_added.length}):</h4>
+      <ul class="result-list">
+        ${r.details.deposits_added.map(d => `
+          <li><span class="tag tag-new">הפקדה</span> ${d.product} — ${d.date} — ₪${Number(d.amount).toLocaleString('he-IL')}</li>
+        `).join('')}
+      </ul>
+    </div>`;
+  }
+
   // Clients created
   if (r.details?.clients_created?.length > 0) {
     detailsHtml += `<div class="result-section">
@@ -463,14 +488,50 @@ function showResults(r) {
 
   // Errors
   if (r.details?.errors?.length > 0) {
-    detailsHtml += `<div class="result-section">
-      <h4><i class="fa fa-exclamation-triangle ml-2" style="color:#ef4444;"></i>שגיאות (${r.details.errors.length}):</h4>
-      <ul class="result-list">
-        ${r.details.errors.slice(0,10).map(e => `
-          <li><span class="tag tag-err">שגיאה</span> פוליסה ${e.policy}: ${e.error}</li>
-        `).join('')}
-      </ul>
-    </div>`;
+    // Split real errors from deposit debug entries
+    const realErrors = r.details.errors.filter(e => !e._deposit_debug);
+    const depDebugs  = r.details.errors.filter(e => e._deposit_debug).map(e => e._deposit_debug);
+
+    if (depDebugs.length > 0) {
+      detailsHtml += `<div class="result-section">
+        <h4>🔍 אבחון הפקדות (${depDebugs.length} שורות עם סכום > 0):</h4>
+        <div style="overflow-x:auto;font-size:0.72rem;">
+        <table style="width:100%;border-collapse:collapse;font-family:monospace;">
+          <tr style="background:var(--bg-card2);">
+            <th style="padding:4px 8px;text-align:right;border-bottom:1px solid var(--border);">ת"ז</th>
+            <th style="padding:4px 8px;text-align:right;border-bottom:1px solid var(--border);">פוליסה</th>
+            <th style="padding:4px 8px;text-align:right;border-bottom:1px solid var(--border);">סכום</th>
+            <th style="padding:4px 8px;text-align:right;border-bottom:1px solid var(--border);">תאריך הפקדה</th>
+            <th style="padding:4px 8px;text-align:right;border-bottom:1px solid var(--border);">חודש דוח</th>
+            <th style="padding:4px 8px;text-align:right;border-bottom:1px solid var(--border);">protected</th>
+            <th style="padding:4px 8px;text-align:right;border-bottom:1px solid var(--border);">תואם?</th>
+          </tr>
+          ${depDebugs.slice(0,20).map(d => `
+            <tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:3px 8px;">${d.tz||'-'}</td>
+              <td style="padding:3px 8px;">${d.policy||'-'}</td>
+              <td style="padding:3px 8px;color:#f59e0b;">₪${d.lastDeposit}</td>
+              <td style="padding:3px 8px;">${d.lastDepDate||'—'}</td>
+              <td style="padding:3px 8px;">${d.reportMonth||'-'}</td>
+              <td style="padding:3px 8px;color:${d.isProtected?'#ef4444':'#10b981'};">${d.isProtected?'✗ כן':'✓ לא'}</td>
+              <td style="padding:3px 8px;color:${d.matches?'#10b981':'#ef4444'};font-weight:700;">${d.matches?'✓ כן':'✗ לא'}</td>
+            </tr>
+          `).join('')}
+        </table>
+        </div>
+      </div>`;
+    }
+
+    if (realErrors.length > 0) {
+      detailsHtml += `<div class="result-section">
+        <h4><i class="fa fa-exclamation-triangle ml-2" style="color:#ef4444;"></i>שגיאות (${realErrors.length}):</h4>
+        <ul class="result-list">
+          ${realErrors.slice(0,10).map(e => `
+            <li><span class="tag tag-err">שגיאה</span> פוליסה ${e.policy}: ${e.error}</li>
+          `).join('')}
+        </ul>
+      </div>`;
+    }
   }
 
   // Skipped
