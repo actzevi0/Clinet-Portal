@@ -868,12 +868,22 @@ function calcInception(prod){
 }
 
 // Monthly return for heatmap & return table
-// חישוב תשואה חודשית:
-// — חודש רגיל: (cur - prev) / prev
-// — חודש ytd_start_month (חודש הפקדה ראשונה): (cur - ytd_start_value) / ytd_start_value
-//   כך איילון 11/25 מציג (316,228-304,700)/304,700 = 3.78% ✅
-//   וההכשרה 02/25 מציג (1,050,000-1,050,000)/1,050,000 = 0% (יתרת פתיחה = יתרת סוף חודש)
-// — אם חודש הפתיחה הוא גם החודש הראשון בנתונים (אין prev בכלל): חשב לפי ytd_start_value
+// חישוב תשואה חודשית עם קיזוז הפקדות ופדיונות:
+// נוסחה מתוקנת: (cur - prev - net_flows) / prev
+// כך הפקדה חודשית לא "מנפחת" את התשואה
+function getMonthFlows(prodId, mmyy) {
+  // סכום הפקדות פחות פדיונות לאותו מוצר+חודש
+  let net = 0;
+  for (const ev of EVENTS) {
+    if (ev.product_id !== prodId || ev.deleted) continue;
+    const evM = evDateToMMYY(ev.event_date);
+    if (evM !== mmyy) continue;
+    if (ev.event_type === 'deposit')    net += (ev.amount || 0);
+    if (ev.event_type === 'withdrawal') net -= (ev.amount || 0);
+  }
+  return net;
+}
+
 function calcMonthlyRet(prodId,months){
   const prod=PRODUCTS.find(p=>p.id===prodId);
   const startMonth=prod?.ytd_start_month||null;
@@ -893,7 +903,13 @@ function calcMonthlyRet(prodId,months){
       rets[m]=(cur-startVal)/startVal;
       continue;
     }
-    if(prev!=null&&prev!==0) rets[m]=(cur-prev)/prev;
+    if(prev!=null&&prev!==0){
+      // קזז הפקדות/פדיונות של החודש
+      const flows = getMonthFlows(prodId, m);
+      const base = prev + flows; // בסיס מתוקן: יתרה קודמת + זרימות חדשות
+      if(base > 0) rets[m]=(cur-base)/base;
+      else rets[m]=(cur-prev)/prev; // fallback ללא קיזוז
+    }
     else rets[m]=null;
   }
   return rets;
@@ -2340,14 +2356,7 @@ function renderTimeline(){
       </div>`:'';
     return`<div class="tl-item">
       <div class="tl-dot" style="background:${c};"></div>
-      <div style="padding:10px 12px;border-radius:8px;background:var(--bg-card2);">
-        <div class="tl-date"><span class="badge" style="background:${c}22;color:${c};font-size:0.7rem;padding:2px 7px;"><i class="fa ${icons[ev.event_type]||'fa-circle'}" style="margin-right:3px;"></i>${labels[ev.event_type]||ev.event_type}</span><span style="margin-right:8px;">${d}</span>${prodBadge}</div>
-        <div class="tl-title" style="margin-top:5px;">${displayTitle}</div>
-        ${ev.description?`<div class="tl-desc">${ev.description}</div>`:''}
-        ${ev.amount?`<div style="font-size:0.78rem;font-weight:700;color:${c};margin-top:4px;">${ILS(ev.amount)}</div>`:''}
-        ${editBtns}
-      </div>
-    </div>`;}).join('');
+      <div style="padding:10px 12px;border-radius:8px;background:var(--bg-card2);${ev.title&&ev.title.startsWith('⚠️')?'border:1.5px solid #f59e0b;':''}">\n        <div class="tl-date"><span class="badge" style="background:${c}22;color:${c};font-size:0.7rem;padding:2px 7px;"><i class="fa ${icons[ev.event_type]||'fa-circle'}" style="margin-right:3px;"></i>${labels[ev.event_type]||ev.event_type}</span><span style="margin-right:8px;">${d}</span>${prodBadge}${ev.title&&ev.title.startsWith('⚠️')?'<span style="font-size:0.68rem;background:#f59e0b22;color:#f59e0b;border-radius:4px;padding:1px 6px;margin-right:4px;">⚠️ לאימות ידני</span>':''}</div>\n        <div class="tl-title" style="margin-top:5px;">${displayTitle.replace(/^⚠️\s*/,'')}</div>\n        ${ev.description?`<div class="tl-desc">${ev.description}</div>`:''}\n        ${ev.amount?`<div style="font-size:0.78rem;font-weight:700;color:${c};margin-top:4px;">${ILS(ev.amount)}</div>`:''}\n        ${editBtns}\n      </div>\n    </div>`}).join('');
 
   document.getElementById('tlContainer').innerHTML = html ||
     `<div style="text-align:center;color:var(--text-muted);padding:32px 0;font-size:0.88rem;">

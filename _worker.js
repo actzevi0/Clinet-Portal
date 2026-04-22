@@ -1859,18 +1859,24 @@ async function handleSurenseJsonImport(request, env, sess) {
             `SELECT name_short, track FROM products WHERE id=? LIMIT 1`
           ).bind(realProductId).first();
           const displayName = (prodForTitle && prodForTitle.name_short) || trackName || productSub || productName;
-          const eventTitle  = `הפקדה – ${displayName}`;
+          // הפקדות מעל 10K מסומנות לאימות ידני
+          const needsReview  = lastDeposit > 10000;
+          const eventTitle   = needsReview
+            ? `⚠️ הפקדה לאימות – ${displayName}`
+            : `הפקדה – ${displayName}`;
+          const description  = needsReview
+            ? `הפקדה מדוח סורנס ${reportMonth} — סכום גבוה, אנא אמת תאריך ערך ידנית`
+            : `הפקדה מדוח סורנס ${reportMonth}`;
           await env.DB.prepare(`
             INSERT INTO timeline_events
               (id, client_id, product_id, event_date, event_type, title, description, amount, created_at, updated_at, deleted)
             VALUES (?, ?, ?, ?, 'deposit', ?, ?, ?, ?, ?, 0)
           `).bind(
             mkid(), clientId, realProductId, depDateJ,
-            eventTitle,
-            `הפקדה מדוח סורנס ${reportMonth}`,
+            eventTitle, description,
             lastDeposit, now, now
           ).run();
-          results.deposits_added.push({product: realProductId, date: depDateJ, amount: lastDeposit});
+          results.deposits_added.push({product: realProductId, date: depDateJ, amount: lastDeposit, needs_review: needsReview});
         } else {
           results.errors.push({_deposit_debug: {tz, policy, lastDeposit, depDateJ, realProductId, status:'already_exists'}});
         }

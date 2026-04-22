@@ -343,6 +343,25 @@ const BATCH_SIZE = 50; // rows per batch
 
 async function startImport() {
   if (!parsedData) return;
+
+  // ── בדיקת הפקדות גבוהות לפני ייבוא ──
+  const { savings, tracks, month } = parsedData;
+  const largeDeposits = savings.filter(r => (r.last_deposit || 0) > 10000);
+  if (largeDeposits.length > 0) {
+    const lines = largeDeposits.slice(0,5).map(r =>
+      `• ${r.first_name} ${r.last_name} | פוליסה ${r.policy} | ₪${r.last_deposit.toLocaleString()}`
+    ).join('\n');
+    const more = largeDeposits.length > 5 ? `\n... ועוד ${largeDeposits.length-5} נוספים` : '';
+    const msg =
+      `⚠️ זוהו ${largeDeposits.length} הפקדות מעל ₪10,000:\n\n${lines}${more}\n\n` +
+      `שים לב: הפקדות גבוהות כאלו עשויות להיות "תאריך סטטוס עדכני" ולא הפקדה חודשית רגילה.\n\n` +
+      `האם להמשיך בייבוא? (הפקדות אלו יסומנו לאימות ידני)`;
+    if (!confirm(msg)) {
+      document.getElementById('importBtn').disabled = false;
+      return;
+    }
+  }
+
   document.getElementById('importBtn').disabled = true;
   document.getElementById('stepProgress').style.display = '';
   document.getElementById('stepProgress').scrollIntoView({ behavior:'smooth' });
