@@ -100,13 +100,13 @@ tbody tr:last-child td{border-bottom:none;}
 .ret-item .lbl{font-size:0.68rem;color:var(--text-dim);}
 .ret-item .val{font-size:0.88rem;font-weight:700;}
 /* Heatmap */
-.hm-wrap{overflow-x:auto;overflow-y:auto;max-height:420px;}
+.hm-wrap{overflow-x:auto;overflow-y:auto;}
 .hm-table{border-collapse:collapse;font-size:0.76rem;width:100%;}
 .hm-table thead th{position:sticky;top:0;z-index:2;background:var(--bg-card);padding:7px 10px;text-align:center;color:var(--text-muted);font-size:0.72rem;white-space:nowrap;}
 .hm-table th{padding:7px 10px;text-align:center;color:var(--text-muted);font-size:0.72rem;white-space:nowrap;}
 .hm-table td{padding:5px 7px;text-align:center;font-weight:600;border-radius:3px;white-space:nowrap;cursor:default;transition:transform .15s;}
 .hm-table td:hover{transform:scale(1.08);position:relative;z-index:1;}
-.hm-name{text-align:right!important;font-size:0.72rem;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:transparent!important;}
+.hm-name{position:sticky;right:0;text-align:right!important;font-size:0.72rem;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:var(--bg-card)!important;z-index:1;}
 /* Timeline */
 .tl{position:relative;padding-right:22px;}
 .tl::before{content:'';position:absolute;right:7px;top:0;bottom:0;width:2px;background:var(--border);}
@@ -439,7 +439,7 @@ tbody tr:last-child td{border-bottom:none;}
     </div>
     <div class="card">
       <div class="card-hdr"><div class="card-title">מפת חום – תשואות חודשיות</div><div class="card-sub" style="font-size:0.72rem;color:var(--text-dim);">(שווי_חודש − שווי_קודם) / שווי_קודם</div></div>
-      <div class="hm-wrap" id="hmWrap"></div>
+      <div class="hm-wrap" id="hmWrap" style="max-height:480px;overflow-y:auto;"></div>
     </div>
   </div>
 
@@ -2220,7 +2220,7 @@ function renderHeatmap(){
     return{bg:isLight?'rgba(203,213,225,0.5)':'var(--bg-card2)',txt:'var(--text-dim)',lbl:'0.0%'};
   }
 
-  let html=`<table class="hm-table"><thead><tr><th style="text-align:right;min-width:100px;">מוצר</th>${dispMonths.map(m=>`<th>${monthLabel(m)}</th>`).join('')}<th>YTD ${ACTIVE_YEAR}</th></tr></thead><tbody>`;
+  let html=`<table class="hm-table"><thead><tr><th style="text-align:right;min-width:150px;position:sticky;right:0;background:var(--bg-card);z-index:3;">מוצר</th>${dispMonths.map(m=>`<th>${monthLabel(m)}</th>`).join('')}<th>YTD ${ACTIVE_YEAR}</th></tr></thead><tbody>`;
   for(const p of PRODUCTS){
     const rets=calcMonthlyRet(p.id,calcMonths);
     const ytd=calcYTD(p,ACTIVE_YEAR);
