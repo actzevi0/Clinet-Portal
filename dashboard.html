@@ -2050,18 +2050,20 @@ function renderCompChart(){
       if(!items.length) return [];
       const m=CMonths[items[0].dataIndex];
       const lines=[];
-      // הצג את כל אירועי החודש — ללא סינון לפי dataset שנבחר
-      (depositMap[m]||[])
-        .forEach(dep=>lines.push(`  💰 ${dep.name}: הפקדה ${ILS(dep.amount)}`));
-      (withdrawalMap[m]||[])
-        .forEach(w=>lines.push(`  📤 ${w.name}: פדיון ${ILS(w.amount)}`));
-      (transferMap[m]||[])
-        .forEach(t=>lines.push(`  🔄 ${t.name}: ניוד ${ILS(t.amount)}`));
-      (trackChangeMap[m]||[])
-        .forEach(t=>lines.push(`  🛤️ ${t.name}: ${t.desc}`));
-      (agentAppointMap[m]||[])
-        .forEach(a=>lines.push(`  🤝 ${a.title}`));
-      return lines.length?['── אירועי חודש ──',...lines]:[];
+      (depositMap[m]||[]).forEach(dep=>lines.push(`  💰 ${dep.name}: הפקדה ${ILS(dep.amount)}`));
+      (withdrawalMap[m]||[]).forEach(w=>lines.push(`  📤 ${w.name}: פדיון ${ILS(w.amount)}`));
+      (transferMap[m]||[]).forEach(t=>lines.push(`  🔄 ${t.name}: ניוד ${ILS(t.amount)}`));
+      (trackChangeMap[m]||[]).forEach(t=>lines.push(`  🛤️ ${t.name}: ${t.desc}`));
+      (agentAppointMap[m]||[]).forEach(a=>lines.push(`  🤝 ${a.title}`));
+      if(!lines.length) return [];
+      // הגבל ל-8 שורות למניעת גלישה מחוץ למסך
+      const MAX=8;
+      if(lines.length>MAX) {
+        const shown=lines.slice(0,MAX);
+        shown.push(`  ... ועוד ${lines.length-MAX} אירועים`);
+        return['── אירועי חודש ──',...shown];
+      }
+      return['── אירועי חודש ──',...lines];
     }
   };
 
