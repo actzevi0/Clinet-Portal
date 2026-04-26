@@ -1833,55 +1833,57 @@ async function handleSurenseJsonImport(request, env, sess) {
         results.mv_updated.push({product: realProductId, month: reportMonth, value: tzvira});
       }
 
-      // 6. Add deposit to timeline — לכל הפקדה > 0 שאינה protected
-      // תאריך האירוע = היום האחרון של חודש הדוח (reportMonth)
-      // שדה "הפקדה אחרונה" בדוח הסורנס הוא סכום ההפקדה של החודש הנוכחי
-      if (!isProtected && lastDeposit > 0) {
-        // חשב את היום האחרון של חודש הדוח כתאריך האירוע
-        const [rmMM, rmYY] = reportMonth.split('/');
-        const rmFullYear = 2000 + parseInt(rmYY, 10);
-        const rmLastDay  = new Date(rmFullYear, parseInt(rmMM, 10), 0).getDate();
-        const depDateJ   = `${rmFullYear}-${rmMM.padStart(2,'0')}-${String(rmLastDay).padStart(2,'0')}`;
+      // 6. Add deposit to timeline — רק אם תאריך ההפקדה שייך לחודש הדוח ולקוח אינו protected
+      // דוח הסורנס מציג "הפקדה אחרונה" שעשויה להיות מחודשים ישנים — להתעלם מכאלו
+      if (!isProtected && lastDeposit > 0 && lastDepDate && depMatchesRM(lastDepDate)) {
+        // תאריך האירוע = תאריך ההפקדה עצמו (מתוך הדוח), מנורמל ל-YYYY-MM-DD
+        const rawDepDate = lastDepDate;
+        const iso = typeof rawDepDate === 'string' && /^\d{4}-\d{2}-\d{2}/.test(rawDepDate)
+          ? rawDepDate.slice(0,10)
+          : (() => { const d = new Date(rawDepDate); return isNaN(d) ? null : d.toISOString().split('T')[0]; })();
+        const depDateJ = iso;
 
-        // מחק deposits ישנים לאותו מוצר שנוצרו מדוח אותו חודש אבל עם תאריך שגוי
-        await env.DB.prepare(`
-          DELETE FROM timeline_events
-          WHERE product_id=? AND client_id=? AND event_type='deposit'
-            AND description LIKE ? AND event_date != ?
-        `).bind(realProductId, clientId, `%${reportMonth}%`, depDateJ).run();
-
-        const existDep = await env.DB.prepare(
-          `SELECT id FROM timeline_events WHERE product_id=? AND client_id=? AND event_date=? AND event_type='deposit' AND description LIKE ?`
-        ).bind(realProductId, clientId, depDateJ, `%${reportMonth}%`).first();
-
-        if (!existDep) {
-          const prodForTitle = await env.DB.prepare(
-            `SELECT name_short, track FROM products WHERE id=? LIMIT 1`
-          ).bind(realProductId).first();
-          const displayName = (prodForTitle && prodForTitle.name_short) || trackName || productSub || productName;
-          // הפקדות מעל 10K מסומנות לאימות ידני
-          const needsReview  = lastDeposit > 10000;
-          const eventTitle   = needsReview
-            ? `⚠️ הפקדה לאימות – ${displayName}`
-            : `הפקדה – ${displayName}`;
-          const description  = needsReview
-            ? `הפקדה מדוח סורנס ${reportMonth} — סכום גבוה, אנא אמת תאריך ערך ידנית`
-            : `הפקדה מדוח סורנס ${reportMonth}`;
+        if (depDateJ) {
+          // מחק deposits ישנים לאותו מוצר מאותו חודש דוח עם תאריך שגוי
           await env.DB.prepare(`
-            INSERT INTO timeline_events
-              (id, client_id, product_id, event_date, event_type, title, description, amount, created_at, updated_at, deleted)
-            VALUES (?, ?, ?, ?, 'deposit', ?, ?, ?, ?, ?, 0)
-          `).bind(
-            mkid(), clientId, realProductId, depDateJ,
-            eventTitle, description,
-            lastDeposit, now, now
-          ).run();
-          results.deposits_added.push({product: realProductId, date: depDateJ, amount: lastDeposit, needs_review: needsReview});
+            DELETE FROM timeline_events
+            WHERE product_id=? AND client_id=? AND event_type='deposit'
+              AND description LIKE ? AND event_date != ?
+          `).bind(realProductId, clientId, `%${reportMonth}%`, depDateJ).run();
+
+          const existDep = await env.DB.prepare(
+            `SELECT id FROM timeline_events WHERE product_id=? AND client_id=? AND event_date=? AND event_type='deposit' AND description LIKE ?`
+          ).bind(realProductId, clientId, depDateJ, `%${reportMonth}%`).first();
+
+          if (!existDep) {
+            const prodForTitle = await env.DB.prepare(
+              `SELECT name_short, track FROM products WHERE id=? LIMIT 1`
+            ).bind(realProductId).first();
+            const displayName = (prodForTitle && prodForTitle.name_short) || trackName || productSub || productName;
+            await env.DB.prepare(`
+              INSERT INTO timeline_events
+                (id, client_id, product_id, event_date, event_type, title, description, amount, created_at, updated_at, deleted)
+              VALUES (?, ?, ?, ?, 'deposit', ?, ?, ?, ?, ?, 0)
+            `).bind(
+              mkid(), clientId, realProductId, depDateJ,
+              `הפקדה – ${displayName}`,
+              `הפקדה מדוח סורנס ${reportMonth}`,
+              lastDeposit, now, now
+            ).run();
+            results.deposits_added.push({product: realProductId, date: depDateJ, amount: lastDeposit});
+          } else {
+            results.errors.push({_deposit_debug: {tz, policy, lastDeposit, depDateJ, realProductId, status:'already_exists'}});
+          }
         } else {
-          results.errors.push({_deposit_debug: {tz, policy, lastDeposit, depDateJ, realProductId, status:'already_exists'}});
+          results.errors.push({_deposit_debug: {tz, policy, lastDeposit, lastDepDate, reportMonth, realProductId, status:'null_date'}});
         }
-      } else if (lastDeposit > 0 && isProtected) {
-        results.errors.push({_deposit_debug: {tz, policy, lastDeposit, reportMonth, isProtected, realProductId, skip_reason:'protected'}});
+      } else if (lastDeposit > 0) {
+        // Debug: why deposit was skipped
+        const reason = isProtected ? 'protected'
+          : !lastDepDate ? 'no_date'
+          : !depMatchesRM(lastDepDate) ? 'date_mismatch'
+          : 'unknown';
+        results.errors.push({_deposit_debug: {tz, policy, lastDeposit, lastDepDate, reportMonth, realProductId, skip_reason: reason}});
       }
 
     } catch(e) {

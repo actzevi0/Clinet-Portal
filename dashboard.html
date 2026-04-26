@@ -1640,10 +1640,19 @@ function lineOpts(d,yFmt){
   return{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
     plugins:{legend:{display:false},
       tooltip:{backgroundColor:d.tooltipBg,borderColor:d.tooltipBorder,borderWidth:1,titleColor:d.text,bodyColor:d.text,padding:10,rtl:true,
-        callbacks:{label:ctx=>` ${ctx.dataset.label}: ${ILS(ctx.parsed.y)}`}}},
+        filter:(item, index) => index < 12, // הגבל ל-12 מוצרים בטולטיפ למניעת חיתוך
+        callbacks:{
+          label:ctx=>` ${ctx.dataset.label}: ${ILS(ctx.parsed.y)}`,
+          afterFooter:(items)=>{
+            const total = items[0]?.chart?.data?.datasets?.length || 0;
+            if(total > 12) return `  ... ועוד ${total-12} מוצרים נוספים`;
+            return null;
+          }
+        }
+      }
+    },
     scales:{x:{grid:{color:d.grid},ticks:{color:d.text,font:{family:'Heebo',size:10}}},
       y:{grid:{color:d.grid},ticks:{color:d.text,font:{family:'Heebo',size:10},callback:v=>ILSc(v)}}}};
-}
 
 // ═══════════════════════════════════════════
 // ═══════════════════════════════════════════
