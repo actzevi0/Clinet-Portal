@@ -352,33 +352,19 @@ async function fetchAll(url){
 
 async function loadClients() {
   try {
-    // ── בדיקת Demo Mode ──
-    if (!IS_DEMO_MODE) {
-      try {
-        const testR = await authFetch(`${API_BASE}/tables/clients?page=1&limit=1`);
-        if (testR.status === 401) { window.location.replace('/admin/login.html?reason=session_expired'); return; }
-        const testD = await testR.json();
-        if (testD.error && testD.error.includes('D1 not bound')) {
-          IS_DEMO_MODE = true;
-          console.warn('[Demo Mode] DB לא מחובר – מציג נתוני demo');
-        }
-      } catch(e) { IS_DEMO_MODE = true; }
-    }
+    // ── טעינה מהירה: בקשה אחת לכל הנתונים ──
+    const r = await authFetch(`${API_BASE}/api/clients-summary`);
+    if (r.status === 401) { window.location.replace('/admin/login.html?reason=session_expired'); return; }
+    const d = await r.json();
 
-    if (IS_DEMO_MODE) {
-      // Demo fallback — load individually
-      const [clientsRaw, productsRaw, mvAll, eventsRaw] = await Promise.all([
-        fetchAll('/tables/clients'),
-        fetchAll('/tables/products?sort=sort_order'),
-        fetchAll('/tables/monthly_values'),
-        fetchAll('/tables/timeline_events'),
-      ]);
-      EVENTS_ALL = eventsRaw.filter(e => e.event_type === 'transfer');
-      CLIENTS = clientsRaw.sort((a,b) => a.name.localeCompare(b.name, 'he'));
-      PRODUCTS_ALL = productsRaw;
-      PRODUCTS_ALL.forEach(p => { if (!p.name_short || p.name_short === 'null') p.name_short = p.name || ''; });
+    if (d.error && d.error.includes('D1 not bound')) {
+      IS_DEMO_MODE = true;
+      console.warn('[Demo Mode] DB לא מחובר');
+      CLIENTS = DEMO_CLIENTS.sort((a,b) => a.name.localeCompare(b.name, 'he'));
+      PRODUCTS_ALL = DEMO_PRODUCTS;
+      EVENTS_ALL = [];
       MV_ALL = {};
-      for (const mv of mvAll) {
+      for (const mv of DEMO_MV) {
         if (!MV_ALL[mv.client_id]) MV_ALL[mv.client_id] = [];
         MV_ALL[mv.client_id].push(mv);
       }
@@ -387,18 +373,11 @@ async function loadClients() {
       demoBar.innerHTML = '<i class="fa fa-flask" style="margin-left:6px;"></i><strong>מצב Demo</strong> – מציג נתוני דוגמה.';
       document.querySelector('main').prepend(demoBar);
     } else {
-      // ── Fast single-request load ──
-      const r = await authFetch(`${API_BASE}/api/clients-summary`);
-      if (r.status === 401) { window.location.replace('/admin/login.html?reason=session_expired'); return; }
-      const d = await r.json();
       if (d.error) throw new Error(d.error);
-
       CLIENTS = (d.clients || []).sort((a,b) => a.name.localeCompare(b.name, 'he'));
       PRODUCTS_ALL = d.products || [];
       PRODUCTS_ALL.forEach(p => { if (!p.name_short || p.name_short === 'null') p.name_short = p.name || ''; });
       EVENTS_ALL = d.transfers || [];
-
-      // MV_ALL — מפת latest value בלבד (מספיק לחישוב צבירה בפאנל יועץ)
       MV_ALL = {};
       for (const mv of (d.mv_latest || [])) {
         if (!MV_ALL[mv.client_id]) MV_ALL[mv.client_id] = [];
@@ -471,9 +450,12 @@ function calcClientTotalVal(c) {
     });
     if (!hasDataAfter) transferOutProds.add(e.product_id);
   }
-  // הערה: withdrawal event לבד לא מסמן מוצר כ"יצא מהתיק".
-  // אם יש ערך חודשי > 0 — הכסף עדיין קיים ויש לסכמו.
-  // רק ניוד החוצה (transfer out) מסיר מוצר מהצבירה.
+  // מוצר שנפדה: withdrawal event — מסמן אותו כ"יצא מהתיק"
+  // (כסף נמשך — לא לסכום, גם אם יש ערך חודשי עדיין בDB מחודש קודם)
+  for (const e of EVENTS_ALL) {
+    if (e.event_type !== 'withdrawal') continue;
+    transferOutProds.add(e.product_id);
+  }
 
   // Sum ALL products with value > 0 (inactive with money still counts)
   // למעט קופות שנויידו החוצה

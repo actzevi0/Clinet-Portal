@@ -1921,7 +1921,8 @@ async function handleClientsSummary(request, env, sess) {
 
   const [clientsRes, productsRes, mvRes, transferRes] = await Promise.all([
     env.DB.prepare(
-      `SELECT id, name, report_title, active, import_protected, username, identity_number
+      `SELECT id, name, report_title, active, import_protected, username, identity_number,
+              whatsapp_phone, enable_goals, enable_whatif, enable_insights, enable_notifications
        FROM clients WHERE agent_id=? AND deleted=0 ORDER BY name`
     ).bind(agentId).all(),
 
