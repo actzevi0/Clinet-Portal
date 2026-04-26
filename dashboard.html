@@ -1538,6 +1538,11 @@ function renderKPIs(){
     });
     if(!hasDataAfter) transferOutProds.add(e.product_id);
   }
+  // קופות שנפדו (withdrawal) — לא לסכום אותן בצבירה הכוללת
+  for(const e of EVENTS){
+    if(e.event_type !== 'withdrawal') continue;
+    transferOutProds.add(e.product_id);
+  }
 
   // צבירה עדכנית — כל מוצר עם ערך אחרון > 0, אקטיבי וגם אינאקטיבי עם צבירה קיימת
   // למעט קופות שנויידו החוצה (הכסף עבר לקופת יעד שנספרת)
