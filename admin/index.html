@@ -623,6 +623,9 @@ function renderClientsGrid(precomputed) {
           <button class="btn btn-secondary btn-sm" onclick="copyClientLink('${c.id}')">
             <i class="fa fa-copy"></i> קישור
           </button>
+          <button class="btn btn-sm" onclick="toggleClientActive('${c.id}', ${c.active ? 1 : 0})" title="${c.active ? 'לחץ לסימון כלא פעיל' : 'לחץ לסימון כפעיל'}" style="${c.active ? 'background:rgba(239,68,68,0.08);color:#ef4444;border:1px solid rgba(239,68,68,0.25);' : 'background:rgba(16,185,129,0.1);color:#10b981;border:1px solid rgba(16,185,129,0.35);'}">
+            <i class="fa ${c.active ? 'fa-user-times' : 'fa-user-check'}"></i> ${c.active ? 'סמן לא פעיל' : 'סמן פעיל'}
+          </button>
         </div>
       </div>`;
   }).join('');
@@ -687,6 +690,26 @@ function openDashboardEdit(clientId) {
   // שלח את ה-agent_token עצמו — הוא כבר read-write (is_readonly=0)
   const url = `${base}?client=${clientId}&_st=${encodeURIComponent(agentToken)}&tab=events`;
   window.open(url, '_blank');
+}
+
+async function toggleClientActive(clientId, currentActive) {
+  const newActive = currentActive ? 0 : 1;
+  const label = newActive ? 'פעיל' : 'לא פעיל';
+  if (!confirm(`האם לסמן את הלקוח כ"${label}"?`)) return;
+  try {
+    const token = getStoredToken();
+    const r = await authFetch(`${API_BASE}/tables/clients/${clientId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ active: newActive })
+    });
+    if (!r.ok) throw new Error(`שגיאת שרת ${r.status}`);
+    // Update local state
+    const cl = CLIENTS.find(c => c.id === clientId);
+    if (cl) cl.active = newActive;
+    filterAndRenderClients();
+  } catch(e) {
+    alert('שגיאה בעדכון סטטוס: ' + e.message);
+  }
 }
 
 function copyClientLink(clientId) {
