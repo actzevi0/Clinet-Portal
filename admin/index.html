@@ -431,13 +431,15 @@ function calcClientTotalVal(c) {
   }
 
   // בנה סט של קופות שנויידו החוצה — לא לסכום (הכסף עבר לקופת יעד)
+  // חשוב: לסנן רק אירועים של הלקוח הנוכחי (e.client_id === c.id)
+  const clientEvents = EVENTS_ALL.filter(e => e.client_id === c.id);
   const transferOutProds = new Set(
-    EVENTS_ALL
+    clientEvents
       .filter(e => e.event_type === 'transfer' && e.transfer_direction === 'out')
       .map(e => e.product_id)
   );
   // fallback: ניודים ללא direction שאין להם נתונים אחרי הניוד
-  for (const e of EVENTS_ALL) {
+  for (const e of clientEvents) {
     if (e.event_type !== 'transfer' || e.transfer_direction) continue;
     const tDate = e.event_date;
     const tYear = parseInt(tDate.slice(0,4));
@@ -452,7 +454,7 @@ function calcClientTotalVal(c) {
   }
   // מוצר שנפדה: withdrawal event — מסמן אותו כ"יצא מהתיק"
   // (כסף נמשך — לא לסכום, גם אם יש ערך חודשי עדיין בDB מחודש קודם)
-  for (const e of EVENTS_ALL) {
+  for (const e of clientEvents) {
     if (e.event_type !== 'withdrawal') continue;
     transferOutProds.add(e.product_id);
   }

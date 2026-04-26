@@ -1963,6 +1963,53 @@ async function handleClientsSummary(request, env, sess) {
   });
 }
 
+// ── Fast single-client data — replaces 3 separate fetchAll() calls in dashboard ──
+async function handleClientData(request, env, sess) {
+  if (!sess) return jr({error:'Unauthorized'}, 401);
+  if (!env.DB) return jr({error:'D1 not bound'}, 500);
+  const agentId = sess.agent_id;
+  const url = new URL(request.url);
+  const clientId = url.searchParams.get('client_id');
+  if (!clientId) return jr({error:'client_id required'}, 400);
+
+  // Verify client belongs to this agent
+  const clientRow = await env.DB.prepare(
+    `SELECT id, name, report_title, active, import_protected, username, identity_number,
+            whatsapp_phone, enable_goals, enable_whatif, enable_insights, enable_notifications,
+            goals_json, insights_json, hidden_years
+     FROM clients WHERE id=? AND agent_id=? AND deleted=0`
+  ).bind(clientId, agentId).first();
+  if (!clientRow) return jr({error:'client not found'}, 404);
+
+  const [productsRes, mvRes, eventsRes] = await Promise.all([
+    env.DB.prepare(
+      `SELECT id, client_id, name, name_short, institution, product_type, status,
+              account_number, sort_order, color, track, exclude_open,
+              ytd_start_value, inception_value, inception_date
+       FROM products WHERE client_id=? AND deleted=0 ORDER BY sort_order`
+    ).bind(clientId).all(),
+
+    env.DB.prepare(
+      `SELECT product_id, client_id, month, value
+       FROM monthly_values WHERE client_id=? ORDER BY month`
+    ).bind(clientId).all(),
+
+    env.DB.prepare(
+      `SELECT id, product_id, client_id, event_date, event_type,
+              transfer_direction, amount, title, description, deleted
+       FROM timeline_events WHERE client_id=? AND deleted=0
+       ORDER BY event_date DESC`
+    ).bind(clientId).all(),
+  ]);
+
+  return jr({
+    client:   clientRow,
+    products: productsRes.results || [],
+    mv:       mvRes.results       || [],
+    events:   eventsRes.results   || [],
+  });
+}
+
 // ── Simple XLSX parser placeholder ────────────────────────────────
 function parseXlsxBuffer(buffer) {
   throw new Error('Use /api/import/surense-json instead');
@@ -2001,6 +2048,11 @@ export default {
     // ── Fast clients summary (single query, replaces 4 fetchAll calls) ──
     if (path === '/api/clients-summary' && request.method === 'GET') {
       return handleClientsSummary(request, env, sess);
+    }
+
+    // ── Fast single-client data for dashboard ──
+    if (path === '/api/client-data' && request.method === 'GET') {
+      return handleClientData(request, env, sess);
     }
 
     // Tables (data CRUD)

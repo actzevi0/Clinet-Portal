@@ -1367,52 +1367,61 @@ async function loadData(){
   if(!cid){window.location.href='index.html';return;}
 
   try{
-    // Load client – תמיד דרך fetchAll (שמנהל demo mode)
-    const allClients = await fetchAll(`${API_BASE}/tables/clients?limit=100`);
-    console.log('[loadData] clients loaded:', allClients.map(c=>c.id), '| looking for:', cid);
-    CLIENT = allClients.find(c=>c.id===cid);
-    if(!CLIENT) throw new Error(`client not found: "${cid}" — available: ${allClients.map(c=>c.id).join(', ')}`);
+    // ── Fast path: use /api/client-data endpoint (single request, production only) ──
+    if (!IS_DEMO_MODE) {
+      const _agentTok = sessionStorage.getItem('agent_token') || '';
+      const _hdrs = _agentTok ? {'X-Session-Token': _agentTok} : {};
+      const r = await fetch(`${API_BASE}/api/client-data?client_id=${encodeURIComponent(cid)}`, {headers: _hdrs});
+      if (r.status === 401) { window.location.replace(`${API_BASE}/admin/login?redirect=${encodeURIComponent(window.location.pathname+window.location.search)}`); return; }
+      const d = await r.json();
+      if (d.error) throw new Error(d.error);
 
-    // הצג באנר demo mode
-    if (IS_DEMO_MODE) {
+      CLIENT   = d.client;
+      PRODUCTS = (d.products || []).sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+      const mvAll = d.mv || [];
+      MV = {};
+      for (const mv of mvAll) {
+        if (!MV[mv.product_id]) MV[mv.product_id] = [];
+        MV[mv.product_id].push(mv);
+      }
+      EVENTS = (d.events || []).sort((a,b)=>b.event_date.localeCompare(a.event_date));
+      console.log(`[loadData] fast-load: client=${CLIENT?.name} products=${PRODUCTS.length} mv=${mvAll.length} events=${EVENTS.length}`);
+    } else {
+      // ── Demo mode: use fetchAll as before ──
+      const allClients = await fetchAll(`${API_BASE}/tables/clients?limit=100`);
+      console.log('[loadData] clients loaded:', allClients.map(c=>c.id), '| looking for:', cid);
+      CLIENT = allClients.find(c=>c.id===cid);
+      if(!CLIENT) throw new Error(`client not found: "${cid}" — available: ${allClients.map(c=>c.id).join(', ')}`);
+
       const bar = document.createElement('div');
       bar.style.cssText = 'background:linear-gradient(90deg,rgba(245,158,11,0.2),rgba(245,158,11,0.1));border-bottom:1px solid rgba(245,158,11,0.3);color:#f59e0b;padding:8px 20px;text-align:center;font-size:0.82rem;position:sticky;top:62px;z-index:99;';
       bar.innerHTML = '<i class="fa fa-flask" style="margin-left:6px;"></i><strong>מצב Demo</strong> – נתוני דוגמה. עדכונים מדף עדכון חודשי ישתקפו כאן. <button onclick="showDemoClients()" style="background:rgba(37,99,235,0.3);border:1px solid rgba(37,99,235,0.5);color:#60a5fa;border-radius:4px;padding:2px 8px;font-size:.78rem;cursor:pointer;margin-right:8px;">📋 רשימת לקוחות</button><button onclick="resetDemoData()" style="background:rgba(245,158,11,0.3);border:1px solid rgba(245,158,11,0.5);color:#f59e0b;border-radius:4px;padding:2px 8px;font-size:.78rem;cursor:pointer;margin-right:8px;">איפוס נתוני Demo</button>';
       document.body.insertBefore(bar, document.getElementById('loadingEl'));
+
+      PRODUCTS=(await fetchAll(`${API_BASE}/tables/products?sort=sort_order`))
+        .filter(p=>p.client_id===cid)
+        .sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+
+      const mvAll=await fetchAll(`${API_BASE}/tables/monthly_values`);
+      MV={};
+      for(const p of PRODUCTS){
+        MV[p.id]=mvAll.filter(r=>r.product_id===p.id&&r.client_id===cid);
+      }
+
+      const evAll=await fetchAll(`${API_BASE}/tables/timeline_events`);
+      EVENTS=evAll.filter(e=>e.client_id===cid).sort((a,b)=>b.event_date.localeCompare(a.event_date));
     }
 
-    // Load products
-    PRODUCTS=(await fetchAll(`${API_BASE}/tables/products?sort=sort_order`))
-      .filter(p=>p.client_id===cid)
-      .sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
-    console.log('[loadData] products for', cid, ':', PRODUCTS.map(p=>p.id));
+    if(!CLIENT) throw new Error(`client not found: "${cid}"`);
 
-    // המר exclude_open מ-string ל-boolean (ה-API מחזיר לפעמים string)
-    // נרמל name_short — אם null/undefined השתמש ב-name
+    // נרמל שדות במוצרים
     PRODUCTS.forEach(p=>{
       if(typeof p.exclude_open==='string') p.exclude_open=(p.exclude_open==='true'||p.exclude_open==='1');
       if(!p.name_short || p.name_short==='null') p.name_short = p.name || '';
-      // ── צבע ברירת מחדל לפי יצרן (אם לא הוגדר צבע ידנית) ──
       if(!p.color || p.color==='null' || p.color==='#000000' || p.color==='#000') {
         p.color = getInstDefaultColor(p.institution || '');
       }
     });
-
-    // Load monthly values grouped by product
-    const mvAll=await fetchAll(`${API_BASE}/tables/monthly_values`);
-    MV={};
-    for(const p of PRODUCTS){
-      MV[p.id]=mvAll.filter(r=>r.product_id===p.id&&r.client_id===cid);
-    }
-    console.log('[loadData] MV keys:', Object.keys(MV), '| total mv rows:', mvAll.length, '| for client:', mvAll.filter(r=>r.client_id===cid).length);
-
-    // Load timeline events
-    const evAll=await fetchAll(`${API_BASE}/tables/timeline_events`);
-    EVENTS=evAll.filter(e=>e.client_id===cid).sort((a,b)=>b.event_date.localeCompare(a.event_date));
-    // Debug: הצג את כל ה-EVENTS שנטענו
-    console.log(`[loadData] evAll total: ${evAll.length} | client EVENTS: ${EVENTS.length}`);
-    EVENTS.forEach(e=>console.log(`  ev: type=${e.event_type} date=${e.event_date} product_id=${e.product_id} amount=${e.amount} client_id=${e.client_id}`));
-    console.log('[loadData] PRODUCTS ids:', PRODUCTS.map(p=>p.id));
 
     MONTHS=getMonths();
     // COMP_ON כולל פעילים בהתחלה; מוצרים נפדים (inactive) מתווספים ידנית ע"י המשתמש
