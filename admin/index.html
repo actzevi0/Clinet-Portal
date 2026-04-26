@@ -352,7 +352,7 @@ async function fetchAll(url){
 
 async function loadClients() {
   try {
-    // ── בדיקת Demo Mode פעם אחת בלבד ──
+    // ── בדיקת Demo Mode ──
     if (!IS_DEMO_MODE) {
       try {
         const testR = await authFetch(`${API_BASE}/tables/clients?page=1&limit=1`);
@@ -365,52 +365,55 @@ async function loadClients() {
       } catch(e) { IS_DEMO_MODE = true; }
     }
 
-    // ── טעינה מקבילית: clients + products + monthly_values + transfer events (לסינון ניודים בצבירה) ──
-    const [clientsRaw, productsRaw, mvAll, eventsRaw] = await Promise.all([
-      fetchAll('/tables/clients'),
-      fetchAll('/tables/products?sort=sort_order'),
-      fetchAll('/tables/monthly_values'),
-      fetchAll('/tables/timeline_events'),
-    ]);
-    EVENTS_ALL = eventsRaw.filter(e => e.event_type === 'transfer');
-
-    CLIENTS = clientsRaw.sort((a,b) => a.name.localeCompare(b.name, 'he'));
-
-    // הצג באנר Demo Mode אם צריך
     if (IS_DEMO_MODE) {
+      // Demo fallback — load individually
+      const [clientsRaw, productsRaw, mvAll, eventsRaw] = await Promise.all([
+        fetchAll('/tables/clients'),
+        fetchAll('/tables/products?sort=sort_order'),
+        fetchAll('/tables/monthly_values'),
+        fetchAll('/tables/timeline_events'),
+      ]);
+      EVENTS_ALL = eventsRaw.filter(e => e.event_type === 'transfer');
+      CLIENTS = clientsRaw.sort((a,b) => a.name.localeCompare(b.name, 'he'));
+      PRODUCTS_ALL = productsRaw;
+      PRODUCTS_ALL.forEach(p => { if (!p.name_short || p.name_short === 'null') p.name_short = p.name || ''; });
+      MV_ALL = {};
+      for (const mv of mvAll) {
+        if (!MV_ALL[mv.client_id]) MV_ALL[mv.client_id] = [];
+        MV_ALL[mv.client_id].push(mv);
+      }
       const demoBar = document.createElement('div');
       demoBar.style.cssText = 'background:linear-gradient(90deg,rgba(245,158,11,0.2),rgba(245,158,11,0.1));border:1px solid rgba(245,158,11,0.4);color:#f59e0b;padding:10px 20px;text-align:center;font-size:0.84rem;';
-      demoBar.innerHTML = '<i class="fa fa-flask" style="margin-left:6px;"></i><strong>מצב Demo</strong> – ה-DB לא מחובר בסביבת הפיתוח. מציג נתוני דוגמה. הנתונים האמיתיים יופיעו בפרודקשן.';
+      demoBar.innerHTML = '<i class="fa fa-flask" style="margin-left:6px;"></i><strong>מצב Demo</strong> – מציג נתוני דוגמה.';
       document.querySelector('main').prepend(demoBar);
+    } else {
+      // ── Fast single-request load ──
+      const r = await authFetch(`${API_BASE}/api/clients-summary`);
+      if (r.status === 401) { window.location.replace('/admin/login.html?reason=session_expired'); return; }
+      const d = await r.json();
+      if (d.error) throw new Error(d.error);
+
+      CLIENTS = (d.clients || []).sort((a,b) => a.name.localeCompare(b.name, 'he'));
+      PRODUCTS_ALL = d.products || [];
+      PRODUCTS_ALL.forEach(p => { if (!p.name_short || p.name_short === 'null') p.name_short = p.name || ''; });
+      EVENTS_ALL = d.transfers || [];
+
+      // MV_ALL — מפת latest value בלבד (מספיק לחישוב צבירה בפאנל יועץ)
+      MV_ALL = {};
+      for (const mv of (d.mv_latest || [])) {
+        if (!MV_ALL[mv.client_id]) MV_ALL[mv.client_id] = [];
+        MV_ALL[mv.client_id].push(mv);
+      }
     }
-
-    // נרמל name_short — אם null השתמש ב-name
-    PRODUCTS_ALL = productsRaw;
-    PRODUCTS_ALL.forEach(p => {
-      if (!p.name_short || p.name_short === 'null') p.name_short = p.name || '';
-    });
-
-    // בנה MV_ALL — map לפי client_id
-    MV_ALL = {};
-    for (const mv of mvAll) {
-      if (!MV_ALL[mv.client_id]) MV_ALL[mv.client_id] = [];
-      MV_ALL[mv.client_id].push(mv);
-    }
-
-    // EVENTS_ALL נטען עם רשומות transfer בלבד לסינון ניודים בחישוב צבירה
 
     const activeCount = CLIENTS.filter(c => c.active).length;
     document.getElementById('statTotalClients').textContent = activeCount;
 
-    // Compute total AUM — מסנן קופות שנויידו, ממיין לפי חודש
     let totalAUM = 0;
-    for (const c of CLIENTS) {
-      totalAUM += calcClientTotalVal(c);
-    }
+    for (const c of CLIENTS) totalAUM += calcClientTotalVal(c);
     document.getElementById('statTotalAUM').textContent = formatILS(totalAUM);
     document.getElementById('statLastUpdate').textContent = new Date().toLocaleDateString('he-IL');
 
-    // Show search/filter toolbar and render with default sort (total desc)
     const toolbar = document.getElementById('clientsToolbar');
     if (toolbar) toolbar.style.display = 'flex';
     filterAndRenderClients();
@@ -465,6 +468,20 @@ function calcClientTotalVal(c) {
     const hasDataAfter = mvProd.some(r => {
       const [mm, yy] = r.month.split('/');
       return parseInt('20'+yy) * 100 + parseInt(mm) > tNum;
+    });
+    if (!hasDataAfter) transferOutProds.add(e.product_id);
+  }
+  // מוצרים שנפדו (withdrawal event) ואין להם נתונים אחרי תאריך הפדיון — לא לסכום
+  for (const e of EVENTS_ALL) {
+    if (e.event_type !== 'withdrawal') continue;
+    const wDate = e.event_date;
+    const wYear = parseInt(wDate.slice(0,4));
+    const wMonth = parseInt(wDate.slice(5,7)) || 1;
+    const wNum = wYear * 100 + wMonth;
+    const mvProd = mvs.filter(r => r.product_id === e.product_id && r.value != null);
+    const hasDataAfter = mvProd.some(r => {
+      const [mm, yy] = r.month.split('/');
+      return parseInt('20'+yy) * 100 + parseInt(mm) > wNum;
     });
     if (!hasDataAfter) transferOutProds.add(e.product_id);
   }
@@ -829,6 +846,26 @@ async function refreshAll() {
       <button class="modal-close" onclick="closeSettings()"><i class="fa fa-times"></i></button>
     </div>
     <input type="hidden" id="settingsClientId">
+
+    <!-- Active/Inactive Status -->
+    <div class="settings-card" id="activeStatusCard" style="border-color:rgba(16,185,129,0.3);background:rgba(16,185,129,0.04);">
+      <div class="settings-row">
+        <div class="settings-icon-label">
+          <i class="fa fa-user-check" style="background:rgba(16,185,129,0.15);color:#10b981;"></i>
+          <div>
+            <div style="font-weight:600;">סטטוס לקוח</div>
+            <div style="font-size:0.75rem;font-weight:400;color:var(--text-muted);">קבע האם הלקוח פעיל במערכת</div>
+          </div>
+        </div>
+        <label class="settings-toggle-label">
+          <span id="activeStatusLabel">פעיל</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="settingsClientActive" onchange="updateActiveStatusLabel()">
+            <span class="toggle-slider"></span>
+          </label>
+        </label>
+      </div>
+    </div>
 
     <!-- WhatsApp -->
     <div class="settings-card" id="waCard">
@@ -1346,6 +1383,13 @@ async function openClientSettings(clientId) {
   // Risk
   renderRiskProductFields();
 
+  // Active status
+  const isActive = !!SETTINGS_CLIENT.active;
+  document.getElementById('settingsClientActive').checked = isActive;
+  const activeCard = document.getElementById('activeStatusCard');
+  if (isActive) activeCard.classList.add('enabled'); else activeCard.classList.remove('enabled');
+  document.getElementById('activeStatusLabel').textContent = isActive ? 'פעיל' : 'לא פעיל';
+
   // Surense / Identity Number
   document.getElementById('settingsIdentityNumber').value = SETTINGS_CLIENT.identity_number || '';
 
@@ -1356,6 +1400,13 @@ async function openClientSettings(clientId) {
 
 function closeSettings() {
   document.getElementById('clientSettingsModal').classList.remove('open');
+}
+
+function updateActiveStatusLabel() {
+  const checked = document.getElementById('settingsClientActive').checked;
+  document.getElementById('activeStatusLabel').textContent = checked ? 'פעיל' : 'לא פעיל';
+  const card = document.getElementById('activeStatusCard');
+  if (checked) card.classList.add('enabled'); else card.classList.remove('enabled');
 }
 
 function updateCardStyle(cardId, checkboxId) {
@@ -1721,6 +1772,7 @@ async function saveSettings() {
   // Demo Mode: simulate save without API call
   if (IS_DEMO_MODE) {
     const clientPatch = {
+      active: document.getElementById('settingsClientActive').checked ? 1 : 0,
       whatsapp_phone: waEnabled ? waPhone : '',
       enable_notifications: document.getElementById('settingsNotifications').checked ? 1 : 0,
       enable_goals: document.getElementById('settingsGoals').checked ? 1 : 0,
@@ -1757,6 +1809,7 @@ async function saveSettings() {
   try {
     // Save client settings
     const clientPatch = {
+      active: document.getElementById('settingsClientActive').checked ? 1 : 0,
       whatsapp_phone: waEnabled ? waPhone : '',
       enable_notifications: document.getElementById('settingsNotifications').checked ? 1 : 0,
       enable_goals: document.getElementById('settingsGoals').checked ? 1 : 0,

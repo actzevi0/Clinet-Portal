@@ -1913,6 +1913,55 @@ async function handleSurenseJsonImport(request, env, sess) {
   });
 }
 
+// ── Fast clients summary — replaces 4 separate fetchAll() calls ──────────────
+async function handleClientsSummary(request, env, sess) {
+  if (!sess) return jr({error:'Unauthorized'}, 401);
+  if (!env.DB) return jr({error:'D1 not bound'}, 500);
+  const agentId = sess.agent_id;
+
+  const [clientsRes, productsRes, mvRes, transferRes] = await Promise.all([
+    env.DB.prepare(
+      `SELECT id, name, report_title, active, import_protected, username, identity_number
+       FROM clients WHERE agent_id=? AND deleted=0 ORDER BY name`
+    ).bind(agentId).all(),
+
+    env.DB.prepare(
+      `SELECT id, client_id, name, name_short, institution, product_type, status,
+              account_number, sort_order, color, track
+       FROM products
+       WHERE client_id IN (SELECT id FROM clients WHERE agent_id=? AND deleted=0)
+         AND deleted=0`
+    ).bind(agentId).all(),
+
+    env.DB.prepare(
+      `SELECT mv.product_id, mv.client_id, mv.month, mv.value
+       FROM monthly_values mv
+       INNER JOIN (
+         SELECT product_id,
+           MAX(CAST(SUBSTR(month,4,2) AS INTEGER)*100 + CAST(SUBSTR(month,1,2) AS INTEGER)) AS max_num
+         FROM monthly_values
+         WHERE client_id IN (SELECT id FROM clients WHERE agent_id=? AND deleted=0)
+         GROUP BY product_id
+       ) latest ON mv.product_id = latest.product_id
+         AND (CAST(SUBSTR(mv.month,4,2) AS INTEGER)*100 + CAST(SUBSTR(mv.month,1,2) AS INTEGER)) = latest.max_num`
+    ).bind(agentId).all(),
+
+    env.DB.prepare(
+      `SELECT product_id, client_id, event_date, event_type, transfer_direction
+       FROM timeline_events
+       WHERE client_id IN (SELECT id FROM clients WHERE agent_id=? AND deleted=0)
+         AND event_type IN ('transfer','withdrawal') AND deleted=0`
+    ).bind(agentId).all(),
+  ]);
+
+  return jr({
+    clients:   clientsRes.results  || [],
+    products:  productsRes.results || [],
+    mv_latest: mvRes.results       || [],
+    transfers: transferRes.results || [],
+  });
+}
+
 // ── Simple XLSX parser placeholder ────────────────────────────────
 function parseXlsxBuffer(buffer) {
   throw new Error('Use /api/import/surense-json instead');
@@ -1947,6 +1996,11 @@ export default {
 
     // Authenticated routes
     const sess = env.DB ? await getSession(request, env) : null;
+
+    // ── Fast clients summary (single query, replaces 4 fetchAll calls) ──
+    if (path === '/api/clients-summary' && request.method === 'GET') {
+      return handleClientsSummary(request, env, sess);
+    }
 
     // Tables (data CRUD)
     if (path.startsWith('/tables/')) return handleTables(request, env, sess);
