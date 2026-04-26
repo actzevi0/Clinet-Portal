@@ -355,6 +355,10 @@ async function startImport() {
     return;
   }
 
+  const savings = parsedData.savings;
+  const tracks  = parsedData.tracks;
+  const month   = parsedData.month;
+
   const total = savings.length;
   const batches = Math.ceil(total / BATCH_SIZE);
 

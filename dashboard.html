@@ -706,8 +706,11 @@ function monthLabel(m){
 }
 function getVal(prodId,month){return(MV[prodId]||[]).find(r=>r.month===month)?.value??null;}
 function getLastVal(prodId){
-  const arr=(MV[prodId]||[]).filter(r=>r.value!=null&&r.value>0).sort((a,b)=>monthToNum(b.month)-monthToNum(a.month));
-  return arr.length?arr[0].value:null;
+  const allArr=(MV[prodId]||[]).filter(r=>r.value!=null).sort((a,b)=>monthToNum(b.month)-monthToNum(a.month));
+  if(!allArr.length) return null;
+  // אם הערך האחרון הוא 0 — המוצר נפדה, מחזיר null
+  if(allArr[0].value === 0) return null;
+  return allArr[0].value;
 }
 
 // מחזיר את הערך הנוכחי של מוצר — null אם הוא נויד החוצה (transfer-out אמיתי)
