@@ -359,6 +359,13 @@ async function startImport() {
   const tracks  = parsedData.tracks;
   const month   = parsedData.month;
 
+  if (!month) {
+    document.getElementById('progressText').textContent = 'שגיאה: לא נמצא חודש דיווח בקובץ. ודא שעמודת "נכון ליום" מלאה.';
+    document.getElementById('progressText').style.color = '#ef4444';
+    document.getElementById('importBtn').disabled = false;
+    return;
+  }
+
   const total = savings.length;
   const batches = Math.ceil(total / BATCH_SIZE);
 

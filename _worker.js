@@ -1771,6 +1771,10 @@ async function handleSurenseJsonImport(request, env, sess) {
       ).bind(productId, clientId).first();
 
       const productName = `${institution} – ${productType}`.replace(/\s*–\s*$/,'').trim();
+      // name_short: יצרן + מוצר/פוליסה בקצרה
+      const nameShort   = productSub
+        ? `${institution.replace(/\s*בע"?מ.*$/,'').replace(/\s*חברה.*$/,'').trim()} – ${productSub}`.slice(0,60)
+        : `${institution.replace(/\s*בע"?מ.*$/,'').replace(/\s*חברה.*$/,'').trim()} – ${productType}`.slice(0,60);
       const isActive    = statusProd === 'פעיל' ? 'active' : 'inactive';
 
       if (!existProd) {
@@ -1783,8 +1787,8 @@ async function handleSurenseJsonImport(request, env, sess) {
           // Product exists with different id — update it and use its real id
           await env.DB.prepare(
             `UPDATE products SET track=COALESCE(NULLIF(?,NULL),track), tracks_json=COALESCE(NULLIF(?,NULL),tracks_json),
-              status=?, updated_at=? WHERE id=? AND client_id=?`
-          ).bind(trackName, tracksJson, isActive, now, existByPolicy.id, clientId).run();
+              name_short=COALESCE(NULLIF(name_short,''),?), status=?, updated_at=? WHERE id=? AND client_id=?`
+          ).bind(nameShort, trackName, tracksJson, isActive, now, existByPolicy.id, clientId).run();
           results.products_updated.push(existByPolicy.id);
           // Use the real product id for MV and deposit
           Object.defineProperty(arguments[0] || {}, '_realProdId', {}); // dummy
@@ -1793,12 +1797,12 @@ async function handleSurenseJsonImport(request, env, sess) {
         } else {
           await env.DB.prepare(`
             INSERT OR IGNORE INTO products
-              (id, client_id, agent_id, name, product_subname, institution, product_type,
+              (id, client_id, agent_id, name, name_short, product_subname, institution, product_type,
                account_number, track, tracks_json, status,
                agent_appointment_date, created_at, updated_at, deleted)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
           `).bind(
-            productId, clientId, agentId, productName, productSub,
+            productId, clientId, agentId, productName, nameShort, productSub,
             institution, productType, policy, trackName, tracksJson,
             isActive, agentAppt, now, now
           ).run();
@@ -1806,11 +1810,11 @@ async function handleSurenseJsonImport(request, env, sess) {
           var realProductId = productId;
         }
       } else {
-        // Update track info and status on existing product
+        // Update track info, status, and name_short (if missing) on existing product
         await env.DB.prepare(
           `UPDATE products SET track=COALESCE(NULLIF(?,NULL),track), tracks_json=COALESCE(NULLIF(?,NULL),tracks_json),
-            status=?, updated_at=? WHERE id=? AND client_id=?`
-        ).bind(trackName, tracksJson, isActive, now, productId, clientId).run();
+            name_short=COALESCE(NULLIF(name_short,''),?), status=?, updated_at=? WHERE id=? AND client_id=?`
+        ).bind(trackName, tracksJson, nameShort, isActive, now, productId, clientId).run();
         results.products_updated.push(productId);
         var realProductId = productId;
       }
