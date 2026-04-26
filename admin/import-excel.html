@@ -386,6 +386,11 @@ async function startImport() {
 
       if (!resp.ok) {
         const errText = await resp.text();
+        if (resp.status === 401 || resp.status === 403) {
+          alert('פג תוקף ההתחברות. אנא התחבר מחדש.');
+          window.location.href = 'login.html';
+          return;
+        }
         throw new Error(`שגיאת שרת (${resp.status}): ${errText}`);
       }
 
