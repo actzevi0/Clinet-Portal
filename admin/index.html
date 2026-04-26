@@ -471,20 +471,9 @@ function calcClientTotalVal(c) {
     });
     if (!hasDataAfter) transferOutProds.add(e.product_id);
   }
-  // מוצרים שנפדו (withdrawal event) ואין להם נתונים אחרי תאריך הפדיון — לא לסכום
-  for (const e of EVENTS_ALL) {
-    if (e.event_type !== 'withdrawal') continue;
-    const wDate = e.event_date;
-    const wYear = parseInt(wDate.slice(0,4));
-    const wMonth = parseInt(wDate.slice(5,7)) || 1;
-    const wNum = wYear * 100 + wMonth;
-    const mvProd = mvs.filter(r => r.product_id === e.product_id && r.value != null);
-    const hasDataAfter = mvProd.some(r => {
-      const [mm, yy] = r.month.split('/');
-      return parseInt('20'+yy) * 100 + parseInt(mm) > wNum;
-    });
-    if (!hasDataAfter) transferOutProds.add(e.product_id);
-  }
+  // הערה: withdrawal event לבד לא מסמן מוצר כ"יצא מהתיק".
+  // אם יש ערך חודשי > 0 — הכסף עדיין קיים ויש לסכמו.
+  // רק ניוד החוצה (transfer out) מסיר מוצר מהצבירה.
 
   // Sum ALL products with value > 0 (inactive with money still counts)
   // למעט קופות שנויידו החוצה
