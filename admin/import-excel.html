@@ -67,10 +67,56 @@
 
 <main class="container" style="max-width:900px;padding-bottom:60px;">
 
-  <!-- Step 1: Upload -->
-  <div class="step-card" id="stepUpload">
+  <!-- Step 0: Month Selection (MANDATORY) -->
+  <div class="step-card" id="stepMonth">
     <div class="step-title">
       <span class="step-num">1</span>
+      בחר חודש ושנה של הדוח
+    </div>
+    <p style="color:var(--text-muted);font-size:0.88rem;margin-bottom:20px;">
+      <i class="fa fa-info-circle" style="color:#f59e0b;margin-left:6px;"></i>
+      חובה לבחור את החודש שעבורו אתה מעלה את הדוח. המערכת תרשום הפקדות <strong>רק</strong> אם תאריכן תואם לחודש זה.
+    </p>
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+      <div>
+        <label style="font-size:0.85rem;color:var(--text-muted);display:block;margin-bottom:6px;">חודש</label>
+        <select id="importMonthSel" style="padding:10px 16px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:0.95rem;min-width:130px;">
+          <option value="01">ינואר</option>
+          <option value="02">פברואר</option>
+          <option value="03">מרץ</option>
+          <option value="04">אפריל</option>
+          <option value="05">מאי</option>
+          <option value="06">יוני</option>
+          <option value="07">יולי</option>
+          <option value="08">אוגוסט</option>
+          <option value="09">ספטמבר</option>
+          <option value="10">אוקטובר</option>
+          <option value="11">נובמבר</option>
+          <option value="12">דצמבר</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:0.85rem;color:var(--text-muted);display:block;margin-bottom:6px;">שנה</label>
+        <select id="importYearSel" style="padding:10px 16px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg-card2);color:var(--text);font-family:Heebo,sans-serif;font-size:0.95rem;min-width:110px;">
+        </select>
+      </div>
+      <div style="margin-top:22px;">
+        <button class="btn btn-primary" onclick="confirmMonth()" id="confirmMonthBtn">
+          <i class="fa fa-check ml-2"></i>אשר חודש והמשך להעלאה
+        </button>
+      </div>
+    </div>
+    <div id="selectedMonthBadge" style="display:none;margin-top:16px;padding:10px 16px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:8px;color:#10b981;font-weight:600;font-size:0.9rem;">
+      <i class="fa fa-check-circle ml-2"></i>
+      חודש נבחר: <span id="selectedMonthLabel"></span>
+      <button onclick="changeMonth()" style="margin-right:12px;background:transparent;border:none;color:#10b981;cursor:pointer;font-size:0.8rem;text-decoration:underline;">שנה</button>
+    </div>
+  </div>
+
+  <!-- Step 1: Upload (locked until month selected) -->
+  <div class="step-card" id="stepUpload" style="opacity:0.4;pointer-events:none;">
+    <div class="step-title">
+      <span class="step-num">2</span>
       העלה את קובץ ה-Excel מסורנס
     </div>
     <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
@@ -85,7 +131,7 @@
   <!-- Step 2: Preview -->
   <div class="step-card" id="stepPreview" style="display:none;">
     <div class="step-title">
-      <span class="step-num">2</span>
+      <span class="step-num">3</span>
       תצוגה מקדימה – <span id="previewMonth"></span>
     </div>
 
@@ -113,7 +159,7 @@
   <!-- Step 3: Progress -->
   <div class="step-card" id="stepProgress" style="display:none;">
     <div class="step-title">
-      <span class="step-num">3</span>
+      <span class="step-num">4</span>
       מייבא נתונים...
     </div>
     <div class="progress-bar-wrap">
@@ -143,6 +189,61 @@
 
 <script>
 let parsedData = null;
+let SELECTED_REPORT_MONTH = null; // MM/YY format — set by user before upload
+
+// ── Month Selection ───────────────────────────────
+(function initMonthSelectors() {
+  const now = new Date();
+  // Default: previous month
+  const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const yearSel  = document.getElementById('importYearSel');
+  const monthSel = document.getElementById('importMonthSel');
+
+  // Populate years: current year and 2 previous
+  for (let y = now.getFullYear() + 1; y >= 2020; y--) {
+    const opt = document.createElement('option');
+    opt.value = String(y);
+    opt.textContent = String(y);
+    yearSel.appendChild(opt);
+  }
+
+  // Set defaults to previous month
+  monthSel.value = String(prevMonth.getMonth() + 1).padStart(2,'0');
+  yearSel.value  = String(prevMonth.getFullYear());
+})();
+
+function confirmMonth() {
+  const mm = document.getElementById('importMonthSel').value;
+  const yyyy = document.getElementById('importYearSel').value;
+  const yy = yyyy.slice(2);
+  SELECTED_REPORT_MONTH = `${mm}/${yy}`;
+
+  const monthNames = ['','ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+  const label = `${monthNames[parseInt(mm)]} ${yyyy}`;
+  document.getElementById('selectedMonthLabel').textContent = label;
+  document.getElementById('selectedMonthBadge').style.display = '';
+  document.getElementById('confirmMonthBtn').style.display = 'none';
+  document.getElementById('importMonthSel').disabled = true;
+  document.getElementById('importYearSel').disabled  = true;
+
+  // Unlock the upload step
+  const uploadStep = document.getElementById('stepUpload');
+  uploadStep.style.opacity = '1';
+  uploadStep.style.pointerEvents = '';
+  uploadStep.scrollIntoView({ behavior:'smooth' });
+}
+
+function changeMonth() {
+  SELECTED_REPORT_MONTH = null;
+  document.getElementById('selectedMonthBadge').style.display = 'none';
+  document.getElementById('confirmMonthBtn').style.display = '';
+  document.getElementById('importMonthSel').disabled = false;
+  document.getElementById('importYearSel').disabled  = false;
+  // Lock upload again
+  const uploadStep = document.getElementById('stepUpload');
+  uploadStep.style.opacity = '0.4';
+  uploadStep.style.pointerEvents = 'none';
+}
 
 // ── Drag & Drop ──────────────────────────────────
 const dropZone = document.getElementById('dropZone');
@@ -202,37 +303,37 @@ function handleFileSelect(file) {
         tzvira:     parseFloat(r['צבירה במסלול'] || 0) || 0,
       }));
 
-      // Determine report month
+      // Use user-selected report month (mandatory) — ignore automatic detection from file
+      // This prevents old deposit dates in the report from being recorded for the wrong month
+      if (!SELECTED_REPORT_MONTH) {
+        alert('שגיאה: חובה לבחור חודש לפני העלאת הקובץ. אנא בחר חודש ושנה בשלב 1.');
+        return;
+      }
+      const reportMonth = SELECTED_REPORT_MONTH;
+
+      // Verify: check what report_date the file contains (informational only)
       const reportDate = savings.find(r => r.report_date)?.report_date;
-      let reportMonth = null;
       if (reportDate) {
-        // reportDate is already "YYYY-MM-DD"
         const parts = reportDate.split('-');
-        if (parts.length >= 2) {
-          reportMonth = `${parts[1].padStart(2,'0')}/${String(parts[0]).slice(2)}`;
+        const fileMonth = parts.length >= 2 ? `${parts[1].padStart(2,'0')}/${String(parts[0]).slice(2)}` : null;
+        if (fileMonth && fileMonth !== reportMonth) {
+          const monthNames = ['','ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+          const selMM = parseInt(reportMonth.split('/')[0]);
+          const selYY = '20' + reportMonth.split('/')[1];
+          const fileMM = parseInt(fileMonth.split('/')[0]);
+          const fileYY = '20' + fileMonth.split('/')[1];
+          const selLabel  = `${monthNames[selMM]} ${selYY}`;
+          const fileLabel = `${monthNames[fileMM]} ${fileYY}`;
+          const ok = confirm(
+            `⚠️ שים לב: החודש שבחרת הוא ${selLabel},\n` +
+            `אך הדוח מצביע על תאריך ${fileLabel}.\n\n` +
+            `הייבוא יבוצע עבור ${selLabel}.\n` +
+            `האם להמשיך?`
+          );
+          if (!ok) return;
         }
       }
-      console.log('reportDate sample:', reportDate, '→ reportMonth:', reportMonth);
-
-      // 🔍 DEBUG: show deposit info + date matching
-      const depRows = savings.filter(r => r.last_deposit > 0);
-      console.log(`[DEPOSIT DEBUG] ${depRows.length} rows with deposit > 0 out of ${savings.length}`);
-      depRows.slice(0,8).forEach(r => {
-        // Check if dep_date matches reportMonth
-        const depIso = r.last_deposit_date;
-        let matches = false;
-        if (depIso && reportMonth) {
-          const parts = depIso.split('-'); // YYYY-MM-DD
-          if (parts.length >= 2) {
-            matches = `${parts[1]}/${parts[0].slice(2)}` === reportMonth;
-          }
-        }
-        console.log(
-          `  tz=${r.tz} deposit=${r.last_deposit} dep_date=${r.last_deposit_date} report=${r.report_date} → matches:${matches}`
-        );
-      });
-      // Show ALL unique column names from first raw row (to detect naming issues)
-      if (savingsRaw[0]) console.log('[COL NAMES]', Object.keys(savingsRaw[0]));
+      console.log('[IMPORT] Using user-selected reportMonth:', reportMonth);
 
       parsedData = { savings, tracks, month: reportMonth };
       showPreview(savings, tracks, reportMonth);
@@ -299,6 +400,18 @@ function showPreview(savings, tracks, month) {
   // Count unique clients
   const uniqueTz = new Set(savings.map(r => r.tz).filter(Boolean));
 
+  // Count deposits that match the report month
+  const depositsTotal = savings.filter(r => r.last_deposit > 0).length;
+  const depositsMatch = savings.filter(r => {
+    if (!r.last_deposit || r.last_deposit <= 0 || !r.last_deposit_date || !month) return false;
+    const iso = r.last_deposit_date;
+    if (!iso) return false;
+    const parts = iso.split('-');
+    if (parts.length < 2) return false;
+    return `${parts[1].padStart(2,'0')}/${parts[0].slice(2)}` === month;
+  }).length;
+  const depositsSkipped = depositsTotal - depositsMatch;
+
   document.getElementById('previewStats').innerHTML = `
     <div class="stat-box">
       <div class="stat-val">${savings.length}</div>
@@ -312,10 +425,15 @@ function showPreview(savings, tracks, month) {
       <div class="stat-val">${tracks.length}</div>
       <div class="stat-lbl">מסלולי השקעה</div>
     </div>
-    <div class="stat-box">
-      <div class="stat-val">${month || '?'}</div>
-      <div class="stat-lbl">חודש דיווח</div>
+    <div class="stat-box" style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);">
+      <div class="stat-val" style="color:#10b981;">${depositsMatch}</div>
+      <div class="stat-lbl">הפקדות שיירשמו (חודש ${month||'?'})</div>
     </div>
+    ${depositsSkipped > 0 ? `
+    <div class="stat-box" style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);">
+      <div class="stat-val" style="color:#f59e0b;">${depositsSkipped}</div>
+      <div class="stat-lbl">הפקדות מחודשים אחרים (מתעלם)</div>
+    </div>` : ''}
   `;
 
   // Preview table (first 5 rows)
@@ -581,12 +699,22 @@ function showResults(r) {
 // ── Reset ────────────────────────────────────────
 function resetImport() {
   parsedData = null;
+  SELECTED_REPORT_MONTH = null;
   document.getElementById('fileName').textContent = '';
   document.getElementById('fileInput').value = '';
   document.getElementById('stepPreview').style.display = 'none';
   document.getElementById('stepProgress').style.display = 'none';
   document.getElementById('stepResults').style.display = 'none';
   document.getElementById('importBtn').disabled = false;
+  // Reset month selection UI
+  document.getElementById('selectedMonthBadge').style.display = 'none';
+  document.getElementById('confirmMonthBtn').style.display = '';
+  document.getElementById('importMonthSel').disabled = false;
+  document.getElementById('importYearSel').disabled  = false;
+  // Lock upload step again
+  const uploadStep = document.getElementById('stepUpload');
+  uploadStep.style.opacity = '0.4';
+  uploadStep.style.pointerEvents = 'none';
   window.scrollTo(0, 0);
 }
 </script>
