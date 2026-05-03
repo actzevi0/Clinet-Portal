@@ -2,24 +2,34 @@
 
 CRM + Pipeline + Commission Forecasting + Reconciliation עבור עולם הביטוח, הפנסיה והפיננסים בישראל.
 
-תוכנן ככזה ש‑(א) פועל לבד, ו‑(ב) יודע להתממשק בעתיד למערכת ניתוח העמלות הקיימת (EasyFinance על Cloudflare D1).
+תוכנן ככזה ש‑(א) פועל לבד, ו‑(ב) יודע להתממשק בעתיד למערכות אחרות (כמו מערכת ניתוח העמלות הקיימת).
 
 ---
 
-## Status — Phase 0 ✅
+## ✅ מה כלול במערכת
 
-מה שנמצא ב‑repo כעת:
+### Foundation (Phase 0)
+- **Prisma schema** מלא: 20 מודלים, 13 enums, multi-tenant, soft-delete, audit log.
+- **Commission Engine** טהור: DSL, evaluator, schedule, clawback, rule resolution.
+- **Seed** עם 13 חברות + 23 סוגי מוצר + **כל אחוזי העמלה מהתמונה של "עמלת מנהל פמילי אופיס"**.
+- **20 unit tests** מול הנוסחאות מהתמונה ומנתוני הפרופיט.
 
-- **Prisma schema** מלא: `tenants`, `users`, `clients`, `companies`, `productTypes`, `commissionAgreements`, `commissionRules`, `sales`, `saleItems`, `saleSplits`, `expectedCommissions`, `commissionPayments`, `commissionMatches`, `tasks`, `activities`, `documents`, `forecastsMonthly`, `importBatches`, `auditLogs`. Multi-tenant עם soft-delete.
-- **Commission Engine** טהור (TypeScript, ללא DB):
-  - `src/lib/commission-engine/types.ts` — DSL.
-  - `src/lib/commission-engine/evaluate.ts` — formula evaluator.
-  - `src/lib/commission-engine/schedule.ts` — מחולל לוח זמנים + clawback.
-  - `src/lib/commission-engine/resolve-rule.ts` — פותר rule הכי ספציפי.
-- **Seed** עם 13 חברות + 23 סוגי מוצר + **כל אחוזי העמלה מהתמונה של "עמלת מנהל פמילי אופיס"** (`prisma/seeds/`).
-- **Vitest** עם בדיקות נגד הנוסחאות מהתמונה ונתוני הפרופיט מהאקסל הישן.
-- **Excel importer CLI** עם מילון נורמליזציה לכל החברות, הקטגוריות, סוגי המוצר והסטטוסים שמופיעים באקסל הישן.
-- **Next.js 14 + Tailwind + Heebo** — RTL, dark mode, dashboard placeholder.
+### Application (Phase 1)
+- **Auth**: login/logout, sessions ב‑DB, Argon2, cookie‑based.
+- **RBAC**: SUPERADMIN / ADMIN / MANAGER / AGENT / VIEWER.
+- **Dashboard** עם KPIs אמיתיים (מכירות החודש, פרמיה מצטברת, תחזית, התקבל בפועל).
+- **לקוחות**: רשימה, חיפוש, יצירה, דף 360°.
+- **מכירות**: רשימה עם פילטרים, **Kanban עם drag & drop** לשינוי סטטוס.
+- **אשף עסקה חדשה** עם **תחזית עמלה חיה** בזמן הקלדה.
+- **דף עסקה**: פריטים, לוח עמלות 24 חודשים, פעילות, שינוי סטטוס.
+- **עמלות**: סקירה · הסכמים · חוקים · עמלות צפויות · תשלומים.
+- **התאמות**: אוטומטי + ידני, 4 בקטים (✓ ⚠ ✗ ?).
+- **תחזית**: 12 חודשים, Run Rate, פייפליין משוקלל.
+- **משימות**: רשימה + יצירה + סימון בוצע.
+- **ייבוא**: העלאת xlsx, תצוגה מקדימה עם אזהרות, קליטה.
+- **דוחות**: 6 דוחות CSV (UTF-8 BOM ל‑Excel עברי).
+- **הגדרות**: צוות + יצירת משתמשים, קטלוג חברות, קטלוג מוצרים.
+- **Webhook**: `/api/webhook/commission-payment` לקליטת תשלומים מבחוץ.
 
 ---
 
@@ -29,33 +39,41 @@ CRM + Pipeline + Commission Forecasting + Reconciliation עבור עולם הב�
 cd sales-platform
 cp .env.example .env
 
-# יישום DB מקומי
+# DB מקומי
 docker compose up -d db
 
 # Install
-pnpm install   # or npm install / yarn
+npm install --legacy-peer-deps
 
-# Migrate + seed
-pnpm db:migrate
-pnpm db:seed
+# Schema + seed
+npm run db:push        # יוצר את כל הטבלאות מהסכמה
+npm run db:seed        # 13 חברות, 23 מוצרים, הסכמי פמילי אופיס + משתמש דמו
 
-# Tests (Commission Engine)
-pnpm test
+# Tests
+npm test               # → 20 passed
 
-# Dev server
-pnpm dev
+# Dev
+npm run dev
 # → http://localhost:3001
 ```
 
-### Importer (legacy Excel → DB)
+### כניסה ראשונית
 
-```bash
-# dry run — מציג סיכום ואזהרות, לא כותב
-pnpm tsx src/lib/importer/cli.ts /path/to/sales.xlsx
+| משתמש | סיסמה | תפקיד |
+|---|---|---|
+| `tzvi@talpiot-demo.co.il` | `ChangeMe!2026` | ADMIN (סוכנות תלפיות דמו) |
+| `superadmin@sales-platform.local` | `ChangeMe!2026` | SUPERADMIN |
 
-# commit — כותב ל‑tenant talpiot-demo
-pnpm tsx src/lib/importer/cli.ts /path/to/sales.xlsx --tenant=talpiot-demo --commit
-```
+⚠️ **שנה סיסמאות מיד**.
+
+### ייבוא נתונים מהאקסל הקיים
+
+1. כנס ל‑`/import` או הרץ:
+   ```bash
+   npm run import:excel /path/to/sales.xlsx -- --tenant=talpiot-demo --commit
+   ```
+2. תקבל preview של כל השורות עם אזהרות (חברות לא מזוהות, סטטוסים מזוהמים, וכו').
+3. אשר → קליטה ל‑DB.
 
 ---
 
@@ -64,45 +82,53 @@ pnpm tsx src/lib/importer/cli.ts /path/to/sales.xlsx --tenant=talpiot-demo --com
 ```
 sales-platform/
 ├── prisma/
-│   ├── schema.prisma            # Postgres schema (multi-tenant)
-│   ├── seed.ts                  # idempotent catalog + agreements seed
+│   ├── schema.prisma            # 20 models, multi-tenant
+│   ├── seed.ts                  # idempotent
 │   └── seeds/
-│       ├── companies.ts         # 13 חברות עם code קנוני
-│       ├── product-types.ts     # 23 סוגי מוצר עם JSON Schema
-│       └── commission-rules.ts  # נוסחאות העמלה מהתמונה
+│       ├── companies.ts         # 13 חברות
+│       ├── product-types.ts     # 23 מוצרים
+│       └── commission-rules.ts  # נוסחאות העמלה (תמונה)
 │
 ├── src/
-│   ├── app/                     # Next.js App Router
-│   │   ├── layout.tsx           # RTL Heebo
-│   │   ├── page.tsx             # Phase-0 dashboard
-│   │   └── globals.css
+│   ├── app/
+│   │   ├── login/                       # public
+│   │   ├── logout/
+│   │   ├── (app)/                       # auth required
+│   │   │   ├── layout.tsx
+│   │   │   ├── dashboard/
+│   │   │   ├── clients/  [list, new, [id]]
+│   │   │   ├── sales/    [list, pipeline, new, [id]]
+│   │   │   ├── commissions/  [hub, agreements, expected, payments, reconcile]
+│   │   │   ├── forecast/
+│   │   │   ├── tasks/
+│   │   │   ├── reports/
+│   │   │   ├── import/
+│   │   │   └── settings/  [team, companies, products]
+│   │   └── api/
+│   │       ├── commissions/preview/     # live commission calc
+│   │       ├── webhook/commission-payment/
+│   │       └── reports/*.csv
+│   ├── components/
+│   │   ├── ui/                 # Button, Card, Input, Select, Table, ...
+│   │   ├── sidebar.tsx
+│   │   └── kpi.tsx
 │   └── lib/
-│       ├── db.ts                # Prisma singleton
-│       ├── commission-engine/   # ⭐ המנוע
-│       │   ├── types.ts
-│       │   ├── evaluate.ts      # formula → { scope, recurring }
-│       │   ├── schedule.ts      # → ExpectedCommission rows
-│       │   ├── resolve-rule.ts  # finds best matching rule
-│       │   ├── index.ts
-│       │   └── __tests__/
-│       ├── importer/
-│       │   ├── normalize.ts     # mapping tables: dirty Hebrew → enums
-│       │   └── cli.ts           # --dry/--commit
-│       ├── product-engine/      # (Phase 1) dynamic forms from JSON Schema
-│       ├── forecast-engine/     # (Phase 1)
-│       └── reconciliation-engine/ # (Phase 2)
-│
-├── docker-compose.yml           # postgres 16
-├── package.json
-├── prisma migrations            # generated
-└── tsconfig.json
+│       ├── auth.ts             # session + login
+│       ├── rbac.ts             # role checks + scope
+│       ├── format.ts           # money/date Hebrew
+│       ├── labels.ts           # enum → Hebrew labels
+│       ├── csv.ts              # UTF-8 BOM CSV
+│       ├── actions/            # server actions (sales, clients, tasks, payments, reconcile, import, users, auth)
+│       ├── commission-engine/  # ⭐ pure formula engine + 20 tests
+│       ├── reconciliation-engine/
+│       ├── forecast-engine/
+│       └── importer/
+└── docker-compose.yml          # postgres 16
 ```
 
 ---
 
-## The Commission Engine — DSL
-
-A rule is just JSON stored in `CommissionRule.formula`. Example — **ביטוח חיים למשכנתא בכלל**:
+## Commission Engine — DSL example
 
 ```json
 {
@@ -126,18 +152,39 @@ A rule is just JSON stored in `CommissionRule.formula`. Example — **ביטוח
 }
 ```
 
-This single DSL covers:
+---
 
-- אחוז של פרמיה שנתית/חודשית
-- אחוז של צבירה (עם או בלי דנח מצבירה)
-- סכומים פלאט (ניודי פנסיה ₪3000)
-- מדרגות לפי צבירה (קצבה מיידית הראל: 250–500K = ₪5000, ≥500K = ₪10,000)
-- **השלמה ל-X%** (Talpiot center supplements scope to 95% of annual premium)
-- Floor / cap on amounts
-- Clawback schedules per cancellation year
-- Recurring duration (lifetime או חתום)
+## Webhook usage
 
-ראו `src/lib/commission-engine/__tests__/evaluate.test.ts` — 15+ בדיקות שמוכיחות התאמה למספרים מהתמונה ומהאקסל.
+```bash
+curl -X POST https://yoursite/api/webhook/commission-payment \
+  -H "x-webhook-secret: $WEBHOOK_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tenantSlug": "talpiot-demo",
+    "agentEmail": "tzvi@talpiot-demo.co.il",
+    "companyCode": "phoenix",
+    "paymentDate": "2026-05-01",
+    "amount": 2500,
+    "policyNumber": "1234567"
+  }'
+```
+
+או batch:
+```json
+{ "items": [ {...}, {...} ] }
+```
+
+---
+
+## Tech stack
+
+- **Frontend**: Next.js 14 App Router, React 18, Tailwind, Heebo, Lucide icons.
+- **Backend**: Next.js Server Actions + API Routes, Edge-friendly.
+- **DB**: PostgreSQL via Prisma ORM, Decimal for money.
+- **Auth**: Argon2 + DB sessions.
+- **Validation**: Zod everywhere user input enters.
+- **Tests**: Vitest, 20 cases verifying formula table.
 
 ---
 
@@ -146,34 +193,22 @@ This single DSL covers:
 | Phase | תכולה | סטטוס |
 |---|---|---|
 | 0 | Foundation: schema, engine, seed, importer | ✅ |
-| 1 | Auth (NextAuth) + Pipeline UI + Sales/Clients CRUD + API routes + Importer UI | next |
-| 2 | Reconciliation Engine + commission_payment webhook + matching | |
-| 3 | Forecast Dashboard + Run Rate + LTV | |
-| 4 | Workflow & Notifications (WhatsApp, Email, SMS) | |
-| 5 | Multi-tenant manager role + sub-agents | |
-| 6 | AI: OCR, anomaly detection, insights | |
-| 7 | Hardening + GDPR (consent, export, delete) | |
-| 8 | Integration with existing EasyFinance (commission analysis system) | |
+| 1 | Auth, all main screens, reconciliation, forecast, reports, webhook | ✅ |
+| 2 | Document storage (R2/S3) + OCR | next |
+| 3 | Workflow automation (email/WhatsApp/SMS), reminder cron | |
+| 4 | AI: anomaly detection, sales recommendations, forecast AI | |
+| 5 | Multi-tenant onboarding flow, billing | |
+| 6 | Integration with EasyFinance commission analysis system | |
+| 7 | Hardening (GDPR consent UI, 2FA, pen-test) | |
 
 ---
 
 ## Decisions log
 
-- **Postgres over D1** — מערכת חדשה, ללא תלות בהחלטות המערכת הקיימת. Prisma + Postgres נותן Decimal מדויק (₪), JSONB מהיר ל‑formulas, ו‑full-text search לחיפוש לקוחות. ניתן לעבור ל‑D1 אם נרצה לאחד.
-- **Schema-driven product fields** — `ProductType.fieldsSchema` הוא JSON Schema. הפרונט מרנדר טופס דינמי, ה‑backend מאמת ב‑Zod. אין צורך ב‑schema migration כשמוסיפים שדה לסוג מוצר.
-- **One agreement per (tenant, company)** — בעולם האמיתי לכל חברה יש הסכם נפרד עם הסוכן. תחת Agreement יש N rules (פר־מוצר/sub-key).
-- **Rule resolution by specificity** — agent-specific > tenant-wide; subKey/track/transferType-match-bonus. ראה `resolve-rule.ts`.
-- **Schedule materialization** — recurring expected commissions נוצרים כ‑rows חודשיות (default 60 חודשים אופק). זה מאפשר reconciliation ברמת חודש בודד.
-- **Clawback as negative expected** — ביטול מייצר שורת `expected_commissions` שלילית עם kind=CLAWBACK.
-
----
-
-## Future integration with EasyFinance
-
-המערכת הקיימת (`/_worker.js`) מקבלת ערכי תיקים חודשיים. כש‑Phase 8 יגיע:
-
-1. נוסיף `/api/webhook/commission-payment` שמקבל שורת תשלום עמלה (לא ערך תיק).
-2. EasyFinance תפרסם תשלומי עמלה (אם וכאשר תוסיף תמיכה לכך) דרך אותו pattern של webhook secret.
-3. Reconciliation Engine יבצע matching → `commission_matches`.
-
-עד אז, המערכות עצמאיות לחלוטין.
+- **Postgres over D1** — Decimal precision, JSONB for formulas, full-text. Drives independence from the legacy stack.
+- **Server actions over REST** for all internal mutations — less code, type-safe.
+- **One agreement per (tenant, company)** — mirrors real-world contracts.
+- **JSON formula DSL** — adding new commission types requires ZERO migrations.
+- **Schedule materialization** — `expected_commissions` rows per month (60-month horizon for lifetime), enables month-level reconcile.
+- **Clawback as negative expected row** with `kind=CLAWBACK`.
+- **Cookie + DB session** — explicit and auditable. NextAuth was avoided to keep auth surface tiny.
