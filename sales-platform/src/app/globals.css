@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light dark;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  background: hsl(0 0% 99%);
+  color: hsl(222 47% 11%);
+}
+
+.dark body {
+  background: hsl(222 47% 6%);
+  color: hsl(210 40% 98%);
+}

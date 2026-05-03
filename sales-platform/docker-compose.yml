@@ -1,0 +1,15 @@
+version: '3.9'
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: sales-platform-db
+    environment:
+      POSTGRES_USER: sales
+      POSTGRES_PASSWORD: sales
+      POSTGRES_DB: sales_platform
+    ports:
+      - '5432:5432'
+    volumes:
+      - sales_pgdata:/var/lib/postgresql/data
+volumes:
+  sales_pgdata:

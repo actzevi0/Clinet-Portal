@@ -1,0 +1,733 @@
+// Sales Platform — Prisma schema
+// PostgreSQL. Multi-tenant. Soft delete via `deletedAt`.
+// All money in NIS (₪) stored as Decimal(18,4).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum UserRole {
+  SUPERADMIN // platform owner
+  ADMIN // tenant owner
+  MANAGER // agency manager — sees subordinates
+  AGENT
+  VIEWER
+}
+
+enum TenantPlan {
+  TRIAL
+  BASIC
+  PRO
+  ENTERPRISE
+}
+
+enum CompanyKind {
+  INSURANCE
+  INVESTMENT_HOUSE
+  BANK
+}
+
+enum ProductCategory {
+  PENSION // קרן פנסיה
+  GEMEL_HISHTALMUT // גמל והשתלמות
+  GEMEL_INVESTMENT // גמל להשקעה
+  SAVINGS_POLICY // פוליסת חיסכון
+  RISK // סיכונים (ריסק/בריאות/משכנתא)
+  IMMEDIATE_ANNUITY // קצבה מיידית
+  MORTGAGE // משכנתא ייעוץ
+  ALTERNATIVE // השקעות אלטרנטיביות
+  IRA
+  TRAVEL
+  BUSINESS
+  AUTO
+  HOME
+  OTHER
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  UNQUALIFIED
+  CONVERTED
+}
+
+enum SaleStatus {
+  LEAD // ליד חדש
+  CONTACTED // בוצעה שיחה
+  DOCS_PENDING // ממתין למסמכים
+  SUBMITTED // הוגש
+  IN_COMPANY // בטיפול חברה
+  ISSUED // הופק
+  SETTLED // נסלק
+  COMMISSION_RECEIVED // התקבלה עמלה
+  CANCELLED // בוטל
+  REJECTED // נדחה
+  PAID_UP // מסולק (לא פעיל אבל לא בוטל)
+}
+
+enum SaleItemStatus {
+  DRAFT
+  SUBMITTED
+  IN_COMPANY
+  ISSUED
+  SETTLED
+  CANCELLED
+}
+
+enum TransferType {
+  NEW_MONEY // כסף חדש
+  AGENT_APPOINTMENT // מינוי סוכן
+  CONSULTING_FEE // שכר טרחה
+}
+
+enum CommissionKind {
+  SCOPE // היקף — חד פעמי
+  RECURRING // שוטפת/נפרעים — מתחדש
+  BONUS // בונוס/מדרגה
+  CLAWBACK // קיזוז ביטול
+  FLAT // סכום קבוע (ניודי פנסיה)
+}
+
+enum ExpectedStatus {
+  PENDING
+  RECEIVED
+  PARTIAL
+  MISSING // עברה תאריך יעד
+  DISPUTED
+  CANCELLED
+}
+
+enum PaymentSource {
+  MANUAL
+  MISLUKA // מסלקה
+  COMPANY_REPORT
+  ANALYSIS_SYSTEM // המערכת הקיימת לניתוח עמלות
+  WEBHOOK
+}
+
+enum MatchType {
+  AUTO_EXACT
+  AUTO_PARTIAL
+  AUTO_FUZZY
+  MANUAL
+}
+
+enum DocumentType {
+  ID_CARD
+  FORM_161
+  POWER_OF_ATTORNEY
+  SIGNED_APPLICATION
+  POLICY
+  STATEMENT
+  CONSENT_PRIVACY
+  OTHER
+}
+
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum ActivityType {
+  CALL
+  MEETING
+  EMAIL
+  WHATSAPP
+  SMS
+  NOTE
+  STATUS_CHANGE
+  DOCUMENT_UPLOAD
+  COMMISSION_EVENT
+  SYSTEM
+}
+
+enum ConsentKind {
+  PRIVACY_POLICY
+  DATA_SHARING
+  MARKETING
+}
+
+// ============================================================
+// TENANTS & USERS
+// ============================================================
+
+model Tenant {
+  id                 String     @id @default(cuid())
+  name               String
+  slug               String     @unique
+  plan               TenantPlan @default(TRIAL)
+  status             String     @default("active")
+  subscriptionEndsAt DateTime?
+  brandLogoUrl       String?
+  brandColor         String?    @default("#3b6cf5")
+  brandSecondary     String?    @default("#0ea5e9")
+  reportFooter       String?
+  features           Json       @default("{}") // feature flags
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  deletedAt          DateTime?
+
+  users               User[]
+  clients             Client[]
+  sales               Sale[]
+  saleItems           SaleItem[]
+  companies           Company[] // tenant-scoped overrides
+  productTypes        ProductType[] // tenant-scoped overrides
+  agreements          CommissionAgreement[]
+  expectedCommissions ExpectedCommission[]
+  payments            CommissionPayment[]
+  tasks               Task[]
+  documents           Document[]
+  activities          Activity[]
+  imports             ImportBatch[]
+  forecasts           ForecastMonthly[]
+  auditLogs           AuditLog[]
+
+  @@index([slug])
+}
+
+model User {
+  id               String    @id @default(cuid())
+  tenantId         String? // null only for SUPERADMIN
+  tenant           Tenant?   @relation(fields: [tenantId], references: [id])
+  email            String    @unique
+  fullName         String
+  passwordHash     String
+  role             UserRole  @default(AGENT)
+  status           String    @default("active") // active|blocked
+  managerId        String? // for sub-agents
+  manager          User?     @relation("ManagerSub", fields: [managerId], references: [id])
+  subordinates     User[]    @relation("ManagerSub")
+  phone            String?
+  lastLoginAt      DateTime?
+  totpSecret       String?
+  twoFactorEnabled Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+
+  ownedClients Client[]
+  sales        Sale[]
+  saleSplits   SaleSplit[]
+  tasks        Task[]                @relation("TaskAssignee")
+  createdTasks Task[]                @relation("TaskCreator")
+  activities   Activity[]
+  agreements   CommissionAgreement[]
+  sessions     Session[]
+  auditLogs    AuditLog[]
+
+  @@index([tenantId])
+  @@index([managerId])
+}
+
+model Session {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token          String   @unique
+  expiresAt      DateTime
+  ipAddress      String?
+  userAgent      String?
+  impersonatedBy String?
+  revoked        Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
+}
+
+// ============================================================
+// CLIENTS
+// ============================================================
+
+model Client {
+  id          String  @id @default(cuid())
+  tenantId    String
+  tenant      Tenant  @relation(fields: [tenantId], references: [id])
+  ownerUserId String?
+  owner       User?   @relation(fields: [ownerUserId], references: [id])
+
+  fullName              String
+  idNumber              String? // ת"ז (encrypted at app layer)
+  externalAccountNumber String?
+  email                 String?
+  phone                 String?
+  birthDate             DateTime?
+  address               String?
+  occupation            String?
+  leadSource            String?
+  leadStatus            LeadStatus @default(NEW)
+  firstContactAt        DateTime?
+  notes                 String?
+  meta                  Json       @default("{}")
+  createdAt             DateTime   @default(now())
+  updatedAt             DateTime   @updatedAt
+  deletedAt             DateTime?
+
+  sales      Sale[]
+  documents  Document[]
+  activities Activity[]
+  tasks      Task[]
+  consents   Consent[]
+
+  @@unique([tenantId, idNumber])
+  @@index([tenantId, ownerUserId])
+  @@index([tenantId, fullName])
+}
+
+model Consent {
+  id          String      @id @default(cuid())
+  clientId    String
+  client      Client      @relation(fields: [clientId], references: [id])
+  kind        ConsentKind
+  granted     Boolean
+  grantedAt   DateTime    @default(now())
+  revokedAt   DateTime?
+  ipAddress   String?
+  evidenceUrl String?
+
+  @@index([clientId, kind])
+}
+
+// ============================================================
+// CATALOG: COMPANIES & PRODUCT TYPES
+// ============================================================
+
+model Company {
+  id        String      @id @default(cuid())
+  tenantId  String? // null = global catalog row
+  tenant    Tenant?     @relation(fields: [tenantId], references: [id])
+  code      String // canonical: 'phoenix','clal','migdal','more',...
+  nameHe    String
+  nameEn    String?
+  kind      CompanyKind @default(INSURANCE)
+  active    Boolean     @default(true)
+  meta      Json        @default("{}")
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  agreements          CommissionAgreement[]
+  saleItems           SaleItem[]            @relation("ItemCompany")
+  transferringFor     SaleItem[]            @relation("ItemTransferringFrom")
+  payments            CommissionPayment[]
+  expectedCommissions ExpectedCommission[]
+
+  @@unique([tenantId, code])
+  @@index([code])
+}
+
+model ProductType {
+  id                     String          @id @default(cuid())
+  tenantId               String? // null = global catalog row
+  tenant                 Tenant?         @relation(fields: [tenantId], references: [id])
+  code                   String // canonical: 'pension','keren_hishtalmut','health',...
+  nameHe                 String
+  category               ProductCategory
+  /// JSON Schema for dynamic field validation per product type
+  fieldsSchema           Json            @default("{}")
+  supportsAccumulation   Boolean         @default(true)
+  supportsMonthlyPremium Boolean         @default(true)
+  active                 Boolean         @default(true)
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+
+  rules     CommissionRule[]
+  saleItems SaleItem[]
+
+  @@unique([tenantId, code])
+  @@index([category])
+}
+
+// ============================================================
+// COMMISSION ENGINE
+// ============================================================
+
+model CommissionAgreement {
+  id          String    @id @default(cuid())
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id])
+  /// optional: agent-specific agreement; null = tenant-wide
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id])
+  companyId   String
+  company     Company   @relation(fields: [companyId], references: [id])
+  name        String
+  validFrom   DateTime
+  validTo     DateTime?
+  status      String    @default("active") // active|draft|archived
+  /// global supplements/bonuses for this agreement (e.g., השלמה ל-95%)
+  supplements Json      @default("[]")
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  rules CommissionRule[]
+
+  @@index([tenantId, companyId, validFrom])
+}
+
+model CommissionRule {
+  id            String              @id @default(cuid())
+  agreementId   String
+  agreement     CommissionAgreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  productTypeId String
+  productType   ProductType         @relation(fields: [productTypeId], references: [id])
+  /// optional sub-key (e.g., for risk: 'risk_life'|'risk_mortgage'|'risk_health')
+  subKey        String?
+  /// optional track filter
+  track         String?
+  /// optional transfer type filter
+  transferType  TransferType?
+  /// THE FORMULA — see src/lib/commission-engine/types.ts CommissionFormula
+  formula       Json
+  /// higher priority wins when multiple match
+  priority      Int                 @default(0)
+  active        Boolean             @default(true)
+  notes         String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  saleItems SaleItem[] @relation("ItemRuleUsed")
+
+  @@index([agreementId, productTypeId, active])
+}
+
+// ============================================================
+// SALES PIPELINE
+// ============================================================
+
+model Sale {
+  id          String @id @default(cuid())
+  tenantId    String
+  tenant      Tenant @relation(fields: [tenantId], references: [id])
+  ownerUserId String // primary agent
+  owner       User   @relation(fields: [ownerUserId], references: [id])
+  clientId    String
+  client      Client @relation(fields: [clientId], references: [id])
+
+  status            SaleStatus    @default(LEAD)
+  transferType      TransferType?
+  source            String?
+  expectedCloseDate DateTime?
+  closedAt          DateTime?
+
+  // cached aggregates (recomputed by engine)
+  totalExpectedScope     Decimal @default(0) @db.Decimal(18, 4)
+  totalExpectedRecurring Decimal @default(0) @db.Decimal(18, 4)
+
+  notes     String?
+  meta      Json      @default("{}")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  items      SaleItem[]
+  splits     SaleSplit[]
+  activities Activity[]
+  tasks      Task[]
+  documents  Document[]
+
+  @@index([tenantId, status, ownerUserId])
+  @@index([clientId])
+}
+
+model SaleItem {
+  id       String @id @default(cuid())
+  saleId   String
+  sale     Sale   @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  tenantId String // denormalized
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  companyId             String
+  company               Company     @relation("ItemCompany", fields: [companyId], references: [id])
+  productTypeId         String
+  productType           ProductType @relation(fields: [productTypeId], references: [id])
+  track                 String?
+  /// for AGENT_APPOINTMENT / NEW_MONEY transfers — source company
+  transferringCompanyId String?
+  transferringCompany   Company?    @relation("ItemTransferringFrom", fields: [transferringCompanyId], references: [id])
+
+  policyNumber    String?
+  policyStartDate DateTime?
+
+  // financial inputs
+  monthlyPremium    Decimal @default(0) @db.Decimal(18, 4)
+  annualPremium     Decimal @default(0) @db.Decimal(18, 4)
+  lumpSum           Decimal @default(0) @db.Decimal(18, 4)
+  accumulatedAmount Decimal @default(0) @db.Decimal(18, 4)
+  recognitionFactor Decimal @default(1) @db.Decimal(8, 4) // דנח מצבירה
+  insuranceCoverage Decimal @default(0) @db.Decimal(18, 4)
+
+  itemStatus SaleItemStatus @default(DRAFT)
+
+  // commission cache
+  expectedScopeCommission     Decimal         @default(0) @db.Decimal(18, 4)
+  expectedRecurringCommission Decimal         @default(0) @db.Decimal(18, 4)
+  computedAt                  DateTime?
+  ruleIdUsed                  String?
+  ruleUsed                    CommissionRule? @relation("ItemRuleUsed", fields: [ruleIdUsed], references: [id])
+  /// manual overrides on the formula or amounts
+  override                    Json?
+
+  /// dynamic per-product fields validated by ProductType.fieldsSchema
+  fields Json @default("{}")
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  expectedCommissions ExpectedCommission[]
+
+  @@index([saleId])
+  @@index([tenantId, companyId])
+  @@index([policyNumber])
+}
+
+model SaleSplit {
+  id           String   @id @default(cuid())
+  saleId       String
+  sale         Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  scopePct     Decimal  @default(0) @db.Decimal(6, 3) // 0..100
+  recurringPct Decimal  @default(0) @db.Decimal(6, 3)
+  notes        String?
+  createdAt    DateTime @default(now())
+
+  @@unique([saleId, userId])
+  @@index([userId])
+}
+
+// ============================================================
+// EXPECTED COMMISSIONS / PAYMENTS / RECONCILIATION
+// ============================================================
+
+model ExpectedCommission {
+  id             String         @id @default(cuid())
+  tenantId       String
+  tenant         Tenant         @relation(fields: [tenantId], references: [id])
+  saleItemId     String
+  saleItem       SaleItem       @relation(fields: [saleItemId], references: [id], onDelete: Cascade)
+  /// the agent who is owed (post-splits)
+  userId         String
+  companyId      String
+  company        Company        @relation(fields: [companyId], references: [id])
+  dueMonth       String // 'YYYY-MM'
+  kind           CommissionKind
+  amount         Decimal        @db.Decimal(18, 4)
+  status         ExpectedStatus @default(PENDING)
+  receivedAmount Decimal        @default(0) @db.Decimal(18, 4)
+  variance       Decimal        @default(0) @db.Decimal(18, 4)
+  notes          String?
+  computedAt     DateTime       @default(now())
+
+  matches CommissionMatch[]
+
+  @@index([tenantId, userId, dueMonth, status])
+  @@index([saleItemId])
+}
+
+model CommissionPayment {
+  id           String        @id @default(cuid())
+  tenantId     String
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  userId       String // beneficiary agent
+  companyId    String
+  company      Company       @relation(fields: [companyId], references: [id])
+  paymentDate  DateTime
+  paymentMonth String // 'YYYY-MM'
+  amount       Decimal       @db.Decimal(18, 4)
+  source       PaymentSource @default(MANUAL)
+  externalRef  String?
+  policyNumber String?
+  rawPayload   Json?
+  reconciled   Boolean       @default(false)
+  reconciledAt DateTime?
+  createdAt    DateTime      @default(now())
+
+  matches CommissionMatch[]
+
+  @@index([tenantId, userId, paymentMonth])
+  @@index([policyNumber])
+}
+
+model CommissionMatch {
+  id              String             @id @default(cuid())
+  expectedId      String
+  expected        ExpectedCommission @relation(fields: [expectedId], references: [id], onDelete: Cascade)
+  paymentId       String
+  payment         CommissionPayment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  matchedAmount   Decimal            @db.Decimal(18, 4)
+  matchType       MatchType
+  confidence      Decimal            @default(1) @db.Decimal(4, 3)
+  matchedByUserId String?
+  matchedAt       DateTime           @default(now())
+
+  @@unique([expectedId, paymentId])
+}
+
+// ============================================================
+// WORKFLOW: TASKS, ACTIVITIES, DOCUMENTS
+// ============================================================
+
+model Task {
+  id          String  @id @default(cuid())
+  tenantId    String
+  tenant      Tenant  @relation(fields: [tenantId], references: [id])
+  saleId      String?
+  sale        Sale?   @relation(fields: [saleId], references: [id])
+  clientId    String?
+  client      Client? @relation(fields: [clientId], references: [id])
+  assigneeId  String
+  assignee    User    @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  createdById String
+  createdBy   User    @relation("TaskCreator", fields: [createdById], references: [id])
+
+  title         String
+  description   String?
+  dueAt         DateTime?
+  reminderAt    DateTime?
+  status        TaskStatus   @default(OPEN)
+  priority      TaskPriority @default(NORMAL)
+  autoGenerated Boolean      @default(false)
+  /// for automation rules — what triggered this
+  triggerKey    String?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  completedAt DateTime?
+
+  @@index([tenantId, assigneeId, status])
+  @@index([dueAt])
+}
+
+model Activity {
+  id          String       @id @default(cuid())
+  tenantId    String
+  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+  saleId      String?
+  sale        Sale?        @relation(fields: [saleId], references: [id])
+  clientId    String?
+  client      Client?      @relation(fields: [clientId], references: [id])
+  type        ActivityType
+  direction   String? // 'inbound'|'outbound'
+  subject     String?
+  body        String?
+  outcome     String?
+  occurredAt  DateTime     @default(now())
+  createdById String?
+  createdBy   User?        @relation(fields: [createdById], references: [id])
+  meta        Json         @default("{}")
+
+  @@index([tenantId, saleId, occurredAt])
+  @@index([clientId])
+}
+
+model Document {
+  id           String       @id @default(cuid())
+  tenantId     String
+  tenant       Tenant       @relation(fields: [tenantId], references: [id])
+  clientId     String?
+  client       Client?      @relation(fields: [clientId], references: [id])
+  saleId       String?
+  sale         Sale?        @relation(fields: [saleId], references: [id])
+  saleItemId   String?
+  type         DocumentType @default(OTHER)
+  filename     String
+  storageKey   String // S3/R2 key
+  mimeType     String?
+  sizeBytes    Int?
+  ocrStatus    String       @default("pending")
+  ocrData      Json?
+  uploadedAt   DateTime     @default(now())
+  uploadedById String?
+
+  @@index([tenantId, saleId])
+  @@index([clientId])
+}
+
+// ============================================================
+// FORECAST CACHE
+// ============================================================
+
+model ForecastMonthly {
+  id                String   @id @default(cuid())
+  tenantId          String
+  tenant            Tenant   @relation(fields: [tenantId], references: [id])
+  userId            String? // null = whole tenant
+  month             String // 'YYYY-MM'
+  expectedScope     Decimal  @default(0) @db.Decimal(18, 4)
+  expectedRecurring Decimal  @default(0) @db.Decimal(18, 4)
+  weightedPipeline  Decimal  @default(0) @db.Decimal(18, 4)
+  actualReceived    Decimal  @default(0) @db.Decimal(18, 4)
+  variance          Decimal  @default(0) @db.Decimal(18, 4)
+  computedAt        DateTime @default(now())
+
+  @@unique([tenantId, userId, month])
+  @@index([tenantId, month])
+}
+
+// ============================================================
+// IMPORT BATCHES
+// ============================================================
+
+model ImportBatch {
+  id          String    @id @default(cuid())
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id])
+  source      String // 'excel_legacy'|'csv'|...
+  filename    String?
+  status      String    @default("pending") // pending|previewing|committed|rolled_back|failed
+  totalRows   Int       @default(0)
+  okRows      Int       @default(0)
+  errorRows   Int       @default(0)
+  preview     Json? // sample of normalized rows
+  errors      Json?
+  committedAt DateTime?
+  createdAt   DateTime  @default(now())
+  createdById String?
+
+  @@index([tenantId, status])
+}
+
+// ============================================================
+// AUDIT LOG
+// ============================================================
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  tenantId   String?
+  tenant     Tenant?  @relation(fields: [tenantId], references: [id])
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String // 'login','sale.create','rule.update',...
+  targetType String?
+  targetId   String?
+  meta       Json     @default("{}")
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([userId])
+  @@index([action])
+}
